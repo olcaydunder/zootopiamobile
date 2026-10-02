@@ -19,7 +19,12 @@
 
 Proje hiçbir sahne veya editör ayarı gerektirmez; her şey koddan kurulur.
 
-**Unity Build Automation**
+**GitHub Actions (ücretsiz, önerilen)**
+1. Bu depoda *Settings → Secrets and variables → Actions* altına `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD` gizli ayarlarını ekle.
+2. *Actions → Android APK (ücretsiz) → Run workflow*.
+3. Bitince APK: `https://github.com/olcaydunder/zootopiamobile/releases/download/son-apk/ZootopiaMobile.apk`
+
+**Unity Build Automation (alternatif)**
 1. Unity Cloud'da yeni proje → bu GitHub reposunu bağla (branch: `main`).
 2. Hedef: Android, Unity sürümü: en güncel 2022.3 LTS.
 3. Gelişmiş ayarlar → **Pre-Export Method:** `ZootopiaBuild.PreExport`

@@ -1,0 +1,161 @@
+# Zootopia Mobile - Android APK'yı GitHub Actions'ta ücretsiz derler (GameCI).
+#
+# Depo herkese açık olduğu için GitHub'ın standart makinelerinde derleme dakikaları ücretsizdir.
+# Kendiliğinden çalışmaz: GitHub'da Actions > "Android APK (ücretsiz)" > "Run workflow" ile başlatılır.
+#
+# Bir kez yapılacak ayar (BU depoda: Settings > Secrets and variables > Actions > New repository secret):
+#   UNITY_LICENSE   Unity Hub'ın oluşturduğu Unity_lic.ulf dosyasının tam içeriği (<?xml ... ile başlar)
+#   UNITY_EMAIL     Unity hesabının e-postası
+#   UNITY_PASSWORD  Unity hesabının şifresi (hesapta iki adımlı doğrulama kapalı olmalı)
+# Gizli ayarlar depoya özeldir; Ötüken Destanı deposundakiler buraya otomatik gelmez.
+#
+# Çıktı:
+#   - "son-apk" adlı ön sürümde ZootopiaMobile.apk (telefondan doğrudan indirilir, her derlemede yenilenir)
+#     https://github.com/<sahip>/<depo>/releases/download/son-apk/ZootopiaMobile.apk
+#   - aynı APK, çalıştırma sayfasında 5 gün saklanan bir zip olarak
+#
+# İmza: Tools~/android/gelistirme.keystore (şifresi Android'in standart test şifresi "android").
+# Her derleme aynı anahtarla imzalandığı için yeni APK eskisinin üstüne kurulur, kayıtlar silinmez.
+# Bu anahtar YALNIZCA test içindir; Google Play'e yüklenecek sürüm ayrı ve gizli bir anahtarla imzalanacak.
+
+name: Android APK (ücretsiz)
+
+on:
+  workflow_dispatch:
+    inputs:
+      temiz_derleme:
+        description: 'Önbelleği kullanmadan sıfırdan derle (garip bir hata olursa işaretle)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+env:
+  APK_ADI: ZootopiaMobile
+  SURUM_ETIKETI: son-apk
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Unity lisansı ayarlı mı?
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          eksik=""
+          [ -n "$UNITY_LICENSE" ] || eksik="$eksik UNITY_LICENSE"
+          [ -n "$UNITY_EMAIL" ] || eksik="$eksik UNITY_EMAIL"
+          [ -n "$UNITY_PASSWORD" ] || eksik="$eksik UNITY_PASSWORD"
+          if [ -n "$eksik" ]; then
+            echo "::error title=Unity lisansı eksik::Şu gizli anahtarlar yok:$eksik. Bu depoda Settings > Secrets and variables > Actions > New repository secret ile ekle."
+            exit 1
+          fi
+          case "$UNITY_LICENSE" in
+            *DeveloperData*) echo "Lisans dosyası tamam." ;;
+            *) echo "::error title=Lisans dosyası hatalı::UNITY_LICENSE, Unity_lic.ulf dosyasının TAM içeriği olmalı (<?xml ile başlar, içinde DeveloperData geçer)."
+               exit 1 ;;
+          esac
+
+      - name: Disk alanı aç
+        uses: jlumbroso/free-disk-space@v2
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          preinstalled-runtimes: false
+          swap-storage: false
+
+      - name: Kodu indir
+        uses: actions/checkout@v7
+
+      - name: Unity önbelleği (Library)
+        if: ${{ !inputs.temiz_derleme }}
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-Android-
+
+      - name: Sürüm numarası ve imza anahtarı
+        id: hazirlik
+        run: |
+          echo "surum=0.1.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "kod=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+          echo "anahtar=$(base64 -w0 'Tools~/android/gelistirme.keystore')" >> "$GITHUB_OUTPUT"
+
+      - name: Unity ile Android APK derle
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          buildName: ${{ env.APK_ADI }}
+          # Sahneyi oluşturur, paket adını/IL2CPP/ARM64/yatay ekranı ayarlar ve APK'yı derler.
+          buildMethod: ZootopiaBuild.BuildAndroid
+          androidExportType: androidPackage
+          versioning: Custom
+          version: ${{ steps.hazirlik.outputs.surum }}
+          androidVersionCode: ${{ steps.hazirlik.outputs.kod }}
+          androidKeystoreName: gelistirme.keystore
+          androidKeystoreBase64: ${{ steps.hazirlik.outputs.anahtar }}
+          androidKeystorePass: android
+          androidKeyaliasName: androiddebugkey
+          androidKeyaliasPass: android
+
+      - name: APK'yı bul
+        id: apk
+        run: |
+          apk=$(find build/Android -maxdepth 2 -name '*.apk' | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "::error title=APK yok::Derleme bitti ama APK dosyası bulunamadı."
+            exit 1
+          fi
+          boyut=$(stat -c %s "$apk")
+          echo "yol=$apk" >> "$GITHUB_OUTPUT"
+          echo "boyut_mb=$((boyut / 1048576))" >> "$GITHUB_OUTPUT"
+          echo "APK: $apk ($((boyut / 1048576)) MB)"
+
+      - name: APK'yı çalıştırma sayfasına ekle (5 gün)
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.APK_ADI }}-${{ steps.hazirlik.outputs.surum }}
+          path: ${{ steps.apk.outputs.yol }}
+          retention-days: 5
+          compression-level: 0
+
+      - name: Telefondan indirme bağlantısını yenile
+        if: ${{ steps.apk.outputs.boyut_mb < 2000 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_YOLU: ${{ steps.apk.outputs.yol }}
+          SURUM: ${{ steps.hazirlik.outputs.surum }}
+        run: |
+          cp "$APK_YOLU" "${APK_ADI}.apk"
+          gh release delete "$SURUM_ETIKETI" --yes --cleanup-tag || true
+          gh release create "$SURUM_ETIKETI" "${APK_ADI}.apk" \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Zootopia Mobile - son test sürümü ($SURUM)" \
+            --notes "Test sürümü $SURUM, $(date -u +'%d.%m.%Y %H:%M') UTC. Commit: ${GITHUB_SHA::8}. Telefona indirip kurun; eski test sürümünün üstüne kurulur."
+          link="https://github.com/${GITHUB_REPOSITORY}/releases/download/${SURUM_ETIKETI}/${APK_ADI}.apk"
+          {
+            echo "## Zootopia Mobile $SURUM hazır"
+            echo ""
+            echo "Telefondan indir: $link"
+            echo ""
+            echo "Boyut: ${{ steps.apk.outputs.boyut_mb }} MB"
+          } >> "$GITHUB_STEP_SUMMARY"

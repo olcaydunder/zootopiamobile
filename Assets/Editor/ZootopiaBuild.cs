@@ -1,10 +1,13 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /// <summary>
 /// One-click project setup so the game can be built without opening the editor.
+/// GitHub Actions (GameCI): buildMethod ZootopiaBuild.BuildAndroid (see .github/workflows/android-apk.yml)
 /// Unity Build Automation: set "Pre-Export Method" to ZootopiaBuild.PreExport
 /// </summary>
 public static class ZootopiaBuild
@@ -28,6 +31,84 @@ public static class ZootopiaBuild
     public static void SetupFromMenu()
     {
         PreExport();
+    }
+
+    /// <summary>
+    /// GitHub Actions (GameCI) entry point: buildMethod: ZootopiaBuild.BuildAndroid
+    /// Prepares the project, then builds an APK using GameCI's command-line arguments
+    /// (-customBuildPath, -buildVersion, -androidVersionCode, -androidKeystore*).
+    /// </summary>
+    public static void BuildAndroid()
+    {
+        try
+        {
+            PreExport();
+            var args = ReadCommandLine();
+
+            string version = Arg(args, "buildVersion", "");
+            if (version.Length > 0 && version != "none")
+                PlayerSettings.bundleVersion = version;
+
+            int code;
+            if (int.TryParse(Arg(args, "androidVersionCode", ""), out code) && code > 0)
+                PlayerSettings.Android.bundleVersionCode = code;
+
+            EditorUserBuildSettings.buildAppBundle = false;
+
+            string keystore = Arg(args, "androidKeystoreName", "");
+            if (keystore.Length > 0 && File.Exists(keystore))
+            {
+                PlayerSettings.Android.useCustomKeystore = true;
+                PlayerSettings.Android.keystoreName = Path.GetFullPath(keystore);
+                PlayerSettings.Android.keystorePass = Arg(args, "androidKeystorePass", "");
+                PlayerSettings.Android.keyaliasName = Arg(args, "androidKeyaliasName", "");
+                PlayerSettings.Android.keyaliasPass = Arg(args, "androidKeyaliasPass", "");
+            }
+
+            string output = Arg(args, "customBuildPath", "build/Android/ZootopiaMobile.apk");
+            string dir = Path.GetDirectoryName(output);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = output,
+                target = BuildTarget.Android,
+                options = BuildOptions.None
+            };
+
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            Debug.Log("[ZootopiaBuild] Result: " + report.summary.result + ", size: " + report.summary.totalSize + " bytes, output: " + output);
+            if (report.summary.result != BuildResult.Succeeded)
+                EditorApplication.Exit(1);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[ZootopiaBuild] Build failed: " + e);
+            EditorApplication.Exit(1);
+        }
+    }
+
+    private static Dictionary<string, string> ReadCommandLine()
+    {
+        var result = new Dictionary<string, string>();
+        string[] raw = System.Environment.GetCommandLineArgs();
+        for (int i = 0; i < raw.Length; i++)
+        {
+            if (!raw[i].StartsWith("-"))
+                continue;
+            string key = raw[i].TrimStart('-');
+            string value = (i + 1 < raw.Length && !raw[i + 1].StartsWith("-")) ? raw[i + 1] : "";
+            result[key] = value;
+        }
+        return result;
+    }
+
+    private static string Arg(Dictionary<string, string> args, string key, string fallback)
+    {
+        string value;
+        return args.TryGetValue(key, out value) && value != null ? value : fallback;
     }
 
     /// <summary>Also prepares the project automatically the first time it is opened in the editor.</summary>
