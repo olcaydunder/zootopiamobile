@@ -7,13 +7,19 @@
 
 ## Özellikler
 
-- Üçüncü şahıs nişancı kamera, dokunmatik kontroller (kayan joystick, sağ tarafta kaydırarak nişan, iki ateş butonu, zıpla/eğil/doldur/koş/ilk yardım)
-- 5 silah: Tabanca P9, Şimşek SMG, Bozkurt AR, Kaya-12 pompalı, Kartal SR keskin nişancı
-- Ganimet: silah, mermi, ilk yardım çantası, zırh
-- 6 aşamalı daralan güvenli bölge (bölge dışında hasar)
-- Botlar: görüş hattı kontrolü, tepki süresi, isabet sapması, bölgeye kaçma
-- Profil: seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
-- Evler, ağaçlar, kayalar ile siper alınabilen ada
+- **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
+- **Tepeli ada:** Çim, toprak, kum ve kaya dokulu arazi, dalgalanan deniz, gökyüzü, güneş, gölgeler ve sis
+- **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar
+- **Karakterler:** Kask, yelek ve sırt çantalı insan figürleri; yürüme, nişan, eğilme, paraşüt, sürüş ve düşme animasyonları
+- **Silahlar:** Tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme
+- **Ganimet:** Silah, mermi, ilk yardım, enerji içeceği, el bombası, zırh; elenen botlar sandık bırakır
+- **Araçlar:** Binilebilen ciplerle hızlı ulaşım ve ezme hasarı
+- **Güvenli bölge:** 6 aşamada daralan mavi duvar, sonraki bölge çemberi
+- **Botlar:** Paraşütle iner, görüş hattı, tepki süresi, isabet sapması, el bombası, bölgeden kaçma; takım arkadaşları seni takip eder
+- **Arayüz:** Mini harita, isabet işareti, hasar sayıları, öldürme akışı, yükseklik/hız göstergesi
+- **Ses ve efekt:** Silah, patlama, adım, uçak, rüzgâr, motor sesleri; namlu alevi, kıvılcım, toz, patlama efektleri
+- **Profil:** Seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
+- Hiçbir model, doku veya ses dosyası kullanılmaz; her şey koddan üretilir
 
 ## Derleme (bilgisayar gerekmez)
 
@@ -35,7 +41,7 @@ Proje hiçbir sahne veya editör ayarı gerektirmez; her şey koddan kurulur.
 **Unity Editör (isteğe bağlı)**
 Projeyi Unity Hub'da aç; ilk açılışta sahne kendiliğinden oluşur (veya menü: *Zootopia → Projeyi Hazırla*). Play'e bas.
 
-Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol tık ateş, Shift koş, Space zıpla, C eğil, R doldur, X ilk yardım.
+Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol tık ateş, Shift koş, Space zıpla/atla, C eğil, R doldur, X ilk yardım, V içecek, G el bombası, Q silah değiş, F araca bin/in.
 
 ## Kod yapısı
 

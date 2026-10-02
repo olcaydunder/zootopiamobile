@@ -52,6 +52,40 @@ public static class UIUtil
         }
     }
 
+    private static Sprite ring;
+
+    /// <summary>Thin circle outline, used for zone rings on the minimap.</summary>
+    public static Sprite Ring
+    {
+        get
+        {
+            if (ring == null)
+            {
+                const int size = 256;
+                const float thickness = 5f;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                tex.wrapMode = TextureWrapMode.Clamp;
+                float r = size * 0.5f - thickness;
+                var pixels = new Color32[size * size];
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        float dx = x + 0.5f - size * 0.5f;
+                        float dy = y + 0.5f - size * 0.5f;
+                        float d = Mathf.Abs(Mathf.Sqrt(dx * dx + dy * dy) - r);
+                        byte a = (byte)(Mathf.Clamp01(thickness * 0.5f - d + 0.5f) * 255f);
+                        pixels[y * size + x] = new Color32(255, 255, 255, a);
+                    }
+                }
+                tex.SetPixels32(pixels);
+                tex.Apply();
+                ring = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            }
+            return ring;
+        }
+    }
+
     public static Material UnlitMaterial(Color color)
     {
         Shader shader = Shader.Find("Sprites/Default");

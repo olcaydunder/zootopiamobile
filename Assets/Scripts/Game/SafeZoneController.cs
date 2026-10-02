@@ -10,7 +10,7 @@ public class SafeZoneController : MonoBehaviour
     public float radius = 60f;
     public bool active;
 
-    private static readonly float[] WaitTimes = { 45f, 35f, 30f, 25f, 20f, 15f };
+    private static readonly float[] WaitTimes = { 75f, 40f, 32f, 26f, 20f, 15f };
     private static readonly float[] ShrinkTimes = { 30f, 25f, 22f, 18f, 15f, 12f };
     private static readonly float[] RadiusFractions = { 0.62f, 0.4f, 0.25f, 0.14f, 0.06f, 0f };
     private static readonly float[] DamagePerSecond = { 2f, 4f, 6f, 9f, 13f, 18f };
@@ -28,12 +28,27 @@ public class SafeZoneController : MonoBehaviour
 
     private LineRenderer ring;
     private LineRenderer nextRing;
+    private GameObject wall;
     private const int RingSegments = 72;
+
+    public Vector3 NextCenter { get { return nextCenter; } }
+    public float NextRadius { get { return nextRadius; } }
+    public bool HasNext { get { return active && !finished; } }
 
     private void Awake()
     {
         ring = CreateRing("ZoneRing", new Color(0.3f, 0.6f, 1f, 0.9f), 0.6f);
         nextRing = CreateRing("NextZoneRing", new Color(1f, 1f, 1f, 0.8f), 0.3f);
+
+        // Tall see-through blue wall marking the edge of the safe zone.
+        wall = new GameObject("ZoneWall");
+        wall.transform.SetParent(transform, false);
+        wall.AddComponent<MeshFilter>().sharedMesh = MeshUtil.OpenCylinder;
+        var mr = wall.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = UIUtil.UnlitMaterial(new Color(0.25f, 0.55f, 1f, 0.22f));
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+        wall.SetActive(false);
     }
 
     private LineRenderer CreateRing(string name, Color color, float width)
@@ -68,6 +83,8 @@ public class SafeZoneController : MonoBehaviour
         PrepareNextCircle();
         ring.enabled = true;
         nextRing.enabled = true;
+        wall.SetActive(true);
+        UpdateWall();
         DrawRing(ring, center, radius);
         DrawRing(nextRing, nextCenter, nextRadius);
     }
@@ -77,6 +94,7 @@ public class SafeZoneController : MonoBehaviour
         active = false;
         if (ring != null) ring.enabled = false;
         if (nextRing != null) nextRing.enabled = false;
+        if (wall != null) wall.SetActive(false);
     }
 
     private void PrepareNextCircle()
@@ -87,7 +105,7 @@ public class SafeZoneController : MonoBehaviour
 
         // Keep the final circles on land.
         Vector3 flat = new Vector3(nextCenter.x, 0f, nextCenter.z);
-        float maxDist = Mathf.Max(0f, GameBootstrap.IslandRadius - nextRadius - 3f);
+        float maxDist = Mathf.Max(0f, World.IslandRadius - nextRadius - 8f);
         if (flat.magnitude > maxDist)
             nextCenter = flat.normalized * maxDist;
     }
@@ -145,8 +163,15 @@ public class SafeZoneController : MonoBehaviour
         DrawRing(ring, center, radius);
         if (nextRing.enabled)
             DrawRing(nextRing, nextCenter, nextRadius);
+        UpdateWall();
 
         ApplyDamage(gm);
+    }
+
+    private void UpdateWall()
+    {
+        wall.transform.position = new Vector3(center.x, -10f, center.z);
+        wall.transform.localScale = new Vector3(Mathf.Max(0.1f, radius), 160f, Mathf.Max(0.1f, radius));
     }
 
     private void ApplyDamage(GameManager gm)
@@ -154,13 +179,13 @@ public class SafeZoneController : MonoBehaviour
         float dmg = DamagePerSecond[phase] * Time.deltaTime;
 
         var player = gm.player;
-        if (player != null && !player.isDead && IsOutside(player.transform.position))
+        if (player != null && !player.isDead && !player.IsAirborne && IsOutside(player.transform.position))
             player.TakeDamage(dmg, -1);
 
         for (int i = gm.bots.Count - 1; i >= 0; i--)
         {
             var bot = gm.bots[i];
-            if (bot != null && !bot.isDead && IsOutside(bot.transform.position))
+            if (bot != null && !bot.isDead && !bot.IsAirborne && IsOutside(bot.transform.position))
                 bot.TakeDamage(dmg, -1);
         }
     }
@@ -180,9 +205,16 @@ public class SafeZoneController : MonoBehaviour
     /// <summary>Random point inside the current zone (and on the island).</summary>
     public Vector3 RandomPointInside(float fraction)
     {
-        float r = Mathf.Min(radius, GameBootstrap.IslandRadius - 3f) * fraction;
-        Vector2 p = Random.insideUnitCircle * r;
-        return new Vector3(center.x + p.x, 1f, center.z + p.y);
+        float r = Mathf.Min(radius, World.IslandRadius - 8f) * fraction;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector2 p = Random.insideUnitCircle * r;
+            float x = center.x + p.x;
+            float z = center.z + p.y;
+            if (World.IsLand(x, z))
+                return new Vector3(x, World.HeightAt(x, z) + 1f, z);
+        }
+        return new Vector3(center.x, World.HeightAt(center.x, center.z) + 1f, center.z);
     }
 
     public string StatusText
@@ -204,7 +236,9 @@ public class SafeZoneController : MonoBehaviour
         for (int i = 0; i < RingSegments; i++)
         {
             float a = i * Mathf.PI * 2f / RingSegments;
-            lr.SetPosition(i, new Vector3(c.x + Mathf.Cos(a) * r, 0.4f, c.z + Mathf.Sin(a) * r));
+            float x = c.x + Mathf.Cos(a) * r;
+            float z = c.z + Mathf.Sin(a) * r;
+            lr.SetPosition(i, new Vector3(x, Mathf.Max(0.2f, World.HeightAt(x, z)) + 0.5f, z));
         }
     }
 }

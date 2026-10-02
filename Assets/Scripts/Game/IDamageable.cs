@@ -8,6 +8,7 @@ public interface IDamageable
 {
     int Team { get; }
     bool IsDead { get; }
+    bool IsAirborne { get; }   // in the plane, skydiving or parachuting
     string DisplayName { get; }
     Vector3 AimPoint { get; }
     Transform transform { get; }

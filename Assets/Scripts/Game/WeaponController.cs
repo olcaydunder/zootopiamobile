@@ -7,28 +7,41 @@ public class WeaponController : MonoBehaviour
     public int currentAmmo;
     public int reserveAmmo;
     public bool isReloading;
+    public bool playerOwned;
 
     private float nextShotTime;
     private Renderer modelRenderer;
     private LineRenderer tracer;
     private float tracerOffTime;
+    private Transform flash;
+    private float flashOffTime;
 
     public void Initialize(WeaponData data, Renderer model)
     {
+        Initialize(data, model, data.magazineSize, data.reserveAmmo);
+    }
+
+    public void Initialize(WeaponData data, Renderer model, int ammo, int reserve)
+    {
         StopAllCoroutines();
         isReloading = false;
-        nextShotTime = 0f;
+        nextShotTime = Time.time + 0.2f;
 
         weaponData = data;
-        currentAmmo = data.magazineSize;
-        reserveAmmo = data.reserveAmmo;
+        currentAmmo = ammo;
+        reserveAmmo = reserve;
 
         if (model != null)
             modelRenderer = model;
         if (modelRenderer != null)
+        {
             modelRenderer.sharedMaterial = MaterialCache.Lit(data.color);
+            float length = data.weaponType == WeaponType.Pistol ? 0.35f : data.weaponType == WeaponType.Sniper ? 1.1f : data.weaponType == WeaponType.SMG ? 0.6f : 0.85f;
+            modelRenderer.transform.localScale = new Vector3(0.1f, 0.13f, length);
+        }
 
         EnsureTracer();
+        EnsureFlash();
     }
 
     public bool CanFire
@@ -58,6 +71,9 @@ public class WeaponController : MonoBehaviour
 
         int pellets = weaponData.weaponType == WeaponType.Shotgun ? 8 : 1;
         Vector3 tracerEnd = origin + direction.normalized * weaponData.range;
+        float totalDamage = 0f;
+        bool anyHead = false;
+        Vector3 hitPoint = Vector3.zero;
 
         for (int i = 0; i < pellets; i++)
         {
@@ -69,11 +85,18 @@ public class WeaponController : MonoBehaviour
             {
                 end = hit.point;
                 IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
-                if (target != null && !target.IsDead && target.Team != shooterTeam)
+                bool body = target != null && !target.IsDead;
+                if (body && target.Team != shooterTeam)
                 {
-                    if (target.TakeDamage(weaponData.damage, shooterTeam))
+                    bool head = hit.point.y - target.transform.position.y > 0.55f;
+                    float damage = weaponData.damage * (head ? 2f : 1f);
+                    if (target.TakeDamage(damage, shooterTeam))
                         killed = true;
+                    totalDamage += damage;
+                    anyHead |= head;
+                    hitPoint = hit.point;
                 }
+                Effects.Impact(hit.point, hit.normal, body);
             }
 
             if (i == 0)
@@ -81,6 +104,22 @@ public class WeaponController : MonoBehaviour
         }
 
         ShowTracer(transform.position, tracerEnd);
+        ShowFlash();
+
+        float volume = playerOwned ? 0.55f : 0.9f;
+        float pitch = Random.Range(0.94f, 1.06f);
+        if (playerOwned)
+            Sfx.Play(SoundBank.Gunshot(weaponData.weaponType), volume, pitch);
+        else
+            Sfx.PlayAt(SoundBank.Gunshot(weaponData.weaponType), transform.position, volume, pitch);
+
+        if (playerOwned && totalDamage > 0f)
+        {
+            var gm = GameManager.Instance;
+            if (gm != null && gm.uiManager != null)
+                gm.uiManager.ShowHit(hitPoint, totalDamage, killed, anyHead);
+            Sfx.Play(killed ? SoundBank.Kill : SoundBank.Hit, 0.6f);
+        }
 
         if (currentAmmo <= 0)
             Reload();
@@ -109,6 +148,8 @@ public class WeaponController : MonoBehaviour
     private IEnumerator ReloadRoutine()
     {
         isReloading = true;
+        if (playerOwned)
+            Sfx.Play(SoundBank.Reload, 0.6f);
         yield return new WaitForSeconds(weaponData.reloadTime);
 
         int needed = weaponData.magazineSize - currentAmmo;
@@ -122,6 +163,14 @@ public class WeaponController : MonoBehaviour
     {
         if (tracer != null && tracer.enabled && Time.time >= tracerOffTime)
             tracer.enabled = false;
+
+        if (flash != null && flash.gameObject.activeSelf)
+        {
+            if (Time.time >= flashOffTime)
+                flash.gameObject.SetActive(false);
+            else if (Camera.main != null)
+                flash.rotation = Camera.main.transform.rotation;
+        }
     }
 
     private void OnDisable()
@@ -129,6 +178,8 @@ public class WeaponController : MonoBehaviour
         isReloading = false;
         if (tracer != null)
             tracer.enabled = false;
+        if (flash != null)
+            flash.gameObject.SetActive(false);
     }
 
     private static Vector3 ApplySpread(Vector3 direction, float degrees)
@@ -158,10 +209,29 @@ public class WeaponController : MonoBehaviour
         tracer.endWidth = 0.02f;
         tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         tracer.receiveShadows = false;
-        tracer.material = UIUtil.UnlitMaterial(new Color(1f, 0.85f, 0.45f, 1f));
+        tracer.sharedMaterial = UIUtil.UnlitMaterial(new Color(1f, 0.85f, 0.45f, 1f));
         tracer.startColor = new Color(1f, 0.9f, 0.5f, 1f);
         tracer.endColor = new Color(1f, 0.9f, 0.5f, 0.2f);
         tracer.enabled = false;
+    }
+
+    private void EnsureFlash()
+    {
+        if (flash != null)
+            return;
+
+        var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        quad.name = "MuzzleFlash";
+        Destroy(quad.GetComponent<Collider>());
+        quad.layer = gameObject.layer;
+        var mat = UIUtil.UnlitMaterial(new Color(1f, 0.8f, 0.35f, 0.95f));
+        mat.mainTexture = UIUtil.Circle.texture;
+        var r = quad.GetComponent<Renderer>();
+        r.sharedMaterial = mat;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        flash = quad.transform;
+        flash.SetParent(transform, false);
+        flash.gameObject.SetActive(false);
     }
 
     private void ShowTracer(Vector3 from, Vector3 to)
@@ -173,5 +243,16 @@ public class WeaponController : MonoBehaviour
         tracer.SetPosition(1, to);
         tracer.enabled = true;
         tracerOffTime = Time.time + 0.04f;
+    }
+
+    private void ShowFlash()
+    {
+        if (flash == null)
+            return;
+        float length = modelRenderer != null ? modelRenderer.transform.localScale.z : 0.8f;
+        flash.localPosition = new Vector3(0f, 0f, length * 0.5f + 0.12f);
+        flash.localScale = Vector3.one * Random.Range(0.28f, 0.45f);
+        flash.gameObject.SetActive(true);
+        flashOffTime = Time.time + 0.045f;
     }
 }

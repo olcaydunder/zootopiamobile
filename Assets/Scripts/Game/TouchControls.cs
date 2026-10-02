@@ -1,10 +1,13 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// On-screen mobile controls: floating joystick on the left, drag-to-look on the right,
-/// fire buttons on both sides and action buttons.
+/// On-screen mobile controls: floating joystick on the left, drag-to-look on the right
+/// (also while holding the fire button), fire buttons on both sides and action buttons.
+/// Buttons that only make sense in some situations (jumping out of the plane, entering a jeep)
+/// are shown by the UI depending on the player's state.
 /// </summary>
 public class TouchControls : MonoBehaviour
 {
@@ -19,10 +22,8 @@ public class TouchControls : MonoBehaviour
         get { return (rightFire != null && rightFire.Held) || (leftFire != null && leftFire.Held); }
     }
 
-    private bool jumpQueued;
-    private bool crouchQueued;
-    private bool reloadQueued;
-    private bool medkitQueued;
+    private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
+    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued;
 
     private Canvas canvas;
     private RectTransform root;
@@ -33,8 +34,13 @@ public class TouchControls : MonoBehaviour
 
     private HoldButton rightFire;
     private HoldButton leftFire;
+    private RectTransform rightFireRect;
     private Image sprintImage;
-    private Text medkitLabel;
+    private Text medkitLabel, drinkLabel, grenadeLabel, swapLabel, vehicleLabel, airLabel;
+    private GameObject combatGroup;
+    private GameObject swapButton;
+    private GameObject vehicleButton;
+    private GameObject airButton;
 
     private int moveFinger = -1;
     private int lookFinger = -1;
@@ -43,11 +49,17 @@ public class TouchControls : MonoBehaviour
 
     private static readonly Color ButtonColor = new Color(1f, 1f, 1f, 0.22f);
     private static readonly Color FireColor = new Color(0.95f, 0.3f, 0.25f, 0.55f);
+    private static readonly Color ItemColor = new Color(0.3f, 0.85f, 0.4f, 0.4f);
 
     public bool ConsumeJump() { bool v = jumpQueued; jumpQueued = false; return v; }
     public bool ConsumeCrouch() { bool v = crouchQueued; crouchQueued = false; return v; }
     public bool ConsumeReload() { bool v = reloadQueued; reloadQueued = false; return v; }
     public bool ConsumeMedkit() { bool v = medkitQueued; medkitQueued = false; return v; }
+    public bool ConsumeDrink() { bool v = drinkQueued; drinkQueued = false; return v; }
+    public bool ConsumeGrenade() { bool v = grenadeQueued; grenadeQueued = false; return v; }
+    public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
+    public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
+    public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
 
     public void Build(Canvas parentCanvas)
     {
@@ -64,36 +76,82 @@ public class TouchControls : MonoBehaviour
         stickKnob = UIUtil.CreateImage(stickBase, "StickKnob", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(100f, 100f), new Color(1f, 1f, 1f, 0.45f), true).rectTransform;
         stickKnob.GetComponent<Image>().raycastTarget = false;
 
-        // Fire buttons.
-        var fireR = UIUtil.CreateButton(root, "ATEŞ", new Vector2(1f, 0f), new Vector2(-230f, 260f), new Vector2(200f, 200f), FireColor, true, 30, out unused);
-        rightFire = fireR.gameObject.AddComponent<HoldButton>();
-        var fireL = UIUtil.CreateButton(root, "ATEŞ", new Vector2(0f, 0f), new Vector2(250f, 560f), new Vector2(130f, 130f), FireColor, true, 22, out unused);
-        leftFire = fireL.gameObject.AddComponent<HoldButton>();
-
-        // Actions.
-        UIUtil.CreateButton(root, "ZIPLA", new Vector2(1f, 0f), new Vector2(-470f, 130f), new Vector2(130f, 130f), ButtonColor, true, 22, out unused)
-            .onClick.AddListener(() => jumpQueued = true);
-        UIUtil.CreateButton(root, "EĞİL", new Vector2(1f, 0f), new Vector2(-470f, 300f), new Vector2(120f, 120f), ButtonColor, true, 22, out unused)
-            .onClick.AddListener(() => crouchQueued = true);
-        UIUtil.CreateButton(root, "DOLDUR", new Vector2(1f, 0f), new Vector2(-230f, 500f), new Vector2(130f, 130f), ButtonColor, true, 20, out unused)
-            .onClick.AddListener(() => reloadQueued = true);
-
-        var medkit = UIUtil.CreateButton(root, "İLK YARDIM", new Vector2(0.5f, 0f), new Vector2(260f, 70f), new Vector2(200f, 90f), new Color(0.3f, 0.85f, 0.4f, 0.4f), false, 20, out medkitLabel);
-        medkit.onClick.AddListener(() => medkitQueued = true);
-
-        var sprint = UIUtil.CreateButton(root, "KOŞ", new Vector2(0f, 0f), new Vector2(110f, 440f), new Vector2(110f, 110f), ButtonColor, true, 22, out unused);
+        var sprint = UIUtil.CreateButton(root, "KOŞ", Vector2.zero, new Vector2(110f, 440f), new Vector2(110f, 110f), ButtonColor, true, 22, out unused);
         sprintImage = sprint.GetComponent<Image>();
         sprint.onClick.AddListener(() =>
         {
             SprintOn = !SprintOn;
             sprintImage.color = SprintOn ? new Color(1f, 0.85f, 0.2f, 0.55f) : ButtonColor;
         });
+
+        // Everything used while on foot lives in one group that is hidden in the air / in a jeep.
+        combatGroup = UIUtil.CreateStretch(root, "CombatButtons").gameObject;
+        var g = combatGroup.transform;
+
+        var fireR = UIUtil.CreateButton(g, "ATEŞ", new Vector2(1f, 0f), new Vector2(-230f, 260f), new Vector2(200f, 200f), FireColor, true, 30, out unused);
+        rightFire = fireR.gameObject.AddComponent<HoldButton>();
+        rightFireRect = (RectTransform)fireR.transform;
+        var fireL = UIUtil.CreateButton(g, "ATEŞ", Vector2.zero, new Vector2(250f, 560f), new Vector2(130f, 130f), FireColor, true, 22, out unused);
+        leftFire = fireL.gameObject.AddComponent<HoldButton>();
+
+        UIUtil.CreateButton(g, "ZIPLA", new Vector2(1f, 0f), new Vector2(-470f, 130f), new Vector2(130f, 130f), ButtonColor, true, 22, out unused)
+            .onClick.AddListener(() => jumpQueued = true);
+        UIUtil.CreateButton(g, "EĞİL", new Vector2(1f, 0f), new Vector2(-470f, 300f), new Vector2(120f, 120f), ButtonColor, true, 22, out unused)
+            .onClick.AddListener(() => crouchQueued = true);
+        UIUtil.CreateButton(g, "DOLDUR", new Vector2(1f, 0f), new Vector2(-230f, 500f), new Vector2(130f, 130f), ButtonColor, true, 20, out unused)
+            .onClick.AddListener(() => reloadQueued = true);
+        UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel)
+            .onClick.AddListener(() => grenadeQueued = true);
+
+        var swap = UIUtil.CreateButton(g, "DEĞİŞ", new Vector2(0.5f, 0f), new Vector2(0f, 330f), new Vector2(260f, 56f), ButtonColor, false, 20, out swapLabel);
+        swap.onClick.AddListener(() => swapQueued = true);
+        swapButton = swap.gameObject;
+
+        var medkit = UIUtil.CreateButton(g, "İLK YARDIM", new Vector2(0.5f, 0f), new Vector2(-260f, 70f), new Vector2(200f, 90f), ItemColor, false, 20, out medkitLabel);
+        medkit.onClick.AddListener(() => medkitQueued = true);
+        var drink = UIUtil.CreateButton(g, "İÇECEK", new Vector2(0.5f, 0f), new Vector2(260f, 70f), new Vector2(200f, 90f), new Color(0.95f, 0.45f, 0.75f, 0.4f), false, 20, out drinkLabel);
+        drink.onClick.AddListener(() => drinkQueued = true);
+
+        // Context buttons.
+        var vehicle = UIUtil.CreateButton(root, "BİN", new Vector2(1f, 0f), new Vector2(-470f, 480f), new Vector2(150f, 90f), new Color(0.2f, 0.5f, 1f, 0.6f), false, 26, out vehicleLabel);
+        vehicle.onClick.AddListener(() => vehicleQueued = true);
+        vehicleButton = vehicle.gameObject;
+
+        var airBtn = UIUtil.CreateButton(root, "ATLA", new Vector2(1f, 0f), new Vector2(-280f, 330f), new Vector2(240f, 240f), new Color(1f, 0.75f, 0.15f, 0.7f), true, 40, out airLabel);
+        airBtn.onClick.AddListener(() => airQueued = true);
+        airButton = airBtn.gameObject;
+
+        vehicleButton.SetActive(false);
+        airButton.SetActive(false);
     }
 
-    public void SetMedkitCount(int count)
+    /// <summary>Called by the UI every frame to show only the buttons that make sense right now.</summary>
+    public void UpdateContext(PlayerController player, bool vehicleNearby)
     {
-        if (medkitLabel != null)
-            medkitLabel.text = "İLK YARDIM x" + count;
+        bool onFoot = player.state == PlayerState.Ground;
+        if (combatGroup.activeSelf != onFoot)
+            combatGroup.SetActive(onFoot);
+
+        bool showAir = player.state == PlayerState.Plane || player.state == PlayerState.Freefall;
+        if (airButton.activeSelf != showAir)
+            airButton.SetActive(showAir);
+        if (showAir)
+            airLabel.text = player.state == PlayerState.Plane ? "ATLA" : "PARAŞÜT";
+
+        bool showVehicle = player.state == PlayerState.Driving || (onFoot && vehicleNearby);
+        if (vehicleButton.activeSelf != showVehicle)
+            vehicleButton.SetActive(showVehicle);
+        if (showVehicle)
+            vehicleLabel.text = player.state == PlayerState.Driving ? "İN" : "BİN";
+
+        medkitLabel.text = "İLK YARDIM x" + player.inventory.medkits;
+        drinkLabel.text = "İÇECEK x" + player.inventory.drinks;
+        grenadeLabel.text = "BOMBA\nx" + player.inventory.grenades;
+        bool hasOther = player.HasOtherWeapon;
+        if (swapButton.activeSelf != hasOther)
+            swapButton.SetActive(hasOther);
+        if (hasOther)
+            swapLabel.text = "Değiş: " + player.OtherWeaponName;
     }
 
     public void ResetState()
@@ -103,6 +161,7 @@ public class TouchControls : MonoBehaviour
         moveFinger = -1;
         lookFinger = -1;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
+        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;
@@ -116,6 +175,19 @@ public class TouchControls : MonoBehaviour
     private void OnDisable()
     {
         ResetState();
+    }
+
+    private static readonly List<RaycastResult> uiHits = new List<RaycastResult>();
+
+    /// <summary>Own UI raycast: reliable on the very frame a touch begins.</summary>
+    private static bool OverUI(Vector2 screenPos)
+    {
+        var es = EventSystem.current;
+        if (es == null)
+            return false;
+        uiHits.Clear();
+        es.RaycastAll(new PointerEventData(es) { position = screenPos }, uiHits);
+        return uiHits.Count > 0;
     }
 
     private void Update()
@@ -132,8 +204,17 @@ public class TouchControls : MonoBehaviour
             switch (t.phase)
             {
                 case TouchPhase.Began:
-                    if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(t.fingerId))
+                    if (OverUI(t.position))
+                    {
+                        // Holding the right fire button also aims (drag your thumb while shooting).
+                        if (lookFinger == -1 && rightFireRect != null && rightFireRect.gameObject.activeInHierarchy &&
+                            RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null))
+                        {
+                            lookFinger = t.fingerId;
+                            lastLookScreen = t.position;
+                        }
                         break;
+                    }
 
                     if (t.position.x < Screen.width * 0.4f && moveFinger == -1)
                     {

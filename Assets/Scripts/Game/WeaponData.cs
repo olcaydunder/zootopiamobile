@@ -108,6 +108,34 @@ public class WeaponData
         };
     }
 
+    /// <summary>Rough power ranking used when deciding whether to swap weapons.</summary>
+    public static int Tier(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Pistol: return 0;
+            case WeaponType.SMG:
+            case WeaponType.Shotgun: return 1;
+            default: return 2;
+        }
+    }
+
+    /// <summary>Camera kick per shot in degrees.</summary>
+    public float Recoil
+    {
+        get
+        {
+            switch (weaponType)
+            {
+                case WeaponType.Sniper: return 3f;
+                case WeaponType.Shotgun: return 2.5f;
+                case WeaponType.Pistol: return 1.2f;
+                case WeaponType.SMG: return 0.5f;
+                default: return 0.7f;
+            }
+        }
+    }
+
     public static WeaponData CreateRandomLoot()
     {
         float r = Random.value;

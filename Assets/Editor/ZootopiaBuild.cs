@@ -131,6 +131,12 @@ public static class ZootopiaBuild
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             // Empty scene: GameBootstrap creates everything at runtime.
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // Fog is switched on at runtime; with "Automatic" fog stripping Unity only keeps the
+            // fog shader variants if a scene in the build uses fog, so enable it here too.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 260f;
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
         }

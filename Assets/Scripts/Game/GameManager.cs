@@ -29,6 +29,8 @@ public class GameManager : MonoBehaviour
     public PlayerController player;
     public readonly List<BotAgent> bots = new List<BotAgent>();
     public readonly List<IDamageable> Combatants = new List<IDamageable>();
+    public readonly List<Vehicle> vehicles = new List<Vehicle>();
+    public AirPlane plane;
 
     public SafeZoneController safeZone;
     public LootSystem lootSystem;
@@ -42,11 +44,15 @@ public class GameManager : MonoBehaviour
         "Rüzgar", "Çağan", "Ilgaz", "Barlas", "Mira", "Aras", "Tolga", "Nehir", "Ozan", "Demir"
     };
 
-    private static readonly Color AllyColor = new Color(0.2f, 0.8f, 0.35f);
+    private static readonly Color AllyColor = new Color(0.2f, 0.7f, 0.35f);
     private static readonly Color[] EnemyColors =
     {
-        new Color(0.9f, 0.35f, 0.2f), new Color(0.85f, 0.2f, 0.45f), new Color(0.95f, 0.6f, 0.1f),
-        new Color(0.6f, 0.3f, 0.85f), new Color(0.75f, 0.15f, 0.15f), new Color(0.55f, 0.45f, 0.3f)
+        new Color(0.85f, 0.35f, 0.2f), new Color(0.8f, 0.2f, 0.4f), new Color(0.9f, 0.6f, 0.15f),
+        new Color(0.55f, 0.3f, 0.8f), new Color(0.7f, 0.15f, 0.15f), new Color(0.55f, 0.45f, 0.3f)
+    };
+    private static readonly Color[] JeepColors =
+    {
+        new Color(0.35f, 0.42f, 0.25f), new Color(0.75f, 0.68f, 0.5f), new Color(0.55f, 0.15f, 0.12f), new Color(0.2f, 0.3f, 0.45f)
     };
 
     private void Awake()
@@ -83,11 +89,9 @@ public class GameManager : MonoBehaviour
     {
         StopAllCoroutines();
         currentState = GameState.Lobby;
-        ClearBots();
-        lootSystem.Clear();
-        safeZone.Stop();
+        ClearRound();
         if (player != null)
-            player.ResetForRound(new Vector3(0f, 0.95f, 0f));
+            player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
         uiManager.ShowLobby();
     }
 
@@ -113,53 +117,57 @@ public class GameManager : MonoBehaviour
 
     public void BeginRound()
     {
-        ClearBots();
-        Combatants.Clear();
+        ClearRound();
         Physics.SyncTransforms();
 
-        Vector3 playerSpawn = RandomIslandPoint(GameBootstrap.IslandRadius - 8f);
-        player.ResetForRound(playerSpawn);
+        plane = AirPlane.Launch();
+
+        player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
+        player.BoardPlane(plane);
         Combatants.Add(player);
 
-        int teamSize = currentMode == MatchMode.Solo ? 1 : currentMode == MatchMode.Duo ? 2 : 4;
+        int teamSize = TeamSize();
         int allies = teamSize - 1;
         int enemies = PlayersPerMatch - teamSize;
         int nameIndex = Random.Range(0, BotNames.Length);
 
         for (int i = 0; i < allies; i++)
         {
-            Vector2 offset = Random.insideUnitCircle.normalized * Random.Range(2f, 4f);
-            Vector3 pos = playerSpawn + new Vector3(offset.x, 0.2f, offset.y);
-            SpawnBot(0, BotNames[nameIndex++ % BotNames.Length], AllyColor, pos);
+            var bot = SpawnBot(0, BotNames[nameIndex++ % BotNames.Length], AllyColor);
+            bot.BoardPlane(plane, 1.1f, Vector3.zero, true);    // waits for the player to jump
         }
 
         for (int i = 0; i < enemies; i++)
         {
             int team = 1 + i / teamSize;
-            Vector3 pos = RandomIslandPointAwayFrom(playerSpawn, 15f);
-            SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team % EnemyColors.Length], pos);
+            var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team % EnemyColors.Length]);
+            Vector3 landing = World.RandomOpenPoint(Vector3.zero, World.IslandRadius - 10f);
+            bot.BoardPlane(plane, Random.Range(0.12f, 0.88f), landing, false);
         }
 
-        lootSystem.SpawnLoot(60);
-        safeZone.Init(Vector3.zero, GameBootstrap.IslandRadius * 1.05f);
+        foreach (var spot in World.VehicleSpots)
+            vehicles.Add(Vehicle.Spawn(spot, Random.Range(0f, 360f), JeepColors[Random.Range(0, JeepColors.Length)]));
+
+        lootSystem.SpawnLoot(45);
+        safeZone.Init(Vector3.zero, World.IslandRadius * 1.15f);
 
         currentState = GameState.InGame;
         uiManager.ShowBattleHud();
-        uiManager.Toast(currentMode == MatchMode.Solo ? "Tek başına hayatta kal!" : "Takımınla hayatta kal!");
+        uiManager.Toast("Atlamak için ATLA'ya bas!");
     }
 
-    private void SpawnBot(int team, string botName, Color color, Vector3 position)
+    private BotAgent SpawnBot(int team, string botName, Color color)
     {
         var obj = new GameObject("Bot_" + botName);
-        obj.transform.position = position;
-        obj.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+        obj.transform.position = plane != null ? plane.transform.position : Vector3.up * 100f;
         var bot = obj.AddComponent<BotAgent>();
         bot.Setup(team, botName, color, WeaponData.CreateRandomBotWeapon());
         bots.Add(bot);
         Combatants.Add(bot);
+        return bot;
     }
 
-    private void ClearBots()
+    private void ClearRound()
     {
         foreach (var bot in bots)
         {
@@ -167,12 +175,34 @@ public class GameManager : MonoBehaviour
                 Destroy(bot.gameObject);
         }
         bots.Clear();
+
+        foreach (var v in vehicles)
+        {
+            if (v != null)
+                Destroy(v.gameObject);
+        }
+        vehicles.Clear();
+
+        if (plane != null)
+            Destroy(plane.gameObject);
+        plane = null;
+
         Combatants.Clear();
-        if (player != null)
-            Combatants.Add(player);
+        lootSystem.Clear();
+        safeZone.Stop();
     }
 
     // ----- Events -----
+
+    public void OnPlayerJumped()
+    {
+        foreach (var bot in bots)
+        {
+            if (bot != null && bot.team == 0)
+                bot.JumpNow();
+        }
+        uiManager.Toast("Paraşüt yere yaklaşınca kendiliğinden açılır");
+    }
 
     public void OnPlayerKill()
     {
@@ -191,7 +221,15 @@ public class GameManager : MonoBehaviour
     {
         if (currentState != GameState.InGame)
             return;
-        EndMatch(false);
+        StartCoroutine(EndAfterDelay(false, 2f));
+    }
+
+    private IEnumerator EndAfterDelay(bool won, float delay)
+    {
+        currentState = GameState.EndGame;
+        safeZone.Stop();
+        yield return new WaitForSeconds(delay);
+        EndMatch(won);
     }
 
     private void CheckForWin()
@@ -199,7 +237,7 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.InGame || player == null || player.isDead)
             return;
         if (AliveEnemyTeams() == 0)
-            EndMatch(true);
+            StartCoroutine(EndAfterDelay(true, 1.5f));
     }
 
     private void EndMatch(bool won)
@@ -246,31 +284,21 @@ public class GameManager : MonoBehaviour
         return teams.Count;
     }
 
-    /// <summary>Random free spot on the island (not inside a house, tree or rock).</summary>
-    public static Vector3 RandomIslandPoint(float maxRadius)
+    public Vehicle NearestVehicle(Vector3 position, float maxDistance)
     {
-        Vector3 point = Vector3.zero;
-        for (int tries = 0; tries < 20; tries++)
+        Vehicle best = null;
+        float bestDist = maxDistance;
+        foreach (var v in vehicles)
         {
-            Vector2 p = Random.insideUnitCircle * maxRadius;
-            point = new Vector3(p.x, 1.2f, p.y);
-            if (!Physics.CheckSphere(point, 0.7f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
-                break;
+            if (v == null || v.driver != null)
+                continue;
+            float d = Vector3.Distance(position, v.transform.position);
+            if (d < bestDist)
+            {
+                best = v;
+                bestDist = d;
+            }
         }
-        return point;
-    }
-
-    private static Vector3 RandomIslandPointAwayFrom(Vector3 from, float minDistance)
-    {
-        Vector3 p = RandomIslandPoint(GameBootstrap.IslandRadius - 4f);
-        for (int tries = 0; tries < 10; tries++)
-        {
-            Vector3 d = p - from;
-            d.y = 0f;
-            if (d.magnitude >= minDistance)
-                break;
-            p = RandomIslandPoint(GameBootstrap.IslandRadius - 4f);
-        }
-        return p;
+        return best;
     }
 }
