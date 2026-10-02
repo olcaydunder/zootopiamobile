@@ -15,28 +15,28 @@ public class WeaponData
     public string weaponName;
     public WeaponType weaponType;
     public float damage;
-    public float fireRate;
+    public float fireRate;     // seconds between shots
     public float range;
+    public float spread;       // degrees
     public int magazineSize;
     public int reserveAmmo;
     public float reloadTime;
-    public int cost;
     public Color color;
 
     public static WeaponData CreateRifle()
     {
         return new WeaponData
         {
-            weaponName = "Ranger AR",
+            weaponName = "Bozkurt AR",
             weaponType = WeaponType.Rifle,
-            damage = 22f,
-            fireRate = 0.12f,
-            range = 70f,
+            damage = 20f,
+            fireRate = 0.11f,
+            range = 80f,
+            spread = 1.4f,
             magazineSize = 30,
             reserveAmmo = 120,
-            reloadTime = 1.8f,
-            cost = 0,
-            color = Color.green
+            reloadTime = 1.9f,
+            color = new Color(0.2f, 0.25f, 0.2f)
         };
     }
 
@@ -44,16 +44,16 @@ public class WeaponData
     {
         return new WeaponData
         {
-            weaponName = "Nova SMG",
+            weaponName = "Şimşek SMG",
             weaponType = WeaponType.SMG,
-            damage = 15f,
-            fireRate = 0.08f,
-            range = 36f,
+            damage = 14f,
+            fireRate = 0.075f,
+            range = 40f,
+            spread = 2.4f,
             magazineSize = 32,
-            reserveAmmo = 96,
+            reserveAmmo = 128,
             reloadTime = 1.5f,
-            cost = 280,
-            color = Color.cyan
+            color = new Color(0.15f, 0.35f, 0.45f)
         };
     }
 
@@ -61,16 +61,16 @@ public class WeaponData
     {
         return new WeaponData
         {
-            weaponName = "Breaker 12",
+            weaponName = "Kaya-12",
             weaponType = WeaponType.Shotgun,
-            damage = 12f,
-            fireRate = 0.72f,
-            range = 18f,
-            magazineSize = 8,
-            reserveAmmo = 32,
-            reloadTime = 2.2f,
-            cost = 500,
-            color = Color.red
+            damage = 11f,      // per pellet, 8 pellets
+            fireRate = 0.8f,
+            range = 20f,
+            spread = 5.5f,
+            magazineSize = 6,
+            reserveAmmo = 30,
+            reloadTime = 2.3f,
+            color = new Color(0.45f, 0.2f, 0.12f)
         };
     }
 
@@ -78,16 +78,16 @@ public class WeaponData
     {
         return new WeaponData
         {
-            weaponName = "Longview",
+            weaponName = "Kartal SR",
             weaponType = WeaponType.Sniper,
-            damage = 72f,
-            fireRate = 1.2f,
-            range = 120f,
+            damage = 85f,
+            fireRate = 1.3f,
+            range = 150f,
+            spread = 0.15f,
             magazineSize = 5,
             reserveAmmo = 20,
-            reloadTime = 2.5f,
-            cost = 800,
-            color = Color.magenta
+            reloadTime = 2.6f,
+            color = new Color(0.3f, 0.3f, 0.12f)
         };
     }
 
@@ -95,16 +95,35 @@ public class WeaponData
     {
         return new WeaponData
         {
-            weaponName = "Cinder Pistol",
+            weaponName = "Tabanca P9",
             weaponType = WeaponType.Pistol,
-            damage = 18f,
-            fireRate = 0.18f,
-            range = 40f,
+            damage = 16f,
+            fireRate = 0.22f,
+            range = 45f,
+            spread = 1.8f,
             magazineSize = 12,
             reserveAmmo = 48,
             reloadTime = 1.2f,
-            cost = 0,
-            color = Color.yellow
+            color = new Color(0.1f, 0.1f, 0.1f)
         };
+    }
+
+    public static WeaponData CreateRandomLoot()
+    {
+        float r = Random.value;
+        if (r < 0.35f) return CreateRifle();
+        if (r < 0.65f) return CreateSMG();
+        if (r < 0.85f) return CreateShotgun();
+        return CreateSniper();
+    }
+
+    /// <summary>Weapon a bot spawns with, weighted toward weaker guns.</summary>
+    public static WeaponData CreateRandomBotWeapon()
+    {
+        float r = Random.value;
+        if (r < 0.35f) return CreatePistol();
+        if (r < 0.65f) return CreateSMG();
+        if (r < 0.85f) return CreateRifle();
+        return CreateShotgun();
     }
 }

@@ -1,40 +1,59 @@
 using UnityEngine;
 
-public class ProfileData : MonoBehaviour
+/// <summary>Local player profile, saved on the device with PlayerPrefs.</summary>
+public class ProfileData
 {
-    public string playerName = "Rogue";
+    public string playerName = "Oyuncu";
     public int xp;
     public int level = 1;
-    public int coins = 350;
+    public int coins;
+    public int matches;
     public int wins;
-    public int losses;
-    public int kills;
+    public int totalKills;
 
-    public void AddExperience(int amount)
+    public int XpForNextLevel
     {
-        xp += amount;
-        while (xp >= level * 150)
-        {
-            xp -= level * 150;
-            level++;
-            coins += 25;
-        }
+        get { return level * 150; }
     }
 
-    public void UnlockSkin(string skinId, int cost)
+    public void Load()
     {
-        if (coins < cost)
-            return;
-
-        coins -= cost;
+        playerName = PlayerPrefs.GetString("zm_name", "Oyuncu");
+        xp = PlayerPrefs.GetInt("zm_xp", 0);
+        level = Mathf.Max(1, PlayerPrefs.GetInt("zm_level", 1));
+        coins = PlayerPrefs.GetInt("zm_coins", 0);
+        matches = PlayerPrefs.GetInt("zm_matches", 0);
+        wins = PlayerPrefs.GetInt("zm_wins", 0);
+        totalKills = PlayerPrefs.GetInt("zm_kills", 0);
     }
 
     public void Save()
     {
-        PlayerPrefs.SetString("player_name", playerName);
-        PlayerPrefs.SetInt("player_xp", xp);
-        PlayerPrefs.SetInt("player_level", level);
-        PlayerPrefs.SetInt("player_coins", coins);
+        PlayerPrefs.SetString("zm_name", playerName);
+        PlayerPrefs.SetInt("zm_xp", xp);
+        PlayerPrefs.SetInt("zm_level", level);
+        PlayerPrefs.SetInt("zm_coins", coins);
+        PlayerPrefs.SetInt("zm_matches", matches);
+        PlayerPrefs.SetInt("zm_wins", wins);
+        PlayerPrefs.SetInt("zm_kills", totalKills);
         PlayerPrefs.Save();
+    }
+
+    public void AddMatchResult(bool won, int kills, int xpGained, int coinsGained)
+    {
+        matches++;
+        if (won)
+            wins++;
+        totalKills += kills;
+        coins += coinsGained;
+
+        xp += xpGained;
+        while (xp >= XpForNextLevel)
+        {
+            xp -= XpForNextLevel;
+            level++;
+        }
+
+        Save();
     }
 }

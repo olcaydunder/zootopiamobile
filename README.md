@@ -1,56 +1,48 @@
-# Battle Island Mobile
+# Zootopia Mobile
 
-A complete original 3D mobile battle-royale prototype built in Unity using original, non-copyrighted gameplay systems and procedural placeholder art.
+3D mobil battle royale oyunu (Unity, Android).
+**Yapımcı:** Olcay Yasin Dünder
 
-## Included features
-- Third-person shooter gameplay
-- Large island battleground with safe-zone shrink
-- Solo, duo, and squad tournament flow
-- Enemy bots with basic AI
-- Multiple weapons with unique stats
-- Health, armor, ammo, and inventory management
-- Loot and supply crates
-- Lobby, matchmaking, and round start
-- Leveling, XP, coins, and cosmetic unlocks
-- Mobile touch controls and settings
-- Restart / respawn flow
-- Optimized low-end Android-friendly gameplay
+25 kişilik ada maçı: daralan güvenli bölge, ganimet sandıkları, silah değiştirme ve yapay zekâlı rakipler. Solo, Duo ve Squad modları (takım arkadaşları bot). İnternet gerektirmez.
 
-## Requirements
-- Unity Hub
-- Unity 2022.3 LTS or newer
-- Android Build Support if exporting to APK/AAB
+## Özellikler
 
-## Run in Unity
-1. Open Unity Hub.
-2. Add the repository folder as a project.
-3. Use Unity 2022.3 LTS.
-4. Create a new empty scene named `Main`.
-5. In the scene, create an empty GameObject called `GameBootstrap`.
-6. Attach `Assets/Scripts/Game/GameBootstrap.cs` to it.
-7. Press Play.
-8. The lobby menu should appear, and you can begin a match.
+- Üçüncü şahıs nişancı kamera, dokunmatik kontroller (kayan joystick, sağ tarafta kaydırarak nişan, iki ateş butonu, zıpla/eğil/doldur/koş/ilk yardım)
+- 5 silah: Tabanca P9, Şimşek SMG, Bozkurt AR, Kaya-12 pompalı, Kartal SR keskin nişancı
+- Ganimet: silah, mermi, ilk yardım çantası, zırh
+- 6 aşamalı daralan güvenli bölge (bölge dışında hasar)
+- Botlar: görüş hattı kontrolü, tepki süresi, isabet sapması, bölgeye kaçma
+- Profil: seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
+- Evler, ağaçlar, kayalar ile siper alınabilen ada
 
-## Controls
-Keyboard:
-- W A S D = move
-- Shift = sprint
-- Space = jump
-- Ctrl = crouch
-- Left mouse = fire
-- R = reload
-- X = use medkit
-- Tab = pause / open settings (if expanded)
+## Derleme (bilgisayar gerekmez)
 
-Mobile:
-- Left virtual thumbstick = movement
-- Right virtual thumbstick = aim / fire
-- Buttons = sprint, crouch, jump, reload
+Proje hiçbir sahne veya editör ayarı gerektirmez; her şey koddan kurulur.
 
-## Project structure
-- `Assets/Scripts/Game/` — gameplay systems
-- `Assets/Scenes/` — scene setup and notes
-- `README.md` — this run guide
+**Unity Build Automation**
+1. Unity Cloud'da yeni proje → bu GitHub reposunu bağla (branch: `main`).
+2. Hedef: Android, Unity sürümü: en güncel 2022.3 LTS.
+3. Gelişmiş ayarlar → **Pre-Export Method:** `ZootopiaBuild.PreExport`
+4. Build al → APK/AAB indir.
 
-## Notes
-This is a fully playable prototype with procedural world generation and original gameplay logic, but it uses generated geometry rather than copyrighted external assets. It is intended as a working base for expansion into a larger production game.
+`PreExport` şunları otomatik yapar: `Assets/Scenes/Main.unity` sahnesini oluşturur, build listesine ekler, paket adını `com.olcayasindunder.zootopiamobile`, IL2CPP + ARM64 ve yatay ekranı ayarlar.
+
+**Unity Editör (isteğe bağlı)**
+Projeyi Unity Hub'da aç; ilk açılışta sahne kendiliğinden oluşur (veya menü: *Zootopia → Projeyi Hazırla*). Play'e bas.
+
+Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol tık ateş, Shift koş, Space zıpla, C eğil, R doldur, X ilk yardım.
+
+## Kod yapısı
+
+`Assets/Scripts/Game/`
+- `GameBootstrap` – giriş noktası, adayı/ışığı/oyuncuyu oluşturur
+- `GameManager` – maç akışı, takımlar, kazanma/kaybetme
+- `PlayerController`, `BotAgent`, `WeaponController`, `WeaponData`
+- `SafeZoneController`, `LootSystem`, `ProfileData`, `Inventory`
+- `UIManager`, `TouchControls`, `HoldButton`, `UIUtil`
+
+`Assets/Editor/ZootopiaBuild.cs` – derleme öncesi otomatik proje kurulumu.
+
+## Lisans
+
+MIT. [ebito-coder/battle-island-mobile](https://github.com/ebito-coder/battle-island-mobile) prototipi temel alınarak geliştirilmiştir; orijinal telif bildirimi `LICENSE` dosyasında korunmaktadır.
