@@ -58,7 +58,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         head.transform.SetParent(body.transform, false);
         head.transform.localPosition = new Vector3(0f, 0.85f, 0f);
         head.transform.localScale = new Vector3(0.75f, 0.6f, 0.75f);
-        head.GetComponent<Renderer>().material.color = new Color(0.9f, 0.75f, 0.6f);
+        head.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.9f, 0.75f, 0.6f));
 
         var weaponObj = new GameObject("BotWeapon");
         weaponObj.transform.SetParent(transform, false);
@@ -78,7 +78,7 @@ public class BotAgent : MonoBehaviour, IDamageable
     {
         team = teamId;
         botName = displayName;
-        bodyRenderer.material.color = color;
+        bodyRenderer.sharedMaterial = MaterialCache.Lit(color);
         weapon.Initialize(weaponData, weaponModel);
         armor = Random.value < 0.3f ? 40f : 0f;
         wanderTarget = transform.position;

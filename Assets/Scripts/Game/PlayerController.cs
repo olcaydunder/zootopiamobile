@@ -66,7 +66,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         DestroyImmediate(bodyObj.GetComponent<Collider>());
         bodyObj.transform.SetParent(transform, false);
         bodyObj.transform.localScale = new Vector3(0.75f, 0.9f, 0.75f);
-        bodyObj.GetComponent<Renderer>().material.color = new Color(0.17f, 0.55f, 1f);
+        bodyObj.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.17f, 0.55f, 1f));
         body = bodyObj.transform;
 
         var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -75,7 +75,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         head.transform.SetParent(body, false);
         head.transform.localPosition = new Vector3(0f, 0.85f, 0f);
         head.transform.localScale = new Vector3(0.75f, 0.6f, 0.75f);
-        head.GetComponent<Renderer>().material.color = new Color(0.95f, 0.8f, 0.65f);
+        head.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.95f, 0.8f, 0.65f));
 
         var backpack = GameObject.CreatePrimitive(PrimitiveType.Cube);
         backpack.name = "Backpack";
@@ -83,7 +83,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         backpack.transform.SetParent(body, false);
         backpack.transform.localPosition = new Vector3(0f, 0.2f, -0.45f);
         backpack.transform.localScale = new Vector3(0.7f, 0.6f, 0.3f);
-        backpack.GetComponent<Renderer>().material.color = new Color(0.35f, 0.3f, 0.2f);
+        backpack.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.35f, 0.3f, 0.2f));
     }
 
     private void CreateCamera()

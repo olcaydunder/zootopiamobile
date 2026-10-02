@@ -37,7 +37,7 @@ public class LootSystem : MonoBehaviour
             crate.transform.position = new Vector3(p.x, 0.3f, p.y);
             crate.transform.localScale = new Vector3(0.8f, 0.6f, 0.8f);
             crate.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 90f), 0f);
-            crate.GetComponent<Renderer>().material.color = ColorFor(type);
+            crate.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(ColorFor(type));
 
             // Pick-ups shouldn't block movement or bullets.
             Destroy(crate.GetComponent<Collider>());

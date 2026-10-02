@@ -26,7 +26,7 @@ public class WeaponController : MonoBehaviour
         if (model != null)
             modelRenderer = model;
         if (modelRenderer != null)
-            modelRenderer.material.color = data.color;
+            modelRenderer.sharedMaterial = MaterialCache.Lit(data.color);
 
         EnsureTracer();
     }

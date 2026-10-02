@@ -81,7 +81,7 @@ public class GameBootstrap : MonoBehaviour
         ocean.transform.SetParent(world, false);
         ocean.transform.position = new Vector3(0f, -1.6f, 0f);
         ocean.transform.localScale = new Vector3(60f, 1f, 60f);
-        ocean.GetComponent<Renderer>().material.color = new Color(0.12f, 0.42f, 0.68f);
+        ocean.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.12f, 0.42f, 0.68f));
 
         // Beach ring, then grass on top.
         CreateDisc(world, "Beach", IslandRadius + 5f, -0.08f, new Color(0.86f, 0.78f, 0.55f));
@@ -114,7 +114,7 @@ public class GameBootstrap : MonoBehaviour
         // Unity's cylinder is 2 units tall and 1 unit wide.
         disc.transform.localScale = new Vector3(radius * 2f, 1f, radius * 2f);
         disc.transform.position = new Vector3(0f, topY - 1f, 0f);
-        disc.GetComponent<Renderer>().material.color = color;
+        disc.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(color);
 
         // The default capsule collider would make a dome; use the real cylinder shape.
         DestroyImmediate(disc.GetComponent<Collider>());
@@ -131,7 +131,7 @@ public class GameBootstrap : MonoBehaviour
         trunk.transform.SetParent(parent, false);
         trunk.transform.position = pos + Vector3.up * (h * 0.5f);
         trunk.transform.localScale = new Vector3(0.45f, h * 0.5f, 0.45f);
-        trunk.GetComponent<Renderer>().material.color = new Color(0.36f, 0.24f, 0.13f);
+        trunk.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.36f, 0.24f, 0.13f));
 
         var canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         canopy.name = "Canopy";
@@ -140,7 +140,7 @@ public class GameBootstrap : MonoBehaviour
         float s = 2.2f + (float)rng.NextDouble() * 1.2f;
         canopy.transform.localScale = new Vector3(s / 0.45f, s / (h * 0.5f), s / 0.45f);
         float g = 0.45f + (float)rng.NextDouble() * 0.2f;
-        canopy.GetComponent<Renderer>().material.color = new Color(0.12f, g, 0.18f);
+        canopy.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.12f, g, 0.18f));
     }
 
     private static void CreateRock(Transform parent, Vector3 pos, System.Random rng)
@@ -154,7 +154,7 @@ public class GameBootstrap : MonoBehaviour
         rock.transform.localScale = new Vector3(w, h, w * (0.7f + (float)rng.NextDouble() * 0.6f));
         rock.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
         float v = 0.45f + (float)rng.NextDouble() * 0.15f;
-        rock.GetComponent<Renderer>().material.color = new Color(v, v, v * 1.05f);
+        rock.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(v, v, v * 1.05f));
     }
 
     private static void CreateHouse(Transform parent, Vector3 pos, float yaw, System.Random rng)
@@ -191,6 +191,6 @@ public class GameBootstrap : MonoBehaviour
         box.transform.SetParent(parent, false);
         box.transform.localPosition = localPos;
         box.transform.localScale = scale;
-        box.GetComponent<Renderer>().material.color = color;
+        box.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(color);
     }
 }
