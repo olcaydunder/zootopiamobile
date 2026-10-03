@@ -91,8 +91,7 @@ public class LootSystem : MonoBehaviour
                 model.transform.localScale *= k;
             b = ModelLibrary.RenderBounds(model);
             model.transform.localPosition = new Vector3(0f, -0.3f - (b.min.y - position.y), 0f);
-            foreach (var r in model.GetComponentsInChildren<Renderer>())
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ModelLibrary.ShareMaterials(model, false);
             Part(crate.transform, PrimitiveType.Cube, new Vector3(0f, 0.27f, 0f), new Vector3(0.6f, 0.04f, 0.16f), body);
         }
         else

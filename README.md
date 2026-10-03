@@ -16,7 +16,12 @@
 - **Araçlar:** Binilebilen ciplerle hızlı ulaşım ve ezme hasarı
 - **Güvenli bölge:** 6 aşamada daralan mavi duvar, sonraki bölge çemberi
 - **Botlar:** Paraşütle iner, görüş hattı, tepki süresi, isabet sapması, el bombası, bölgeden kaçma; takım arkadaşları seni takip eder
-- **Arayüz:** Mini harita, isabet işareti, hasar sayıları, öldürme akışı, yükseklik/hız göstergesi
+- **Arayüz:** Mini harita, isabet işareti, hasar sayıları, hasar yönü göstergesi, öldürme akışı, yükseklik/hız göstergesi, duraklatma menüsü
+- **Nişan alma:** NİŞAN butonu ile yakınlaştırma (keskin nişancıda dürbün), daha az sekme
+- **Yere düşme:** Duo/Squad'da can bitince yere düşersin; bot takım arkadaşın gelip 5 saniyede kaldırır
+- **Mağaza:** Maçlardan kazanılan altınla 6 farklı karakter açılır ve kuşanılır
+- **Ayarlar:** Bakış hassasiyeti, grafik kalitesi (düşük/orta/yüksek), ses; düşük RAM'li telefonlarda otomatik düşük kalite
+- **İlk maç ipuçları**, rakip adım sesleri, oyuncu seviyesine göre zorlaşan botlar, uygulama ikonu
 - **Ses ve efekt:** Silah, patlama, adım, uçak, rüzgâr, motor sesleri; namlu alevi, kıvılcım, toz, patlama efektleri
 - **Profil:** Seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
 - Karakter, silah ve siper modelleri Quaternius'un CC0 paketlerinden (bkz. `ASSETS.md`); geri kalan her şey koddan üretilir
@@ -41,7 +46,7 @@ Proje hiçbir sahne veya editör ayarı gerektirmez; her şey koddan kurulur.
 **Unity Editör (isteğe bağlı)**
 Projeyi Unity Hub'da aç; ilk açılışta sahne kendiliğinden oluşur (veya menü: *Zootopia → Projeyi Hazırla*). Play'e bas.
 
-Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol tık ateş, Shift koş, Space zıpla/atla, C eğil, R doldur, X ilk yardım, V içecek, G el bombası, Q silah değiş, F araca bin/in.
+Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol tık ateş, Shift koş, Space zıpla/atla, C eğil, R doldur, X ilk yardım, V içecek, G el bombası, Q silah değiş, F araca bin/in, E nişan.
 
 ## Kod yapısı
 

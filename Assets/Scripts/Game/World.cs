@@ -697,16 +697,19 @@ public static class World
         if (ModelLibrary.Prefab(ModelLibrary.PropPath("Crate")) == null)
             return;
 
-        // Small clutter next to buildings.
-        foreach (var c in HouseCenters)
+        // Small clutter next to buildings (outside their footprint).
+        for (int h = 0; h < HouseCenters.Count; h++)
         {
+            Vector3 c = HouseCenters[h];
+            Vector4 f = houseFootprints[h];
+            float outer = Mathf.Sqrt(f.z * f.z + f.w * f.w);   // half-diagonal
             int n = 1 + rng.Next(3);
             for (int i = 0; i < n; i++)
             {
                 float a = Rand(rng, 0f, Mathf.PI * 2f);
-                float r = Rand(rng, 5.5f, 8f);
+                float r = Rand(rng, outer + 1.5f, outer + 4f);
                 Vector3 p = new Vector3(c.x + Mathf.Cos(a) * r, 0f, c.z + Mathf.Sin(a) * r);
-                if (!IsLand(p.x, p.z))
+                if (!IsLand(p.x, p.z) || NearVehicleSpot(p, 4f))
                     continue;
                 string name = rng.NextDouble() < 0.75
                     ? ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)]
@@ -720,7 +723,7 @@ public static class World
         for (int attempt = 0; attempt < 200 && placed < 45; attempt++)
         {
             Vector3 p = RandomLandPoint(rng, 10f, IslandRadius - 6f);
-            if (Slope(p.x, p.z) > 0.3f || NearHouse(p, 11f))
+            if (Slope(p.x, p.z) > 0.3f || NearHouse(p, 13f) || NearVehicleSpot(p, 6f))
                 continue;
             string name = ModelLibrary.CoverProps[rng.Next(ModelLibrary.CoverProps.Length)];
             PlaceProp(parent, name, p, Rand(rng, 0f, 360f));
@@ -733,6 +736,18 @@ public static class World
                 PlaceProp(parent, ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)], q, Rand(rng, 0f, 360f));
             }
         }
+    }
+
+    private static bool NearVehicleSpot(Vector3 p, float distance)
+    {
+        foreach (var v in VehicleSpots)
+        {
+            float dx = v.x - p.x;
+            float dz = v.z - p.z;
+            if (dx * dx + dz * dz < distance * distance)
+                return true;
+        }
+        return false;
     }
 
     private static void PlaceProp(Transform parent, string name, Vector3 p, float yaw)
@@ -748,6 +763,8 @@ public static class World
             return;
         }
         model.transform.localPosition = Vector3.zero;
+        bool small = System.Array.IndexOf(ModelLibrary.SmallProps, name) >= 0;
+        ModelLibrary.ShareMaterials(model, !small);
 
         // Guard against unit mix-ups (props are 0.5 - 5 m).
         Bounds b = ModelLibrary.RenderBounds(model);

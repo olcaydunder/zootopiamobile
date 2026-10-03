@@ -64,6 +64,24 @@ public class UIManager : MonoBehaviour
     private RectTransform planeLine;
     private readonly List<RectTransform> allyDots = new List<RectTransform>();
 
+    // Overlays: settings, shop, pause
+    private GameObject settingsPanel;
+    private GameObject shopPanel;
+    private GameObject pausePanel;
+    private Text sensText, qualityText, volumeText;
+    private Text shopCoinsText;
+    private readonly List<Text> shopLabels = new List<Text>();
+    private readonly List<Image> shopButtons = new List<Image>();
+    private bool settingsFromPause;
+
+    // Downed + damage direction
+    private GameObject downedGroup;
+    private RectTransform reviveFill;
+    private Text downedText;
+    private readonly List<Image> damageArrows = new List<Image>();
+    private readonly List<float> damageArrowTimes = new List<float>();
+    private int nextArrow;
+
     // Result
     private Text resultTitle;
     private Text resultDetails;
@@ -88,6 +106,9 @@ public class UIManager : MonoBehaviour
         BuildMatchmaking();
         BuildHud();
         BuildResult();
+        BuildSettings();
+        BuildShop();
+        BuildPause();
         HideAll();
     }
 
@@ -97,6 +118,9 @@ public class UIManager : MonoBehaviour
         matchmakingPanel.SetActive(false);
         hudPanel.SetActive(false);
         resultPanel.SetActive(false);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (shopPanel != null) shopPanel.SetActive(false);
+        if (pausePanel != null) pausePanel.SetActive(false);
     }
 
     // ----- Builders -----
@@ -137,6 +161,11 @@ public class UIManager : MonoBehaviour
             new Vector2(0f, -100f), new Vector2(1600f, 50f), 28, TextAnchor.MiddleCenter);
 
         lobbyStatsText = UIUtil.CreateText(t, "", center, new Vector2(0f, -190f), new Vector2(1400f, 50f), 30, TextAnchor.MiddleCenter);
+
+        UIUtil.CreateButton(t, "KARAKTERLER", center, new Vector2(-200f, -290f), new Vector2(330f, 86f), new Color(0.95f, 0.65f, 0.15f, 0.95f), false, 32, out unused)
+            .onClick.AddListener(OpenShop);
+        UIUtil.CreateButton(t, "AYARLAR", center, new Vector2(200f, -290f), new Vector2(330f, 86f), new Color(0.35f, 0.38f, 0.45f, 0.95f), false, 32, out unused)
+            .onClick.AddListener(() => OpenSettings(false));
 
         var credit = UIUtil.CreateText(t, ProducerCredit, new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(1200f, 50f), 30, TextAnchor.MiddleCenter);
         credit.color = new Color(1f, 1f, 1f, 0.8f);
@@ -218,10 +247,37 @@ public class UIManager : MonoBehaviour
             popups.Add(new Popup { text = p, born = -10f });
         }
 
+        // Damage direction arrows around the crosshair.
+        for (int i = 0; i < 4; i++)
+        {
+            var arrow = UIUtil.CreateImage(t, "DamageDir", c, Vector2.zero, new Vector2(90f, 14f), new Color(1f, 0.15f, 0.1f, 0f), false);
+            arrow.raycastTarget = false;
+            damageArrows.Add(arrow);
+            damageArrowTimes.Add(-10f);
+        }
+
+        // Knocked-down overlay.
+        downedGroup = UIUtil.CreateStretch(t, "Downed").gameObject;
+        var dg = downedGroup.transform;
+        downedText = UIUtil.CreateText(dg, "YERE DÜŞTÜN", c, new Vector2(0f, -120f), new Vector2(900f, 60f), 44, TextAnchor.MiddleCenter);
+        downedText.color = new Color(1f, 0.4f, 0.35f);
+        downedText.fontStyle = FontStyle.Bold;
+        UIUtil.CreateImage(dg, "ReviveBg", c, new Vector2(0f, -175f), new Vector2(BarWidth, 18f), new Color(0f, 0f, 0f, 0.55f), false).raycastTarget = false;
+        var fill = UIUtil.CreateImage(dg, "ReviveFill", c, new Vector2(-BarWidth * 0.5f, -175f), new Vector2(0f, 18f), new Color(0.3f, 1f, 0.45f, 0.95f), false);
+        fill.raycastTarget = false;
+        reviveFill = fill.rectTransform;
+        reviveFill.pivot = new Vector2(0f, 0.5f);
+        downedGroup.SetActive(false);
+
         // Touch controls live on their own full-screen layer inside the HUD.
         var controlsRect = UIUtil.CreateStretch(t, "TouchControls");
         touchControls = controlsRect.gameObject.AddComponent<TouchControls>();
         touchControls.Build(canvas);
+
+        // Pause button (top-left, above the touch layer).
+        Text pauseLabel;
+        UIUtil.CreateButton(t, "II", new Vector2(0f, 1f), new Vector2(70f, -60f), new Vector2(90f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 34, out pauseLabel)
+            .onClick.AddListener(OpenPause);
     }
 
     private void BuildMinimap(Transform parent)
@@ -294,6 +350,216 @@ public class UIManager : MonoBehaviour
         Text unused;
         UIUtil.CreateButton(t, "LOBİYE DÖN", c, new Vector2(0f, -180f), new Vector2(420f, 120f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 40, out unused)
             .onClick.AddListener(() => GameManager.Instance.JoinLobby());
+    }
+
+    // ----- Settings / shop / pause -----
+
+    private GameObject CreateOverlay(string name, Vector2 size)
+    {
+        var dim = CreateFullPanel(name, new Color(0f, 0f, 0f, 0.6f));
+        var box = UIUtil.CreateImage(dim.transform, "Box", new Vector2(0.5f, 0.5f), Vector2.zero, size, new Color(0.07f, 0.1f, 0.15f, 0.97f), false);
+        box.raycastTarget = true;
+        return dim;
+    }
+
+    private Text SettingRow(Transform box, string label, float y, UnityEngine.Events.UnityAction minus, UnityEngine.Events.UnityAction plus)
+    {
+        var c = new Vector2(0.5f, 0.5f);
+        UIUtil.CreateText(box, label, c, new Vector2(-250f, y), new Vector2(320f, 60f), 34, TextAnchor.MiddleLeft);
+        Text unused;
+        UIUtil.CreateButton(box, "-", c, new Vector2(40f, y), new Vector2(80f, 70f), new Color(0.25f, 0.3f, 0.4f, 1f), false, 40, out unused).onClick.AddListener(minus);
+        var value = UIUtil.CreateText(box, "", c, new Vector2(175f, y), new Vector2(180f, 60f), 34, TextAnchor.MiddleCenter);
+        UIUtil.CreateButton(box, "+", c, new Vector2(310f, y), new Vector2(80f, 70f), new Color(0.25f, 0.3f, 0.4f, 1f), false, 40, out unused).onClick.AddListener(plus);
+        return value;
+    }
+
+    private void BuildSettings()
+    {
+        settingsPanel = CreateOverlay("SettingsPanel", new Vector2(860f, 620f));
+        var box = settingsPanel.transform.Find("Box");
+        var c = new Vector2(0.5f, 0.5f);
+        var title = UIUtil.CreateText(box, "AYARLAR", c, new Vector2(0f, 240f), new Vector2(600f, 70f), 48, TextAnchor.MiddleCenter);
+        title.fontStyle = FontStyle.Bold;
+
+        sensText = SettingRow(box, "Bakış hassasiyeti", 120f,
+            () => { GameSettings.Sensitivity = Mathf.Max(0.4f, GameSettings.Sensitivity - 0.1f); SettingsChanged(); },
+            () => { GameSettings.Sensitivity = Mathf.Min(2f, GameSettings.Sensitivity + 0.1f); SettingsChanged(); });
+        qualityText = SettingRow(box, "Grafik kalitesi", 20f,
+            () => { GameSettings.Quality = Mathf.Max(0, GameSettings.Quality - 1); SettingsChanged(); },
+            () => { GameSettings.Quality = Mathf.Min(2, GameSettings.Quality + 1); SettingsChanged(); });
+        volumeText = SettingRow(box, "Ses", -80f,
+            () => { GameSettings.Volume = Mathf.Max(0f, GameSettings.Volume - 0.1f); SettingsChanged(); },
+            () => { GameSettings.Volume = Mathf.Min(1f, GameSettings.Volume + 0.1f); SettingsChanged(); });
+
+        Text unused;
+        UIUtil.CreateButton(box, "KAPAT", c, new Vector2(0f, -220f), new Vector2(300f, 90f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 34, out unused)
+            .onClick.AddListener(CloseSettings);
+    }
+
+    private void SettingsChanged()
+    {
+        GameSettings.Save();
+        RefreshSettings();
+    }
+
+    private void RefreshSettings()
+    {
+        sensText.text = GameSettings.Sensitivity.ToString("0.0") + "x";
+        qualityText.text = GameSettings.QualityNames[GameSettings.Quality];
+        volumeText.text = Mathf.RoundToInt(GameSettings.Volume * 100f) + "%";
+    }
+
+    public void OpenSettings(bool fromPause)
+    {
+        settingsFromPause = fromPause;
+        if (pausePanel != null) pausePanel.SetActive(false);
+        RefreshSettings();
+        settingsPanel.SetActive(true);
+    }
+
+    private void CloseSettings()
+    {
+        settingsPanel.SetActive(false);
+        if (settingsFromPause)
+            pausePanel.SetActive(true);
+    }
+
+    private void BuildShop()
+    {
+        shopPanel = CreateFullPanel("ShopPanel", new Color(0f, 0f, 0f, 0.15f));
+        var boxImg = UIUtil.CreateImage(shopPanel.transform, "Box", new Vector2(0.5f, 0f), new Vector2(0f, 300f), new Vector2(1240f, 560f), new Color(0.07f, 0.1f, 0.15f, 0.92f), false);
+        var box = boxImg.transform;
+        var c = new Vector2(0.5f, 0.5f);
+        var title = UIUtil.CreateText(box, "KARAKTERLER", c, new Vector2(0f, 235f), new Vector2(800f, 60f), 42, TextAnchor.MiddleCenter);
+        title.fontStyle = FontStyle.Bold;
+        shopCoinsText = UIUtil.CreateText(box, "", c, new Vector2(0f, 185f), new Vector2(1100f, 44f), 28, TextAnchor.MiddleCenter);
+        shopCoinsText.color = new Color(1f, 0.85f, 0.3f);
+
+        for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
+        {
+            int index = i;
+            float x = (i % 3 - 1) * 390f;
+            float y = i < 3 ? 75f : -75f;
+            Text label;
+            var b = UIUtil.CreateButton(box, "", c, new Vector2(x, y), new Vector2(360f, 130f), new Color(0.2f, 0.25f, 0.35f, 1f), false, 30, out label);
+            b.onClick.AddListener(() => ShopClicked(index));
+            shopLabels.Add(label);
+            shopButtons.Add(b.GetComponent<Image>());
+        }
+
+        UIUtil.CreateText(box, "Seçtiğin karakter yukarıda lobide hemen görünür", c, new Vector2(-300f, -215f), new Vector2(560f, 40f), 24, TextAnchor.MiddleCenter);
+        Text unused;
+        UIUtil.CreateButton(box, "KAPAT", c, new Vector2(330f, -215f), new Vector2(280f, 76f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 34, out unused)
+            .onClick.AddListener(() => { shopPanel.SetActive(false); ShowLobby(); });
+    }
+
+    private void OpenShop()
+    {
+        RefreshShop();
+        shopPanel.SetActive(true);
+    }
+
+    private void RefreshShop()
+    {
+        var p = GameManager.Instance.profile;
+        shopCoinsText.text = "Altın: " + p.coins + "   (maç kazanarak ve öldürerek kazanılır)";
+        for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
+        {
+            string skin = ModelLibrary.ShopSkins[i];
+            string status;
+            Color color;
+            if (p.equippedSkin == skin)
+            {
+                status = "KUŞANILDI";
+                color = new Color(0.2f, 0.6f, 0.3f, 1f);
+            }
+            else if (p.OwnsSkin(skin))
+            {
+                status = "Kuşan";
+                color = new Color(0.2f, 0.35f, 0.55f, 1f);
+            }
+            else
+            {
+                status = ModelLibrary.ShopPrices[i] + " altın";
+                color = p.coins >= ModelLibrary.ShopPrices[i] ? new Color(0.55f, 0.4f, 0.12f, 1f) : new Color(0.25f, 0.25f, 0.28f, 1f);
+            }
+            shopLabels[i].text = ModelLibrary.ShopNames[i] + "\n" + status;
+            shopButtons[i].color = color;
+        }
+    }
+
+    private void ShopClicked(int index)
+    {
+        var gm = GameManager.Instance;
+        var p = gm.profile;
+        string skin = ModelLibrary.ShopSkins[index];
+        if (!p.OwnsSkin(skin))
+        {
+            if (!p.BuySkin(skin, ModelLibrary.ShopPrices[index]))
+            {
+                shopCoinsText.text = "Yetersiz altın! Gereken: " + ModelLibrary.ShopPrices[index];
+                return;
+            }
+            Sfx.Play(SoundBank.Pickup, 0.6f);
+        }
+        p.EquipSkin(skin);
+        if (gm.player != null)
+            gm.player.ApplySkin(skin);
+        RefreshShop();
+    }
+
+    private void BuildPause()
+    {
+        pausePanel = CreateOverlay("PausePanel", new Vector2(640f, 560f));
+        var box = pausePanel.transform.Find("Box");
+        var c = new Vector2(0.5f, 0.5f);
+        var title = UIUtil.CreateText(box, "DURAKLATILDI", c, new Vector2(0f, 200f), new Vector2(600f, 70f), 46, TextAnchor.MiddleCenter);
+        title.fontStyle = FontStyle.Bold;
+        Text unused;
+        UIUtil.CreateButton(box, "DEVAM ET", c, new Vector2(0f, 70f), new Vector2(420f, 96f), new Color(0.2f, 0.6f, 0.3f, 1f), false, 36, out unused)
+            .onClick.AddListener(ClosePause);
+        UIUtil.CreateButton(box, "AYARLAR", c, new Vector2(0f, -50f), new Vector2(420f, 96f), new Color(0.35f, 0.38f, 0.45f, 1f), false, 36, out unused)
+            .onClick.AddListener(() => OpenSettings(true));
+        UIUtil.CreateButton(box, "MAÇTAN ÇIK", c, new Vector2(0f, -170f), new Vector2(420f, 96f), new Color(0.7f, 0.2f, 0.18f, 1f), false, 36, out unused)
+            .onClick.AddListener(() => { Time.timeScale = 1f; GameManager.Instance.JoinLobby(); });
+    }
+
+    private void OpenPause()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || gm.currentState != GameState.InGame)
+            return;
+        Time.timeScale = 0f;
+        touchControls.ResetState();
+        pausePanel.SetActive(true);
+    }
+
+    private void ClosePause()
+    {
+        pausePanel.SetActive(false);
+        settingsPanel.SetActive(false);
+        Time.timeScale = 1f;
+    }
+
+    /// <summary>Red arc around the crosshair pointing toward whoever shot the player.</summary>
+    public void ShowDamageDirection(Vector3 source)
+    {
+        var cam = Camera.main;
+        if (cam == null)
+            return;
+        Vector3 to = source - cam.transform.position;
+        to.y = 0f;
+        Vector3 fwd = cam.transform.forward;
+        fwd.y = 0f;
+        if (to.sqrMagnitude < 0.01f || fwd.sqrMagnitude < 0.01f)
+            return;
+        float angle = Vector3.SignedAngle(fwd, to, Vector3.up);   // + = to the right
+        var arrow = damageArrows[nextArrow];
+        damageArrowTimes[nextArrow] = Time.time;
+        nextArrow = (nextArrow + 1) % damageArrows.Count;
+        float rad = angle * Mathf.Deg2Rad;
+        arrow.rectTransform.anchoredPosition = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad)) * 170f;
+        arrow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -angle);
     }
 
     // ----- Screens -----
@@ -449,6 +715,20 @@ public class UIManager : MonoBehaviour
         {
             damageAlpha = Mathf.Max(0f, damageAlpha - Time.deltaTime * 1.2f);
             damageFlash.color = new Color(0.9f, 0f, 0f, damageAlpha);
+        }
+
+        downedGroup.SetActive(player.isDowned);
+        if (player.isDowned)
+        {
+            reviveFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.reviveProgress / PlayerController.ReviveTime), 18f);
+            downedText.text = player.reviveProgress > 0f ? "KALDIRILIYORSUN..." : "YERE DÜŞTÜN - takım arkadaşın geliyor";
+        }
+
+        for (int i = 0; i < damageArrows.Count; i++)
+        {
+            float age = Time.time - damageArrowTimes[i];
+            float a = age < 1f ? 0.85f * (1f - age) : 0f;
+            damageArrows[i].color = new Color(1f, 0.15f, 0.1f, a);
         }
 
         if (hitMarks[0].enabled && Time.time > hitMarkUntil)

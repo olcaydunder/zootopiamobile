@@ -16,7 +16,8 @@ public static class ZootopiaBuild
     public const string CompanyName = "Olcay Yasin Dünder";
     public const string ProductName = "Zootopia Mobile";
     public const string AndroidPackage = "com.olcayasindunder.zootopiamobile";
-    public const string Version = "0.1.0";
+    public const string Version = "0.2.0";
+    public const string IconPath = "Assets/Icon/AppIcon.png";
 
     /// <summary>Called by Unity Build Automation before every build.</summary>
     public static void PreExport()
@@ -166,5 +167,10 @@ public static class ZootopiaBuild
         PlayerSettings.allowedAutorotateToLandscapeRight = true;
         PlayerSettings.allowedAutorotateToPortrait = false;
         PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+
+        // App icon (used for every size and platform).
+        var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
+        if (icon != null)
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new[] { icon });
     }
 }

@@ -9,6 +9,11 @@ public static class ModelLibrary
 {
     public const string PlayerSkin = "SoldierMale";
     public static readonly string[] EnemySkins = { "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale" };
+    /// <summary>Skins the player can buy in the lobby shop, with prices in coins.</summary>
+    public static readonly string[] ShopSkins = { "SoldierMale", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
+    public static readonly string[] ShopNames = { "Asker", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
+    public static readonly int[] ShopPrices = { 0, 150, 150, 300, 500, 400 };
+
     public static readonly string[] CoverProps = { "SackTrench_Small", "SackTrench", "Barrier_Single", "Container_Small", "Container_Long", "ExplodingBarrel", "GasTank", "TrashContainer", "CardboardBoxes_4", "Debris_Tires", "WaterTank_Floor" };
     public static readonly string[] SmallProps = { "Crate", "Pallet", "CardboardBoxes_2", "TrafficCone" };
 
@@ -92,6 +97,26 @@ public static class ModelLibrary
         for (int i = 1; i < renderers.Length; i++)
             b.Encapsulate(renderers[i].bounds);
         return b;
+    }
+
+    /// <summary>
+    /// Replaces each imported material with the shared per-colour material, so identical colours
+    /// across all model instances batch/instance together (big draw-call saving on phones).
+    /// </summary>
+    public static void ShareMaterials(GameObject root, bool castShadows)
+    {
+        foreach (var r in root.GetComponentsInChildren<Renderer>())
+        {
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (mats[i] != null)
+                    mats[i] = MaterialCache.Lit(mats[i].color);
+            }
+            r.sharedMaterials = mats;
+            if (!castShadows)
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
     }
 
     public static void SetLayer(GameObject obj, int layer)

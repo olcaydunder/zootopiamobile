@@ -42,6 +42,7 @@ public class BotAgent : MonoBehaviour, IDamageable
     private float verticalVelocity;
     private float nextGrenadeTime;
     private int grenades;
+    private float stepDistance;
     private const float Gravity = -20f;
 
     // Drop
@@ -111,6 +112,11 @@ public class BotAgent : MonoBehaviour, IDamageable
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
         weapon.Initialize(weaponData, weaponModel);
+
+        // Opponents get a little sharper as the player levels up.
+        int level = GameManager.Instance != null ? GameManager.Instance.profile.level : 1;
+        if (teamId != 0)
+            accuracy = Mathf.Max(1.8f, accuracy - Mathf.Min(level, 12) * 0.2f);
         armor = Random.value < 0.3f ? 40f : 0f;
         grenades = Random.value < 0.4f ? 1 : 0;
         wanderTarget = transform.position;
@@ -255,6 +261,19 @@ public class BotAgent : MonoBehaviour, IDamageable
 
         controller.Move((move * moveSpeed + Vector3.up * verticalVelocity) * Time.deltaTime);
 
+        // Footsteps you can hear when they are close.
+        if (controller.isGrounded && move.sqrMagnitude > 0.05f)
+        {
+            stepDistance += move.magnitude * moveSpeed * Time.deltaTime;
+            if (stepDistance > 2.3f)
+            {
+                stepDistance = 0f;
+                var p = PlayerController.LocalPlayer;
+                if (p != null && team != 0 && Vector3.Distance(p.transform.position, transform.position) < 28f)
+                    Sfx.PlayAt(SoundBank.Footstep, transform.position - Vector3.up * 0.8f, 0.8f, Random.Range(0.85f, 1.1f));
+            }
+        }
+
         rig.aiming = target != null && targetVisible;
         rig.aimPitch = 0f;
 
@@ -310,6 +329,17 @@ public class BotAgent : MonoBehaviour, IDamageable
     {
         var zone = gm.safeZone;
 
+        // A knocked-down player comes first, even outside the zone or mid-fight.
+        var downed = PlayerController.LocalPlayer;
+        if (team == 0 && downed != null && downed.isDowned && !downed.isDead)
+        {
+            Vector3 toDowned = downed.transform.position - transform.position;
+            toDowned.y = 0f;
+            if (toDowned.magnitude > 1.8f)
+                return toDowned.normalized * 1.4f;
+            downed.ReviveTick(Time.deltaTime);
+            return Vector3.zero;
+        }
         // Get back inside the zone first.
         if (zone != null && zone.DistanceFromCenter(transform.position) > zone.radius * 0.85f)
             return FlatDirection(zone.center - transform.position);
@@ -336,7 +366,6 @@ public class BotAgent : MonoBehaviour, IDamageable
             return side * 0.6f;
         }
 
-        // Teammates stick close to the player.
         var player = PlayerController.LocalPlayer;
         if (team == 0 && player != null && !player.isDead && !player.IsAirborne)
         {

@@ -59,6 +59,15 @@ public class PlayerController : MonoBehaviour, IDamageable
     private float boostRemaining;
     private float lastFireTime = -10f;
 
+    // Aim down sights, knock-down and damage direction
+    public bool aimingDownSights;
+    public bool isDowned;
+    public float reviveProgress;
+    public const float ReviveTime = 5f;
+    private Vector3 lastHitFrom;
+    private bool lastHitHasSource;
+    private string currentSkin = ModelLibrary.PlayerSkin;
+
     public int Team { get { return 0; } }
     public bool IsDead { get { return isDead; } }
     public bool IsAirborne { get { return state == PlayerState.Plane || state == PlayerState.Freefall || state == PlayerState.Parachute; } }
@@ -287,9 +296,17 @@ public class PlayerController : MonoBehaviour, IDamageable
         var gm = GameManager.Instance;
         if (gm == null || gm.currentState != GameState.InGame || isDead)
             return;
+        if (Time.timeScale == 0f)
+            return;   // paused
 
         var tc = TouchControls.Instance;
         HandleLook(tc);
+
+        if (isDowned)
+        {
+            UpdateDowned(gm, tc);
+            return;
+        }
 
         switch (state)
         {
@@ -326,7 +343,12 @@ public class PlayerController : MonoBehaviour, IDamageable
 
     private void LateUpdate()
     {
-        camDistance = Mathf.Lerp(camDistance, camTarget, Time.deltaTime * 3f);
+        if (state != PlayerState.Ground || isDead || isDowned)
+            aimingDownSights = false;
+        float wantedDistance = aimingDownSights ? 1.6f : camTarget;
+        camDistance = Mathf.Lerp(camDistance, wantedDistance, Time.deltaTime * (aimingDownSights ? 8f : 3f));
+        float wantedFov = aimingDownSights ? ZoomFov() : 70f;
+        playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, wantedFov, Time.deltaTime * 10f);
 
         // Keep the camera out of walls and hills.
         float dist = camDistance;
@@ -354,7 +376,7 @@ public class PlayerController : MonoBehaviour, IDamageable
     {
         Vector2 look = Vector2.zero;
         if (tc != null)
-            look += tc.LookDelta * touchLookSensitivity;
+            look += tc.LookDelta * touchLookSensitivity * GameSettings.Sensitivity * (aimingDownSights ? ZoomFov() / 70f : 1f);
 
         // Desktop testing: hold right mouse button to look around.
         if (!Application.isMobilePlatform && Input.GetMouseButton(1))
@@ -395,6 +417,12 @@ public class PlayerController : MonoBehaviour, IDamageable
         bool swap = Input.GetKeyDown(KeyCode.Q) || (tc != null && tc.ConsumeSwap());
         bool useVehicle = Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle());
         bool fire = (!Application.isMobilePlatform && Input.GetMouseButton(0)) || (tc != null && tc.FireHeld);
+        bool aim = Input.GetKeyDown(KeyCode.E) || (tc != null && tc.ConsumeAim());
+
+        if (aim)
+            aimingDownSights = !aimingDownSights;
+        if (isSprinting)
+            aimingDownSights = false;
 
         if (jump && controller.isGrounded)
         {
@@ -415,7 +443,10 @@ public class PlayerController : MonoBehaviour, IDamageable
         if (grenade)
             ThrowGrenade();
         if (swap)
+        {
             SwapWeapon();
+            aimingDownSights = false;
+        }
         if (useVehicle)
         {
             Vehicle near = gm.NearestVehicle(transform.position, 4.5f);
@@ -432,6 +463,8 @@ public class PlayerController : MonoBehaviour, IDamageable
             float camToPivot = Vector3.Distance(cam.position, cameraPivot.position);
             Vector3 origin = cam.position + cam.forward * camToPivot;
             float extraSpread = isSprinting ? 2.5f : (isCrouching ? 0f : 0.3f);
+            if (aimingDownSights)
+                extraSpread = -currentWeapon.weaponData.spread * 0.65f;   // much tighter when aiming
             bool killed;
             if (currentWeapon.TryFire(origin, cam.forward, Team, Physics.DefaultRaycastLayers, extraSpread, out killed))
             {
@@ -677,12 +710,117 @@ public class PlayerController : MonoBehaviour, IDamageable
             TakeDamage(9999f, -1);
     }
 
+    // ----- Aiming, knock-down, skins -----
+
+    private float ZoomFov()
+    {
+        if (currentWeapon == null || currentWeapon.weaponData == null)
+            return 55f;
+        switch (currentWeapon.weaponData.weaponType)
+        {
+            case WeaponType.Sniper: return 22f;
+            case WeaponType.Rifle: return 45f;
+            case WeaponType.SMG: return 55f;
+            case WeaponType.Shotgun: return 60f;
+            default: return 58f;
+        }
+    }
+
+    /// <summary>Called by weapons and grenades just before damaging the player, for the hit indicator.</summary>
+    public void MarkHitFrom(Vector3 source)
+    {
+        lastHitFrom = source;
+        lastHitHasSource = true;
+    }
+
+    private void GoDown()
+    {
+        isDowned = true;
+        health = maxHealth;            // now bleed-out health
+        boostRemaining = 0f;
+        reviveProgress = 0f;
+        aimingDownSights = false;
+        if (state == PlayerState.Driving)
+            ExitVehicle();
+        if (!isCrouching)
+            SetCrouch(true);
+        currentWeapon.gameObject.SetActive(false);
+        var gm = GameManager.Instance;
+        if (gm != null && gm.uiManager != null)
+            gm.uiManager.Toast("Yere düştün! Takım arkadaşın seni kaldıracak");
+    }
+
+    private void UpdateDowned(GameManager gm, TouchControls tc)
+    {
+        // Bleed out slowly; crawl at walking-pace / 4.
+        health -= 4f * Time.deltaTime;
+        if (health <= 0f || gm.AliveAllies() == 0 || transform.position.y < -15f)
+        {
+            health = 0f;
+            isDowned = false;
+            isDead = true;
+            rig.pose = RigPose.Dead;
+            gm.OnPlayerEliminated();
+            return;
+        }
+
+        Vector2 input = MoveInput(tc);
+        Vector3 move = Vector3.ClampMagnitude(transform.right * input.x + transform.forward * input.y, 1f);
+        if (controller.isGrounded && velocity.y < 0f)
+            velocity.y = -2f;
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move((move * 1.2f + Vector3.up * velocity.y) * Time.deltaTime);
+        rig.crouched = true;
+        rig.aiming = false;
+    }
+
+    /// <summary>Teammate bots call this every frame while standing next to the downed player.</summary>
+    public void ReviveTick(float dt)
+    {
+        if (!isDowned || isDead)
+            return;
+        reviveProgress += dt;
+        if (reviveProgress >= ReviveTime)
+        {
+            isDowned = false;
+            reviveProgress = 0f;
+            health = 30f;
+            SetCrouch(false);
+            currentWeapon.gameObject.SetActive(true);
+            var gm = GameManager.Instance;
+            if (gm != null && gm.uiManager != null)
+                gm.uiManager.Toast("Kaldırıldın! +30 can");
+        }
+    }
+
+    public string Skin { get { return currentSkin; } }
+
+    /// <summary>Swaps the character model (lobby shop).</summary>
+    public void ApplySkin(string skin)
+    {
+        if (skin == currentSkin && rig != null && rig.HasModel)
+            return;
+        var old = rig;
+        rig = CharacterRig.Build(gameObject, new Color(0.2f, 0.45f, 0.85f), new Color(0.25f, 0.27f, 0.3f),
+            new Color(0.93f, 0.78f, 0.63f), new Color(0.32f, 0.38f, 0.26f), new Color(0.42f, 0.34f, 0.22f), skin);
+        rig.weaponHold = currentWeapon.transform;
+        rig.aimReference = cameraPivot;
+        rig.crouched = isCrouching;
+        if (old != null)
+            old.Teardown();
+        currentSkin = skin;
+        SetLayerRecursively(gameObject, IgnoreRaycastLayer);
+    }
+
     // ----- Damage & round reset -----
 
     public bool TakeDamage(float amount, int attackerTeam)
     {
         if (isDead || IsAirborne)
+        {
+            lastHitHasSource = false;
             return false;
+        }
 
         // Zone damage (attackerTeam -1) ignores armor.
         if (attackerTeam >= 0 && armor > 0f)
@@ -701,12 +839,23 @@ public class PlayerController : MonoBehaviour, IDamageable
             gm.uiManager.FlashDamage();
             Shake(0.15f);
             rig.PlayHit();
+            if (lastHitHasSource)
+                gm.uiManager.ShowDamageDirection(lastHitFrom);
+        }
+        lastHitHasSource = false;
+
+        // Duo / Squad: knocked down first while a teammate can still pick you up.
+        if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && gm.AliveAllies() > 0)
+        {
+            GoDown();
+            return false;
         }
 
         if (health <= 0f)
         {
             health = 0f;
             isDead = true;
+            currentWeapon.gameObject.SetActive(false);
             if (state == PlayerState.Driving)
                 ExitVehicle();
             rig.pose = RigPose.Dead;
@@ -739,6 +888,9 @@ public class PlayerController : MonoBehaviour, IDamageable
         boostRemaining = 0f;
         pitch = 0f;
         isDead = false;
+        isDowned = false;
+        reviveProgress = 0f;
+        aimingDownSights = false;
         isSprinting = false;
         SetCrouch(false);
         inventory.Reset();

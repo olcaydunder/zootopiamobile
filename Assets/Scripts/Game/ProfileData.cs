@@ -10,6 +10,9 @@ public class ProfileData
     public int matches;
     public int wins;
     public int totalKills;
+    public string equippedSkin = ModelLibrary.PlayerSkin;
+    public string ownedSkins = ModelLibrary.PlayerSkin;
+    public bool tutorialDone;
 
     public int XpForNextLevel
     {
@@ -25,6 +28,37 @@ public class ProfileData
         matches = PlayerPrefs.GetInt("zm_matches", 0);
         wins = PlayerPrefs.GetInt("zm_wins", 0);
         totalKills = PlayerPrefs.GetInt("zm_kills", 0);
+        ownedSkins = PlayerPrefs.GetString("zm_skins", ModelLibrary.PlayerSkin);
+        equippedSkin = PlayerPrefs.GetString("zm_skin", ModelLibrary.PlayerSkin);
+        if (!OwnsSkin(equippedSkin))
+            equippedSkin = ModelLibrary.PlayerSkin;
+        tutorialDone = PlayerPrefs.GetInt("zm_tutorial", 0) == 1;
+    }
+
+    public bool OwnsSkin(string skin)
+    {
+        return ("," + ownedSkins + ",").Contains("," + skin + ",");
+    }
+
+    /// <summary>Buys a skin with coins. Returns false if not enough coins.</summary>
+    public bool BuySkin(string skin, int price)
+    {
+        if (OwnsSkin(skin))
+            return true;
+        if (coins < price)
+            return false;
+        coins -= price;
+        ownedSkins += "," + skin;
+        Save();
+        return true;
+    }
+
+    public void EquipSkin(string skin)
+    {
+        if (!OwnsSkin(skin))
+            return;
+        equippedSkin = skin;
+        Save();
     }
 
     public void Save()
@@ -36,6 +70,9 @@ public class ProfileData
         PlayerPrefs.SetInt("zm_matches", matches);
         PlayerPrefs.SetInt("zm_wins", wins);
         PlayerPrefs.SetInt("zm_kills", totalKills);
+        PlayerPrefs.SetString("zm_skins", ownedSkins);
+        PlayerPrefs.SetString("zm_skin", equippedSkin);
+        PlayerPrefs.SetInt("zm_tutorial", tutorialDone ? 1 : 0);
         PlayerPrefs.Save();
     }
 

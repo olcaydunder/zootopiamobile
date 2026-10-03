@@ -88,10 +88,14 @@ public class GameManager : MonoBehaviour
     public void JoinLobby()
     {
         StopAllCoroutines();
+        Time.timeScale = 1f;
         currentState = GameState.Lobby;
         ClearRound();
         if (player != null)
+        {
+            player.ApplySkin(profile.equippedSkin);
             player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
+        }
         uiManager.ShowLobby();
     }
 
@@ -154,6 +158,36 @@ public class GameManager : MonoBehaviour
         currentState = GameState.InGame;
         uiManager.ShowBattleHud();
         uiManager.Toast("Atlamak için ATLA'ya bas!");
+        if (!profile.tutorialDone)
+            StartCoroutine(TutorialTips());
+    }
+
+    /// <summary>One-time hints during the very first match.</summary>
+    private IEnumerator TutorialTips()
+    {
+        string[] tips =
+        {
+            "Sol başparmak: hareket  •  Sağ taraf: kaydırarak bakış",
+            "Yere inince sandıklara yürü: silah, mermi, zırh",
+            "NİŞAN ile yakınlaştır, ATEŞ basılıyken parmağını kaydırarak nişan al",
+            "Mavi duvarın dışı hasar verir, bölgenin içinde kal",
+            "Ciplerin yanında BİN butonu çıkar"
+        };
+        yield return new WaitForSeconds(4f);
+        foreach (var tip in tips)
+        {
+            while (player != null && player.IsAirborne && tip != tips[0])
+                yield return new WaitForSeconds(1f);
+            if (currentState != GameState.InGame)
+                yield break;
+            uiManager.Toast(tip);
+            if (!profile.tutorialDone)
+            {
+                profile.tutorialDone = true;   // show the tips once, even if the match ends early
+                profile.Save();
+            }
+            yield return new WaitForSeconds(7f);
+        }
     }
 
     private BotAgent SpawnBot(int team, string botName, Color color)
@@ -268,6 +302,18 @@ public class GameManager : MonoBehaviour
         foreach (var c in Combatants)
         {
             if (c != null && !c.IsDead)
+                count++;
+        }
+        return count;
+    }
+
+    /// <summary>Teammate bots that are alive and on the ground.</summary>
+    public int AliveAllies()
+    {
+        int count = 0;
+        foreach (var bot in bots)
+        {
+            if (bot != null && bot.team == 0 && !bot.isDead)
                 count++;
         }
         return count;

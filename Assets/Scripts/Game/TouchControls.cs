@@ -23,7 +23,8 @@ public class TouchControls : MonoBehaviour
     }
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
-    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued;
+    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued;
+    private Image aimImage;
 
     private Canvas canvas;
     private RectTransform root;
@@ -60,6 +61,7 @@ public class TouchControls : MonoBehaviour
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
     public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
+    public bool ConsumeAim() { bool v = aimQueued; aimQueued = false; return v; }
 
     public void Build(Canvas parentCanvas)
     {
@@ -103,6 +105,10 @@ public class TouchControls : MonoBehaviour
         UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel)
             .onClick.AddListener(() => grenadeQueued = true);
 
+        var aim = UIUtil.CreateButton(g, "NİŞAN", new Vector2(1f, 0f), new Vector2(-660f, 470f), new Vector2(115f, 115f), ButtonColor, true, 20, out unused);
+        aim.onClick.AddListener(() => aimQueued = true);
+        aimImage = aim.GetComponent<Image>();
+
         var swap = UIUtil.CreateButton(g, "DEĞİŞ", new Vector2(0.5f, 0f), new Vector2(0f, 330f), new Vector2(260f, 56f), ButtonColor, false, 20, out swapLabel);
         swap.onClick.AddListener(() => swapQueued = true);
         swapButton = swap.gameObject;
@@ -128,7 +134,7 @@ public class TouchControls : MonoBehaviour
     /// <summary>Called by the UI every frame to show only the buttons that make sense right now.</summary>
     public void UpdateContext(PlayerController player, bool vehicleNearby)
     {
-        bool onFoot = player.state == PlayerState.Ground;
+        bool onFoot = player.state == PlayerState.Ground && !player.isDowned;
         if (combatGroup.activeSelf != onFoot)
             combatGroup.SetActive(onFoot);
 
@@ -143,6 +149,13 @@ public class TouchControls : MonoBehaviour
             vehicleButton.SetActive(showVehicle);
         if (showVehicle)
             vehicleLabel.text = player.state == PlayerState.Driving ? "İN" : "BİN";
+
+        if (aimImage != null)
+            aimImage.color = player.aimingDownSights ? new Color(1f, 0.85f, 0.2f, 0.6f) : ButtonColor;
+
+        // Knocked down: only the joystick works.
+        if (player.isDowned && combatGroup.activeSelf)
+            combatGroup.SetActive(false);
 
         medkitLabel.text = "İLK YARDIM x" + player.inventory.medkits;
         drinkLabel.text = "İÇECEK x" + player.inventory.drinks;
@@ -161,7 +174,7 @@ public class TouchControls : MonoBehaviour
         moveFinger = -1;
         lookFinger = -1;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
-        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = false;
+        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

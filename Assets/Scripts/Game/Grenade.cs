@@ -86,6 +86,9 @@ public class Grenade : MonoBehaviour
                         damage *= 0.3f;
                 }
 
+                var hitPlayer = c as PlayerController;
+                if (hitPlayer != null)
+                    hitPlayer.MarkHitFrom(pos);
                 bool killed = c.TakeDamage(damage, team);
                 if (killed && !self && thrower is PlayerController)
                     gm.OnPlayerKill();

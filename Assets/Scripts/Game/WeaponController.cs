@@ -46,8 +46,8 @@ public class WeaponController : MonoBehaviour
             gunModelType = data.weaponType;
             if (gunModel != null)
             {
-                gunModel.transform.localPosition = Vector3.zero;
-                gunModel.transform.localRotation = Quaternion.identity;
+                gunModel.transform.localPosition = Vector3.zero;   // keep the prefab's own axis-fix rotation
+                ModelLibrary.ShareMaterials(gunModel, true);
                 ModelLibrary.SetLayer(gunModel, gameObject.layer);
                 FixGunScale(gunModel, data.weaponType);
             }
@@ -128,6 +128,9 @@ public class WeaponController : MonoBehaviour
                 {
                     bool head = hit.point.y - target.transform.position.y > 0.55f;
                     float damage = weaponData.damage * (head ? 2f : 1f);
+                    var hitPlayer = target as PlayerController;
+                    if (hitPlayer != null)
+                        hitPlayer.MarkHitFrom(transform.position);
                     if (target.TakeDamage(damage, shooterTeam))
                         killed = true;
                     totalDamage += damage;

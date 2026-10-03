@@ -36,6 +36,7 @@ public class GameBootstrap : MonoBehaviour
         var manager = new GameObject("GameManager").AddComponent<GameManager>();
         var player = new GameObject("Player").AddComponent<PlayerController>();
         manager.RegisterPlayer(player);
+        GameSettings.Load();
         manager.JoinLobby();
     }
 

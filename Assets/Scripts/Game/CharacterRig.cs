@@ -303,6 +303,8 @@ public class CharacterRig : MonoBehaviour
                 r.sharedMaterials = mats;
         }
 
+        ModelLibrary.ShareMaterials(model, true);
+
         // Normalise height to 1.8 m with the feet at the bottom of the CharacterController.
         model.transform.localPosition = Vector3.zero;
         model.transform.localRotation = Quaternion.identity;
@@ -469,6 +471,21 @@ public class CharacterRig : MonoBehaviour
             weaponHold.position = rightHand.position + aim * new Vector3(0f, 0.02f, 0.05f);
             weaponHold.rotation = aim;
         }
+    }
+
+    /// <summary>Removes this rig and everything it created (used when changing skins).</summary>
+    public void Teardown()
+    {
+        enabled = false;
+        states = null;
+        model = null;
+        if (graph.IsValid())
+            graph.Destroy();
+        if (root != null)
+            Destroy(root.gameObject);
+        if (canopy != null)
+            Destroy(canopy);
+        Destroy(this);
     }
 
     private void OnDestroy()
