@@ -7,14 +7,14 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: ZootopiaWater
-  m_Shader: {fileID: 4800000, guid: 3b0d112e1f01444c974ecbe5caefa36f, type: 3}
+  m_Name: ZootopiaGrass
+  m_Shader: {fileID: 4800000, guid: caf32cbf7645456abf3fe4a238c96c5c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -22,21 +22,15 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs:
-    - _FoamTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
+    m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _MapSize: 260
-    - _ShoreRadius: 90
-    - _WaveHeight: 0.35
-    - _WaveSpeed: 1
-    - _Shininess: 0.6
+    - _WindStrength: 0.12
+    - _WindSpeed: 1.6
+    - _FadeStart: 28
+    - _FadeEnd: 38
     m_Colors:
-    - _ShallowColor: {r: 0.2, g: 0.65, b: 0.75, a: 1}
-    - _DeepColor: {r: 0.05, g: 0.25, b: 0.45, a: 1}
-    - _SkyColor: {r: 0.7, g: 0.82, b: 0.95, a: 1}
-    - _SpecColor: {r: 1, g: 1, b: 1, a: 1}
+    - _BaseColor: {r: 0.16, g: 0.32, b: 0.1, a: 1}
+    - _TipColor: {r: 0.55, g: 0.68, b: 0.28, a: 1}
+    - _DryColor: {r: 0.72, g: 0.68, b: 0.36, a: 1}
   m_BuildTextureStacks: []

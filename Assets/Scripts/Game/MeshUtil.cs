@@ -115,12 +115,18 @@ public static class MeshUtil
     public static Mesh Grid(float size, int resolution)
     {
         var verts = new List<Vector3>((resolution + 1) * (resolution + 1));
+        var uvs = new List<Vector2>(verts.Capacity);
         var tris = new List<int>(resolution * resolution * 6);
         float step = size / resolution;
         float half = size * 0.5f;
         for (int z = 0; z <= resolution; z++)
+        {
             for (int x = 0; x <= resolution; x++)
+            {
                 verts.Add(new Vector3(x * step - half, 0f, z * step - half));
+                uvs.Add(new Vector2((float)x / resolution, (float)z / resolution));
+            }
+        }
         for (int z = 0; z < resolution; z++)
         {
             for (int x = 0; x < resolution; x++)
@@ -132,8 +138,10 @@ public static class MeshUtil
         }
         var mesh = new Mesh { name = "Grid" };
         mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
         mesh.SetTriangles(tris, 0);
         mesh.RecalculateNormals();
+        mesh.RecalculateTangents();   // the water shader uses tangent-space ripples
         mesh.RecalculateBounds();
         return mesh;
     }

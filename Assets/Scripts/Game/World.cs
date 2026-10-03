@@ -72,6 +72,21 @@ public static class World
         return HeightAt(x, z);
     }
 
+    /// <summary>True inside (or right next to) a building, where grass and props shouldn't go.</summary>
+    public static bool IsBlocked(float x, float z)
+    {
+        for (int i = 0; i < houseFootprints.Count; i++)
+        {
+            Vector4 f = houseFootprints[i];
+            float r = Mathf.Sqrt(f.z * f.z + f.w * f.w) + 0.6f;
+            float dx = f.x - x;
+            float dz = f.y - z;
+            if (dx * dx + dz * dz < r * r)
+                return true;
+        }
+        return false;
+    }
+
     public static bool IsLand(float x, float z)
     {
         return HeightAt(x, z) > 0.6f;
@@ -224,6 +239,7 @@ public static class World
         mesh.SetUVs(0, uvs);
         mesh.SetTriangles(tris, 0);
         mesh.RecalculateNormals();
+        mesh.RecalculateTangents();   // for the detail normal map
         mesh.RecalculateBounds();
 
         // Colour map painted from height, slope and noise.
@@ -244,14 +260,16 @@ public static class World
         }
         var colorMap = new Texture2D(GridRes, GridRes, TextureFormat.RGBA32, true);
         colorMap.wrapMode = TextureWrapMode.Clamp;
-        colorMap.filterMode = FilterMode.Bilinear;
-        colorMap.anisoLevel = 4;
+        colorMap.filterMode = FilterMode.Trilinear;
+        colorMap.anisoLevel = 8;
         colorMap.SetPixels32(colors);
         colorMap.Apply(true, true);
 
         var mat = CloneResource("ZootopiaTerrain");
         mat.SetTexture("_MainTex", colorMap);
-        mat.SetTexture("_DetailTex", DetailNoise());
+        var noise = DetailNoise();
+        mat.SetTexture("_DetailTex", noise);
+        mat.SetTexture("_DetailNormal", NormalFromHeight(noise));
 
         var terrain = new GameObject("Terrain");
         terrain.transform.SetParent(Root, false);
@@ -310,8 +328,38 @@ public static class World
         }
         var tex = new Texture2D(size, size, TextureFormat.RGBA32, true);
         tex.wrapMode = TextureWrapMode.Repeat;
-        tex.filterMode = FilterMode.Bilinear;
+        tex.filterMode = FilterMode.Trilinear;
+        tex.anisoLevel = 4;
         tex.SetPixels32(pixels);
+        tex.Apply(true, false);   // stays readable: the normal map is built from it
+        return tex;
+    }
+
+    /// <summary>Tileable normal map from a greyscale height texture (RGB-encoded tangent-space normals).</summary>
+    private static Texture2D NormalFromHeight(Texture2D height)
+    {
+        int w = height.width;
+        int h = height.height;
+        Color32[] src = height.GetPixels32();
+        var dst = new Color32[src.Length];
+        const float strength = 2.5f;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float l = src[y * w + (x - 1 + w) % w].r / 255f;
+                float r = src[y * w + (x + 1) % w].r / 255f;
+                float d = src[((y - 1 + h) % h) * w + x].r / 255f;
+                float u = src[((y + 1) % h) * w + x].r / 255f;
+                Vector3 n = new Vector3((l - r) * strength, (d - u) * strength, 1f).normalized;
+                dst[y * w + x] = new Color32((byte)((n.x * 0.5f + 0.5f) * 255f), (byte)((n.y * 0.5f + 0.5f) * 255f), (byte)((n.z * 0.5f + 0.5f) * 255f), 255);
+            }
+        }
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, true, true);
+        tex.wrapMode = TextureWrapMode.Repeat;
+        tex.filterMode = FilterMode.Trilinear;
+        tex.anisoLevel = 4;
+        tex.SetPixels32(dst);
         tex.Apply(true, true);
         return tex;
     }
@@ -352,8 +400,34 @@ public static class World
         var mr = water.AddComponent<MeshRenderer>();
         var mat = CloneResource("ZootopiaWater");
         mat.SetFloat("_ShoreRadius", IslandRadius);
+        mat.SetFloat("_MapSize", MapSize);
+        mat.SetTexture("_FoamTex", FoamMask());
         mr.sharedMaterial = mat;
         mr.shadowCastingMode = ShadowCastingMode.Off;
+    }
+
+    /// <summary>Bright where the sea is shallow next to the beach (for the water shader's foam).</summary>
+    private static Texture2D FoamMask()
+    {
+        const int size = 256;
+        var pixels = new Color32[size * size];
+        float scale = (float)GridRes / size;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float h = GridHeight(Mathf.RoundToInt(x * scale), Mathf.RoundToInt(y * scale));
+                float v = h > 0.1f ? 0f : Mathf.Clamp01(1f - (-h) / 1.6f);
+                byte b = (byte)(v * 255f);
+                pixels[y * size + x] = new Color32(b, b, b, 255);
+            }
+        }
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, true);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        tex.SetPixels32(pixels);
+        tex.Apply(true, true);
+        return tex;
     }
 
     // ----- Props -----

@@ -22,6 +22,7 @@
 - **Mağaza:** Maçlardan kazanılan altınla 6 farklı karakter açılır ve kuşanılır
 - **Ayarlar:** Bakış hassasiyeti, grafik kalitesi (düşük/orta/yüksek), ses; düşük RAM'li telefonlarda otomatik düşük kalite
 - **İlk maç ipuçları**, rakip adım sesleri, oyuncu seviyesine göre zorlaşan botlar, uygulama ikonu
+- **Grafik:** Post Processing Stack v2 (bloom, renk düzenleme, vinyet, yüksekte ortam gölgelemesi), MSAA/FXAA kenar yumuşatma, yumuşak gölgeler, rüzgârda sallanan çimenler (GPU instancing), dalgalı ve yansımalı deniz ile kıyı köpüğü, normal haritalı arazi, pürüzsüz (smooth) model yüzeyleri
 - **Ses ve efekt:** Silah, patlama, adım, uçak, rüzgâr, motor sesleri; namlu alevi, kıvılcım, toz, patlama efektleri
 - **Profil:** Seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
 - Karakter, silah ve siper modelleri Quaternius'un CC0 paketlerinden (bkz. `ASSETS.md`); geri kalan her şey koddan üretilir

@@ -47,9 +47,9 @@ public static class GameSettings
                 QualitySettings.lodBias = 0.6f;
                 break;
             case 2:
-                QualitySettings.shadows = ShadowQuality.All;
+                QualitySettings.shadows = ShadowQuality.All;          // soft shadows
                 QualitySettings.shadowDistance = 70f;
-                QualitySettings.shadowResolution = ShadowResolution.High;
+                QualitySettings.shadowResolution = ShadowResolution.VeryHigh;
                 Application.targetFrameRate = 60;
                 QualitySettings.lodBias = 1.5f;
                 break;
@@ -61,7 +61,12 @@ public static class GameSettings
                 QualitySettings.lodBias = 1f;
                 break;
         }
-        QualitySettings.shadowCascades = 1;
+        QualitySettings.shadowCascades = Quality == 2 ? 2 : 1;
+        QualitySettings.anisotropicFiltering = Quality == 0 ? AnisotropicFiltering.Disable : AnisotropicFiltering.ForceEnable;
+        QualitySettings.globalTextureMipmapLimit = 0;   // full-resolution textures
+        QualitySettings.skinWeights = Quality == 0 ? SkinWeights.TwoBones : SkinWeights.FourBones;
+        QualitySettings.softParticles = false;
+        Grass.SetQuality(Quality);
 
         float fogEnd = Quality == 0 ? 170f : (Quality == 2 ? 320f : 260f);
         RenderSettings.fogEndDistance = fogEnd;
@@ -69,5 +74,11 @@ public static class GameSettings
         var cam = Camera.main;
         if (cam != null)
             cam.farClipPlane = fogEnd + 150f;
+
+        var sun = RenderSettings.sun;
+        if (sun != null)
+            sun.shadows = Quality == 2 ? LightShadows.Soft : LightShadows.Hard;
+
+        PostFx.Apply(Quality);
     }
 }

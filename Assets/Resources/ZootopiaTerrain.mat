@@ -31,9 +31,14 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _DetailNormal:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _DetailScale: 0.35
     - _DetailStrength: 0.45
+    - _NormalStrength: 0.6
     m_Colors: []
   m_BuildTextureStacks: []
