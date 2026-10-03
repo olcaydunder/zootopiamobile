@@ -39,8 +39,30 @@ public static class ZootopiaBuild
     /// Prepares the project, then builds an APK using GameCI's command-line arguments
     /// (-customBuildPath, -buildVersion, -androidVersionCode, -androidKeystore*).
     /// </summary>
+    private static readonly List<string> buildErrors = new List<string>();
+
+    private static void CaptureLog(string message, string stack, LogType type)
+    {
+        if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert ||
+            (type == LogType.Warning && message.Contains("Shader")))
+            buildErrors.Add("[" + type + "] " + message + (type == LogType.Exception ? "\n" + stack : ""));
+    }
+
+    /// <summary>Errors of this build in build/zm_build_errors.txt (the CI workflow shows them).</summary>
+    private static void WriteErrors(string extra)
+    {
+        try
+        {
+            Directory.CreateDirectory("build");
+            File.WriteAllText("build/zm_build_errors.txt", extra + "\n" + string.Join("\n", buildErrors.ToArray()));
+        }
+        catch (System.Exception) { }
+    }
+
     public static void BuildAndroid()
     {
+        Application.logMessageReceived += CaptureLog;
+        WriteErrors("build method started");
         try
         {
             PreExport();
@@ -81,12 +103,18 @@ public static class ZootopiaBuild
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
             Debug.Log("[ZootopiaBuild] Result: " + report.summary.result + ", size: " + report.summary.totalSize + " bytes, output: " + output);
+            foreach (var step in report.steps)
+                foreach (var m in step.messages)
+                    if (m.type == LogType.Error || m.type == LogType.Exception)
+                        buildErrors.Add("[step " + step.name + "] " + m.content);
+            WriteErrors("result: " + report.summary.result);
             if (report.summary.result != BuildResult.Succeeded)
                 EditorApplication.Exit(1);
         }
         catch (System.Exception e)
         {
             Debug.LogError("[ZootopiaBuild] Build failed: " + e);
+            WriteErrors("exception: " + e);
             EditorApplication.Exit(1);
         }
     }

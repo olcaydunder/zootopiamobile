@@ -116,6 +116,17 @@ jobs:
           androidKeyaliasName: androiddebugkey
           androidKeyaliasPass: android
 
+      - name: Derleme hatalarını göster
+        if: failure()
+        run: |
+          f=build/zm_build_errors.txt
+          if [ -f "$f" ]; then
+            msg=$(head -c 6000 "$f" | cut -c1-400 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Unity derleme hataları::${msg}"
+          else
+            echo "::warning title=Unity derleme hataları::Derleme metodu hiç çalışmadı (büyük ihtimalle C# derleme hatası)."
+          fi
+
       - name: APK'yı bul
         id: apk
         run: |
