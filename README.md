@@ -17,7 +17,10 @@
 - **Güvenli bölge:** 6 aşamada daralan mavi duvar, sonraki bölge çemberi
 - **Botlar:** Paraşütle iner, görüş hattı, tepki süresi, isabet sapması, el bombası, bölgeden kaçma; takım arkadaşları seni takip eder
 - **Arayüz:** Mini harita, isabet işareti, hasar sayıları, hasar yönü göstergesi, öldürme akışı, yükseklik/hız göstergesi, duraklatma menüsü
-- **Nişan alma:** NİŞAN butonu ile yakınlaştırma (keskin nişancıda dürbün), daha az sekme
+- **Nişan alma:** NİŞAN butonu ile yakınlaştırma, daha az sekme; keskin nişancı ve 3x/6x dürbünde tam ekran dürbün görünümü
+- **Silah Atölyesi:** 5 aparat yuvası (namlu, nişangâh, alt namlu, şarjör, dipçik) ile 17 aparat, 9 kamuflaj (desenli, parlayan efsanevi/mitik olanlar dahil), hasar/atış hızı/isabet/mobilite/menzil/kontrol çubuklarında artı-eksi gösterimi, döndürülebilir 3D silah önizlemesi; seçimler maçta aldığın silahlara otomatik uygulanır
+- **Lobi:** Karakterin silahıyla ortada; profil, altın, mod seçimi (Solo/Duo/Squad), BAŞLAT, Silah Atölyesi, Karakterler, Kariyer
+- **Hata modu:** Ayarlar → Hata modu AÇIK. Ekranda FPS ve kırmızı HATA rozeti görünür; HATA EKRANI tüm hataları `ZM-...` kodlarıyla listeler, RAPORU KOPYALA cihaz bilgisiyle birlikte panoya kopyalar. Önceki oturumun hataları da saklanır (`zm_hata.log`)
 - **Yere düşme:** Duo/Squad'da can bitince yere düşersin; bot takım arkadaşın gelip 5 saniyede kaldırır
 - **Mağaza:** Maçlardan kazanılan altınla 6 farklı karakter açılır ve kuşanılır
 - **Ayarlar:** Bakış hassasiyeti, grafik kalitesi (düşük/orta/yüksek), ses; düşük RAM'li telefonlarda otomatik düşük kalite
@@ -56,7 +59,9 @@ Masaüstü test kontrolleri: WASD hareket, sağ fare tuşu basılı nişan, sol 
 - `GameManager` – maç akışı, takımlar, kazanma/kaybetme
 - `PlayerController`, `BotAgent`, `WeaponController`, `WeaponData`
 - `SafeZoneController`, `LootSystem`, `ProfileData`, `Inventory`
-- `UIManager`, `TouchControls`, `HoldButton`, `UIUtil`
+- `UIManager`, `TouchControls`, `HoldButton`, `UIUtil`, `Theme`
+- `Gunsmith` (aparat/kamuflaj verisi ve kayıt), `GunsmithScreen` (atölye ekranı), `WeaponDressing` (aparat modelleri ve kamuflaj)
+- `ErrorReporter` – hata kodları, hata ekranı, rapor
 
 `Assets/Editor/ZootopiaBuild.cs` – derleme öncesi otomatik proje kurulumu.
 

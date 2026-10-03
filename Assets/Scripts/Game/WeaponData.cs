@@ -23,6 +23,21 @@ public class WeaponData
     public float reloadTime;
     public Color color;
 
+    // Set by the gunsmith (attachments / camo). Defaults leave the gun unchanged.
+    public string[] attachments = new string[5];
+    public string camo = "";
+    public float recoilMul = 1f;
+    public float mobilityMul = 1f;
+    public float zoomMul = 1f;
+    public bool suppressed;
+
+    public WeaponData Clone()
+    {
+        var c = (WeaponData)MemberwiseClone();
+        c.attachments = (string[])attachments.Clone();
+        return c;
+    }
+
     public static WeaponData CreateRifle()
     {
         return new WeaponData
@@ -127,11 +142,11 @@ public class WeaponData
         {
             switch (weaponType)
             {
-                case WeaponType.Sniper: return 3f;
-                case WeaponType.Shotgun: return 2.5f;
-                case WeaponType.Pistol: return 1.2f;
-                case WeaponType.SMG: return 0.5f;
-                default: return 0.7f;
+                case WeaponType.Sniper: return 3f * recoilMul;
+                case WeaponType.Shotgun: return 2.5f * recoilMul;
+                case WeaponType.Pistol: return 1.2f * recoilMul;
+                case WeaponType.SMG: return 0.5f * recoilMul;
+                default: return 0.7f * recoilMul;
             }
         }
     }

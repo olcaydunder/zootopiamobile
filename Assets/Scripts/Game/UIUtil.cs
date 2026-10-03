@@ -131,6 +131,16 @@ public static class UIUtil
         return image;
     }
 
+    /// <summary>Small preview of a texture (used for camo swatches).</summary>
+    public static RawImage CreateRawSwatch(Transform parent, Texture2D texture, Vector2 position, Vector2 size)
+    {
+        var rect = CreateRect(parent, "Swatch", new Vector2(0.5f, 0.5f), position, size);
+        var raw = rect.gameObject.AddComponent<RawImage>();
+        raw.texture = texture;
+        raw.uvRect = new Rect(0f, 0f, size.x / size.y * 0.35f, 0.35f);
+        return raw;
+    }
+
     public static Text CreateText(Transform parent, string text, Vector2 anchor, Vector2 position, Vector2 size, int fontSize, TextAnchor alignment)
     {
         var rect = CreateRect(parent, "Text", anchor, position, size);

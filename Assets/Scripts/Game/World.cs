@@ -141,6 +141,7 @@ public static class World
         // because imported meshes are not CPU-readable.
         var cover = new GameObject("Cover").transform;
         cover.SetParent(Root, false);
+        BuildLobbySet(cover);
         BuildCover(cover, rng);
     }
 
@@ -783,7 +784,7 @@ public static class World
                 float a = Rand(rng, 0f, Mathf.PI * 2f);
                 float r = Rand(rng, outer + 1.5f, outer + 4f);
                 Vector3 p = new Vector3(c.x + Mathf.Cos(a) * r, 0f, c.z + Mathf.Sin(a) * r);
-                if (!IsLand(p.x, p.z) || NearVehicleSpot(p, 4f))
+                if (!IsLand(p.x, p.z) || NearVehicleSpot(p, 4f) || p.x * p.x + p.z * p.z < 100f)
                     continue;
                 string name = rng.NextDouble() < 0.75
                     ? ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)]
@@ -807,9 +808,38 @@ public static class World
             if (rng.NextDouble() < 0.35)
             {
                 Vector3 q = p + new Vector3(Rand(rng, -3f, 3f), 0f, Rand(rng, -3f, 3f));
-                PlaceProp(parent, ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)], q, Rand(rng, 0f, 360f));
+                if (q.x * q.x + q.z * q.z > 100f)
+                    PlaceProp(parent, ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)], q, Rand(rng, 0f, 360f));
             }
         }
+    }
+
+    public static Vector3 LobbySpot
+    {
+        get { return new Vector3(0f, HeightAt(0f, 0f) + 0.06f, 0f); }
+    }
+
+    /// <summary>Small set behind the lobby character: concrete pad, sandbags, barriers, container.</summary>
+    private static void BuildLobbySet(Transform parent)
+    {
+        var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        pad.name = "LobbyPad";
+        Object.DestroyImmediate(pad.GetComponent<Collider>());   // capsule collider would be a dome; terrain is underneath
+        pad.transform.SetParent(parent, false);
+        pad.transform.position = new Vector3(0f, HeightAt(0f, 0f) - 0.25f, 0f);
+        pad.transform.localScale = new Vector3(5f, 0.3f, 5f);
+        pad.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.5f, 0.5f, 0.48f));
+
+        if (ModelLibrary.Prefab(ModelLibrary.PropPath("Crate")) == null)
+            return;
+        // The character faces -Z (towards the sun-lit camera side), so the set goes behind it at +Z.
+        PlaceProp(parent, "SackTrench", new Vector3(0f, 0f, 4.2f), 0f);
+        PlaceProp(parent, "Container_Long", new Vector3(1.5f, 0f, 8.5f), 8f);
+        PlaceProp(parent, "Barrier_Single", new Vector3(-3.4f, 0f, 3.2f), -25f);
+        PlaceProp(parent, "Barrier_Single", new Vector3(3.6f, 0f, 3.4f), 20f);
+        PlaceProp(parent, "ExplodingBarrel", new Vector3(-2.6f, 0f, 5.6f), 0f);
+        PlaceProp(parent, "CardboardBoxes_4", new Vector3(4.2f, 0f, 6f), 30f);
+        PlaceProp(parent, "Crate", new Vector3(-4.6f, 0f, 6.4f), 15f);
     }
 
     private static bool NearVehicleSpot(Vector3 p, float distance)

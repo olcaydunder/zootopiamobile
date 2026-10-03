@@ -24,6 +24,7 @@ public class GameBootstrap : MonoBehaviour
             return;
         }
         Instance = this;
+        ErrorReporter.Install();   // first, so start-up errors are caught too
 
         Application.targetFrameRate = 60;
         Screen.sleepTimeout = SleepTimeout.NeverSleep;

@@ -94,9 +94,28 @@ public class GameManager : MonoBehaviour
         if (player != null)
         {
             player.ApplySkin(profile.equippedSkin);
-            player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
+            player.ResetForRound(World.LobbySpot + Vector3.up * 0.95f);
+            player.transform.rotation = Quaternion.Euler(0f, 180f, 0f);   // faces the lit side
+            player.SetLobbyView(true);
+            RefreshLobbyWeapon();
+        }
+
+        // One-time welcome gift so the gunsmith can be tried straight away.
+        if (PlayerPrefs.GetInt("zm_gift1", 0) == 0)
+        {
+            PlayerPrefs.SetInt("zm_gift1", 1);
+            profile.coins += 1500;
+            profile.Save();
+            uiManager.Toast("Hoş geldin hediyesi: 1500 altın!");
         }
         uiManager.ShowLobby();
+    }
+
+    /// <summary>The character in the lobby holds the player's customised rifle.</summary>
+    public void RefreshLobbyWeapon()
+    {
+        if (player != null && currentState == GameState.Lobby)
+            player.ShowcaseWeapon(Gunsmith.Apply(WeaponData.CreateRifle()));
     }
 
     public void StartMatch(MatchMode mode)
@@ -126,6 +145,7 @@ public class GameManager : MonoBehaviour
 
         plane = AirPlane.Launch();
 
+        player.SetLobbyView(false);
         player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
         player.BoardPlane(plane);
         Combatants.Add(player);

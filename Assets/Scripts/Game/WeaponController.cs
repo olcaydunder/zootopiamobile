@@ -18,6 +18,7 @@ public class WeaponController : MonoBehaviour
     private GameObject gunModel;
     private bool hasGunModel;
     private WeaponType gunModelType;
+    private string gunSignature = "";
 
     public void Initialize(WeaponData data, Renderer model)
     {
@@ -37,19 +38,27 @@ public class WeaponController : MonoBehaviour
         if (model != null)
             modelRenderer = model;
 
-        // Real gun model when available, otherwise a coloured box.
-        if (gunModel == null || gunModelType != data.weaponType)
+        // Real gun model when available, otherwise a coloured box. Rebuilt when the
+        // weapon type, attachments or camo change.
+        string signature = data.weaponType + "|" + data.camo + "|" + string.Join(",", data.attachments ?? new string[0]);
+        if (gunModel == null || gunModelType != data.weaponType || signature != gunSignature)
         {
             if (gunModel != null)
+            {
+                gunModel.SetActive(false);   // hidden at once; destroyed at the end of the frame
                 Destroy(gunModel);
+            }
+            WeaponDressing.Clear(transform);
             gunModel = ModelLibrary.Spawn(ModelLibrary.GunPath(data.weaponType), transform);
             gunModelType = data.weaponType;
+            gunSignature = signature;
             if (gunModel != null)
             {
                 gunModel.transform.localPosition = Vector3.zero;   // keep the prefab's own axis-fix rotation
                 ModelLibrary.ShareMaterials(gunModel, true);
                 ModelLibrary.SetLayer(gunModel, gameObject.layer);
                 FixGunScale(gunModel, data.weaponType);
+                WeaponDressing.Dress(gunModel, data, transform);
             }
         }
         hasGunModel = gunModel != null;
@@ -145,10 +154,16 @@ public class WeaponController : MonoBehaviour
         }
 
         ShowTracer(transform.position, tracerEnd);
-        ShowFlash();
+        if (!weaponData.suppressed)
+            ShowFlash();
 
         float volume = playerOwned ? 0.55f : 0.9f;
         float pitch = Random.Range(0.94f, 1.06f);
+        if (weaponData.suppressed)
+        {
+            volume *= 0.35f;
+            pitch *= 1.5f;
+        }
         if (playerOwned)
             Sfx.Play(SoundBank.Gunshot(weaponData.weaponType), volume, pitch);
         else

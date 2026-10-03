@@ -13,11 +13,18 @@ public class UIManager : MonoBehaviour
     private GameObject lobbyPanel;
     private GameObject matchmakingPanel;
     private GameObject hudPanel;
+    private GameObject scopeOverlay;
     private GameObject resultPanel;
 
     // Lobby
-    private Text lobbyProfileText;
-    private Text lobbyStatsText;
+    private Text lobbyNameText, lobbyLevelText, lobbyCoinsText, lobbyStatsText, lobbyGunText, lobbySkinText, lobbyStartLabel;
+    private RectTransform lobbyXpFill;
+    private readonly List<Image> modeButtons = new List<Image>();
+    private readonly List<Image> modeAccents = new List<Image>();
+    private readonly List<Text> modeTitles = new List<Text>();
+    private readonly List<Text> modeSubs = new List<Text>();
+    private MatchMode selectedMode = MatchMode.Solo;
+    private GunsmithScreen gunsmith;
 
     // Matchmaking
     private Text matchmakingText;
@@ -68,7 +75,7 @@ public class UIManager : MonoBehaviour
     private GameObject settingsPanel;
     private GameObject shopPanel;
     private GameObject pausePanel;
-    private Text sensText, qualityText, volumeText;
+    private Text sensText, qualityText, volumeText, debugToggleText;
     private Text shopCoinsText;
     private readonly List<Text> shopLabels = new List<Text>();
     private readonly List<Image> shopButtons = new List<Image>();
@@ -119,6 +126,7 @@ public class UIManager : MonoBehaviour
         hudPanel.SetActive(false);
         resultPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (gunsmith != null) gunsmith.Hide();
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -136,39 +144,128 @@ public class UIManager : MonoBehaviour
 
     private void BuildLobby()
     {
-        lobbyPanel = CreateFullPanel("LobbyPanel", new Color(0.03f, 0.06f, 0.1f, 0.45f));
+        // Transparent: the 3D character stands in the middle of the screen.
+        lobbyPanel = UIUtil.CreateStretch(canvas.transform, "LobbyPanel").gameObject;
         var t = lobbyPanel.transform;
-        var center = new Vector2(0.5f, 0.5f);
-
-        var title = UIUtil.CreateText(t, GameTitle, center, new Vector2(0f, 330f), new Vector2(1400f, 140f), 110, TextAnchor.MiddleCenter);
-        title.fontStyle = FontStyle.Bold;
-        title.color = new Color(1f, 0.85f, 0.3f);
-
-        UIUtil.CreateText(t, "Uçaktan atla, ganimet topla, adada son kalan sen ol", center, new Vector2(0f, 240f), new Vector2(1400f, 60f), 34, TextAnchor.MiddleCenter);
-
-        lobbyProfileText = UIUtil.CreateText(t, "", center, new Vector2(0f, 160f), new Vector2(1400f, 60f), 34, TextAnchor.MiddleCenter);
-
         Text unused;
-        var blue = new Color(0.2f, 0.5f, 1f, 0.95f);
-        UIUtil.CreateButton(t, "SOLO", center, new Vector2(-340f, 10f), new Vector2(300f, 120f), blue, false, 44, out unused)
-            .onClick.AddListener(() => GameManager.Instance.StartMatch(MatchMode.Solo));
-        UIUtil.CreateButton(t, "DUO", center, new Vector2(0f, 10f), new Vector2(300f, 120f), blue, false, 44, out unused)
-            .onClick.AddListener(() => GameManager.Instance.StartMatch(MatchMode.Duo));
-        UIUtil.CreateButton(t, "SQUAD", center, new Vector2(340f, 10f), new Vector2(300f, 120f), blue, false, 44, out unused)
-            .onClick.AddListener(() => GameManager.Instance.StartMatch(MatchMode.Squad));
 
-        UIUtil.CreateText(t, "Solo: tek başına  •  Duo: 1 bot takım arkadaşı  •  Squad: 3 bot takım arkadaşı", center,
-            new Vector2(0f, -100f), new Vector2(1600f, 50f), 28, TextAnchor.MiddleCenter);
+        // Soft dark gradients on both sides so the panels read well over the 3D scene.
+        var leftShade = UIUtil.CreateImage(t, "ShadeL", new Vector2(0f, 0.5f), new Vector2(300f, 0f), new Vector2(600f, 1400f), new Color(0f, 0f, 0f, 0.35f), false);
+        leftShade.raycastTarget = false;
+        var rightShade = UIUtil.CreateImage(t, "ShadeR", new Vector2(1f, 0.5f), new Vector2(-300f, 0f), new Vector2(600f, 1400f), new Color(0f, 0f, 0f, 0.35f), false);
+        rightShade.raycastTarget = false;
 
-        lobbyStatsText = UIUtil.CreateText(t, "", center, new Vector2(0f, -190f), new Vector2(1400f, 50f), 30, TextAnchor.MiddleCenter);
+        // Profile (top-left)
+        var prof = Theme.Box(t, "Profile", new Vector2(0f, 1f), new Vector2(300f, -70f), new Vector2(540f, 110f), Theme.Panel, true).transform;
+        var avatar = UIUtil.CreateImage(prof, "Avatar", new Vector2(0f, 0.5f), new Vector2(66f, 0f), new Vector2(84f, 84f), new Color(0.85f, 0.25f, 0.2f), false);
+        avatar.raycastTarget = false;
+        var initial = UIUtil.CreateText(avatar.transform, "Z", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(84f, 84f), 52, TextAnchor.MiddleCenter);
+        initial.fontStyle = FontStyle.Bold;
+        lobbyNameText = UIUtil.CreateText(prof, "", new Vector2(0f, 0.5f), new Vector2(300f, 20f), new Vector2(360f, 44f), 32, TextAnchor.MiddleLeft);
+        lobbyNameText.fontStyle = FontStyle.Bold;
+        lobbyLevelText = UIUtil.CreateText(prof, "", new Vector2(0f, 0.5f), new Vector2(300f, -16f), new Vector2(360f, 30f), 22, TextAnchor.MiddleLeft);
+        lobbyLevelText.color = Theme.TextDim;
+        UIUtil.CreateImage(prof, "XpBg", new Vector2(0f, 0.5f), new Vector2(300f, -38f), new Vector2(360f, 8f), new Color(1f, 1f, 1f, 0.15f), false).raycastTarget = false;
+        var xp = UIUtil.CreateImage(prof, "Xp", new Vector2(0f, 0.5f), new Vector2(120f, -38f), new Vector2(0f, 8f), Theme.Accent, false);
+        xp.raycastTarget = false;
+        xp.rectTransform.pivot = new Vector2(0f, 0.5f);
+        lobbyXpFill = xp.rectTransform;
 
-        UIUtil.CreateButton(t, "KARAKTERLER", center, new Vector2(-200f, -290f), new Vector2(330f, 86f), new Color(0.95f, 0.65f, 0.15f, 0.95f), false, 32, out unused)
-            .onClick.AddListener(OpenShop);
-        UIUtil.CreateButton(t, "AYARLAR", center, new Vector2(200f, -290f), new Vector2(330f, 86f), new Color(0.35f, 0.38f, 0.45f, 0.95f), false, 32, out unused)
+        // Coins + settings (top-right)
+        var coins = Theme.Box(t, "Coins", new Vector2(1f, 1f), new Vector2(-420f, -70f), new Vector2(300f, 80f), Theme.Panel, false).transform;
+        var coinIcon = UIUtil.CreateImage(coins, "Coin", new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(46f, 46f), Theme.Accent, true);
+        coinIcon.raycastTarget = false;
+        UIUtil.CreateText(coinIcon.transform, "A", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46f, 46f), 28, TextAnchor.MiddleCenter).color = new Color(0.35f, 0.25f, 0.02f);
+        lobbyCoinsText = UIUtil.CreateText(coins, "", new Vector2(0f, 0.5f), new Vector2(170f, 0f), new Vector2(200f, 60f), 34, TextAnchor.MiddleLeft);
+        lobbyCoinsText.fontStyle = FontStyle.Bold;
+        UIUtil.CreateButton(t, "AYARLAR", new Vector2(1f, 1f), new Vector2(-140f, -70f), new Vector2(220f, 80f), Theme.Panel, false, 28, out unused)
             .onClick.AddListener(() => OpenSettings(false));
 
-        var credit = UIUtil.CreateText(t, ProducerCredit, new Vector2(0.5f, 0f), new Vector2(0f, 60f), new Vector2(1200f, 50f), 30, TextAnchor.MiddleCenter);
-        credit.color = new Color(1f, 1f, 1f, 0.8f);
+        // Left tiles
+        var gunsmithTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, 150f), new Vector2(440f, 170f), Theme.Panel, false, 20, out unused);
+        gunsmithTile.onClick.AddListener(OpenGunsmith);
+        var gt = gunsmithTile.transform;
+        UIUtil.CreateImage(gt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 170f), Theme.Accent, false).raycastTarget = false;
+        var gTitle = UIUtil.CreateText(gt, "SİLAH ATÖLYESİ", new Vector2(0f, 1f), new Vector2(200f, -40f), new Vector2(360f, 50f), 34, TextAnchor.MiddleLeft);
+        gTitle.fontStyle = FontStyle.Bold;
+        gTitle.color = Theme.Accent;
+        lobbyGunText = UIUtil.CreateText(gt, "", new Vector2(0f, 0f), new Vector2(200f, 55f), new Vector2(360f, 70f), 22, TextAnchor.MiddleLeft);
+        lobbyGunText.color = Theme.TextDim;
+
+        var charTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, -40f), new Vector2(440f, 130f), Theme.Panel, false, 20, out unused);
+        charTile.onClick.AddListener(OpenShop);
+        var ct = charTile.transform;
+        UIUtil.CreateImage(ct, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 130f), new Color(0.3f, 0.7f, 1f), false).raycastTarget = false;
+        var cTitle = UIUtil.CreateText(ct, "KARAKTERLER", new Vector2(0f, 1f), new Vector2(200f, -38f), new Vector2(360f, 50f), 32, TextAnchor.MiddleLeft);
+        cTitle.fontStyle = FontStyle.Bold;
+        lobbySkinText = UIUtil.CreateText(ct, "", new Vector2(0f, 0f), new Vector2(200f, 36f), new Vector2(360f, 40f), 22, TextAnchor.MiddleLeft);
+        lobbySkinText.color = Theme.TextDim;
+
+        var stats = Theme.Box(t, "Stats", new Vector2(0f, 0.5f), new Vector2(260f, -210f), new Vector2(440f, 170f), Theme.Panel, false).transform;
+        var sTitle = UIUtil.CreateText(stats, "KARİYER", new Vector2(0f, 1f), new Vector2(200f, -32f), new Vector2(360f, 40f), 26, TextAnchor.MiddleLeft);
+        sTitle.fontStyle = FontStyle.Bold;
+        lobbyStatsText = UIUtil.CreateText(stats, "", new Vector2(0f, 0f), new Vector2(200f, 62f), new Vector2(380f, 100f), 24, TextAnchor.MiddleLeft);
+        lobbyStatsText.color = Theme.TextDim;
+
+        // Right: game modes
+        string[] modes = { "SOLO", "DUO", "SQUAD" };
+        string[] subs = { "Tek başına hayatta kal", "1 takım arkadaşıyla", "3 takım arkadaşıyla" };
+        for (int i = 0; i < 3; i++)
+        {
+            int index = i;
+            var b = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 190f - i * 118f), new Vector2(480f, 104f), Theme.Panel, false, 20, out unused);
+            b.onClick.AddListener(() => SelectMode(index));
+            var bt = b.transform;
+            var accent = UIUtil.CreateImage(bt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 104f), Theme.Accent, false);
+            accent.raycastTarget = false;
+            var mt = UIUtil.CreateText(bt, modes[i], new Vector2(0f, 0.5f), new Vector2(200f, 16f), new Vector2(340f, 50f), 36, TextAnchor.MiddleLeft);
+            mt.fontStyle = FontStyle.Bold;
+            var ms = UIUtil.CreateText(bt, subs[i], new Vector2(0f, 0.5f), new Vector2(200f, -24f), new Vector2(340f, 30f), 22, TextAnchor.MiddleLeft);
+            modeButtons.Add(b.GetComponent<Image>());
+            modeAccents.Add(accent);
+            modeTitles.Add(mt);
+            modeSubs.Add(ms);
+        }
+        var mapLabel = UIUtil.CreateText(t, "BATTLE ROYALE  •  Zootopia Adası  •  25 oyuncu", new Vector2(1f, 0.5f), new Vector2(-280f, 290f), new Vector2(480f, 40f), 22, TextAnchor.MiddleLeft);
+        mapLabel.color = Theme.Accent;
+
+        UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel)
+            .onClick.AddListener(() => GameManager.Instance.StartMatch(selectedMode));
+        lobbyStartLabel.color = new Color(0.1f, 0.08f, 0.02f);
+        lobbyStartLabel.GetComponent<Shadow>().enabled = false;
+
+        // Bottom-left: title + credit
+        var title = UIUtil.CreateText(t, GameTitle, new Vector2(0f, 0f), new Vector2(330f, 120f), new Vector2(600f, 60f), 46, TextAnchor.MiddleLeft);
+        title.fontStyle = FontStyle.Bold;
+        title.color = Theme.Accent;
+        var credit = UIUtil.CreateText(t, ProducerCredit, new Vector2(0f, 0f), new Vector2(330f, 75f), new Vector2(600f, 40f), 24, TextAnchor.MiddleLeft);
+        credit.color = Theme.TextDim;
+
+        gunsmith = GunsmithScreen.Create(canvas.transform);
+        SelectMode(0);
+    }
+
+    private void SelectMode(int index)
+    {
+        selectedMode = (MatchMode)index;
+        for (int i = 0; i < modeButtons.Count; i++)
+        {
+            bool sel = i == index;
+            modeButtons[i].color = sel ? Theme.Selected : Theme.Panel;
+            modeAccents[i].enabled = sel;
+            modeTitles[i].color = sel ? new Color(0.08f, 0.08f, 0.1f) : Color.white;
+            modeTitles[i].GetComponent<Shadow>().enabled = !sel;
+            modeSubs[i].color = sel ? new Color(0.2f, 0.2f, 0.24f) : Theme.TextDim;
+            modeSubs[i].GetComponent<Shadow>().enabled = !sel;
+        }
+        if (lobbyStartLabel != null)
+            lobbyStartLabel.text = "BAŞLAT  •  " + selectedMode.ToString().ToUpper();
+    }
+
+    private void OpenGunsmith()
+    {
+        lobbyPanel.SetActive(false);
+        gunsmith.Open();
     }
 
     private void BuildMatchmaking()
@@ -176,6 +273,39 @@ public class UIManager : MonoBehaviour
         matchmakingPanel = CreateFullPanel("MatchmakingPanel", new Color(0.03f, 0.06f, 0.1f, 0.75f));
         matchmakingText = UIUtil.CreateText(matchmakingPanel.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200f, 120f), 64, TextAnchor.MiddleCenter);
         matchmakingText.fontStyle = FontStyle.Bold;
+    }
+
+    private static Texture2D scopeTex;
+
+    /// <summary>Black ring with a clear lens, thin reticle and a soft dark edge.</summary>
+    private static Texture2D ScopeTexture()
+    {
+        if (scopeTex != null)
+            return scopeTex;
+        const int n = 512;
+        scopeTex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        scopeTex.wrapMode = TextureWrapMode.Clamp;
+        var px = new Color32[n * n];
+        float h = n * 0.5f;
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float dx = x + 0.5f - h, dy = y + 0.5f - h;
+                float d = Mathf.Sqrt(dx * dx + dy * dy) / h;
+                float a = Mathf.Clamp01((d - 0.9f) / 0.08f);           // lens edge vignette
+                float adx = Mathf.Abs(dx), ady = Mathf.Abs(dy);
+                bool line = (adx < 1.2f || ady < 1.2f) && d < 0.9f && (adx > 6f || ady > 6f);
+                bool post = d > 0.32f && d < 0.9f && (adx < 3.5f || ady < 3.5f) && !(dy > 0f && adx < 3.5f);  // thick posts except top
+                if (line || post)
+                    a = Mathf.Max(a, 0.9f);
+                bool dot = adx < 2.5f && ady < 2.5f;
+                px[y * n + x] = dot ? new Color32(255, 40, 30, 255) : new Color32(0, 0, 0, (byte)(a * 255f));
+            }
+        }
+        scopeTex.SetPixels32(px);
+        scopeTex.Apply();
+        return scopeTex;
     }
 
     private void BuildHud()
@@ -186,6 +316,16 @@ public class UIManager : MonoBehaviour
         damageFlash = UIUtil.CreateStretch(t, "DamageFlash").gameObject.AddComponent<Image>();
         damageFlash.color = new Color(0.9f, 0f, 0f, 0f);
         damageFlash.raycastTarget = false;
+
+        // Sniper/3x/6x scope view (under the rest of the HUD).
+        scopeOverlay = UIUtil.CreateStretch(t, "ScopeOverlay").gameObject;
+        var so = scopeOverlay.transform;
+        var lens = UIUtil.CreateRect(so, "Lens", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1080f, 1080f)).gameObject.AddComponent<RawImage>();
+        lens.texture = ScopeTexture();
+        lens.raycastTarget = false;
+        UIUtil.CreateImage(so, "SideL", new Vector2(0.5f, 0.5f), new Vector2(-540f - 1500f, 0f), new Vector2(3000f, 1100f), Color.black, false).raycastTarget = false;
+        UIUtil.CreateImage(so, "SideR", new Vector2(0.5f, 0.5f), new Vector2(540f + 1500f, 0f), new Vector2(3000f, 1100f), Color.black, false).raycastTarget = false;
+        scopeOverlay.SetActive(false);
 
         // Crosshair + hit marker
         var c = new Vector2(0.5f, 0.5f);
@@ -375,24 +515,29 @@ public class UIManager : MonoBehaviour
 
     private void BuildSettings()
     {
-        settingsPanel = CreateOverlay("SettingsPanel", new Vector2(860f, 620f));
+        settingsPanel = CreateOverlay("SettingsPanel", new Vector2(900f, 800f));
         var box = settingsPanel.transform.Find("Box");
         var c = new Vector2(0.5f, 0.5f);
-        var title = UIUtil.CreateText(box, "AYARLAR", c, new Vector2(0f, 240f), new Vector2(600f, 70f), 48, TextAnchor.MiddleCenter);
+        var title = UIUtil.CreateText(box, "AYARLAR", c, new Vector2(0f, 320f), new Vector2(600f, 70f), 48, TextAnchor.MiddleCenter);
         title.fontStyle = FontStyle.Bold;
 
-        sensText = SettingRow(box, "Bakış hassasiyeti", 120f,
+        sensText = SettingRow(box, "Bakış hassasiyeti", 200f,
             () => { GameSettings.Sensitivity = Mathf.Max(0.4f, GameSettings.Sensitivity - 0.1f); SettingsChanged(); },
             () => { GameSettings.Sensitivity = Mathf.Min(2f, GameSettings.Sensitivity + 0.1f); SettingsChanged(); });
-        qualityText = SettingRow(box, "Grafik kalitesi", 20f,
+        qualityText = SettingRow(box, "Grafik kalitesi", 100f,
             () => { GameSettings.Quality = Mathf.Max(0, GameSettings.Quality - 1); SettingsChanged(); },
             () => { GameSettings.Quality = Mathf.Min(2, GameSettings.Quality + 1); SettingsChanged(); });
-        volumeText = SettingRow(box, "Ses", -80f,
+        volumeText = SettingRow(box, "Ses", 0f,
             () => { GameSettings.Volume = Mathf.Max(0f, GameSettings.Volume - 0.1f); SettingsChanged(); },
             () => { GameSettings.Volume = Mathf.Min(1f, GameSettings.Volume + 0.1f); SettingsChanged(); });
 
         Text unused;
-        UIUtil.CreateButton(box, "KAPAT", c, new Vector2(0f, -220f), new Vector2(300f, 90f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 34, out unused)
+        UIUtil.CreateText(box, "Hata modu", c, new Vector2(-250f, -105f), new Vector2(320f, 60f), 34, TextAnchor.MiddleLeft);
+        UIUtil.CreateButton(box, "", c, new Vector2(110f, -105f), new Vector2(200f, 70f), new Color(0.25f, 0.3f, 0.4f, 1f), false, 30, out debugToggleText)
+            .onClick.AddListener(() => { ErrorReporter.SetDebugMode(!ErrorReporter.DebugMode); RefreshSettings(); });
+        UIUtil.CreateButton(box, "HATA EKRANI", c, new Vector2(0f, -200f), new Vector2(360f, 76f), new Color(0.8f, 0.25f, 0.2f, 1f), false, 30, out unused)
+            .onClick.AddListener(() => { if (ErrorReporter.Instance != null) ErrorReporter.Instance.OpenPanel(); });
+        UIUtil.CreateButton(box, "KAPAT", c, new Vector2(0f, -310f), new Vector2(300f, 86f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 34, out unused)
             .onClick.AddListener(CloseSettings);
     }
 
@@ -407,6 +552,7 @@ public class UIManager : MonoBehaviour
         sensText.text = GameSettings.Sensitivity.ToString("0.0") + "x";
         qualityText.text = GameSettings.QualityNames[GameSettings.Quality];
         volumeText.text = Mathf.RoundToInt(GameSettings.Volume * 100f) + "%";
+        debugToggleText.text = ErrorReporter.DebugMode ? "AÇIK" : "KAPALI";
     }
 
     public void OpenSettings(bool fromPause)
@@ -568,8 +714,20 @@ public class UIManager : MonoBehaviour
     {
         HideAll();
         var p = GameManager.Instance.profile;
-        lobbyProfileText.text = p.playerName + "   •   Seviye " + p.level + "   •   XP " + p.xp + "/" + p.XpForNextLevel + "   •   Altın " + p.coins;
-        lobbyStatsText.text = "Maç: " + p.matches + "    Zafer: " + p.wins + "    Toplam öldürme: " + p.totalKills;
+        lobbyNameText.text = p.playerName;
+        lobbyLevelText.text = "SEVİYE " + p.level + "   •   XP " + p.xp + " / " + p.XpForNextLevel;
+        lobbyXpFill.sizeDelta = new Vector2(360f * Mathf.Clamp01((float)p.xp / Mathf.Max(1, p.XpForNextLevel)), 8f);
+        lobbyCoinsText.text = p.coins.ToString("N0");
+        float winRate = p.matches > 0 ? 100f * p.wins / p.matches : 0f;
+        lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nToplam öldürme " + p.totalKills;
+        var rifle = Gunsmith.Apply(WeaponData.CreateRifle());
+        int count = 0;
+        foreach (var a in rifle.attachments)
+            if (!string.IsNullOrEmpty(a))
+                count++;
+        lobbyGunText.text = "Aparat ve kamuflaj  •  " + rifle.weaponName + " (" + count + "/5)";
+        int skin = System.Array.IndexOf(ModelLibrary.ShopSkins, p.equippedSkin);
+        lobbySkinText.text = "Kuşanılan: " + (skin >= 0 ? ModelLibrary.ShopNames[skin] : p.equippedSkin);
         lobbyPanel.SetActive(true);
     }
 
@@ -605,10 +763,45 @@ public class UIManager : MonoBehaviour
 
     public void Toast(string message)
     {
+        if (hudPanel == null || !hudPanel.activeSelf)
+        {
+            LobbyToast(message);
+            return;
+        }
         if (toastText == null)
             return;
         toastText.text = message;
         toastUntil = Time.time + 2.2f;
+    }
+
+    private Text lobbyToast;
+    private Coroutine lobbyToastRoutine;
+
+    /// <summary>Message shown over the menus (the battle HUD toast is hidden there).</summary>
+    private void LobbyToast(string message)
+    {
+        if (lobbyToast == null)
+        {
+            var box = UIUtil.CreateImage(canvas.transform, "LobbyToast", new Vector2(0.5f, 1f), new Vector2(0f, -170f), new Vector2(1000f, 80f), new Color(0f, 0f, 0f, 0.75f), false);
+            box.raycastTarget = false;
+            lobbyToast = UIUtil.CreateText(box.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(980f, 70f), 36, TextAnchor.MiddleCenter);
+            lobbyToast.color = Theme.Accent;
+            lobbyToast.fontStyle = FontStyle.Bold;
+        }
+        lobbyToast.text = message;
+        var go = lobbyToast.transform.parent.gameObject;
+        go.transform.SetAsLastSibling();
+        go.SetActive(true);
+        if (lobbyToastRoutine != null)
+            StopCoroutine(lobbyToastRoutine);
+        lobbyToastRoutine = StartCoroutine(HideLobbyToast(go));
+    }
+
+    private System.Collections.IEnumerator HideLobbyToast(GameObject go)
+    {
+        yield return new WaitForSeconds(3f);
+        go.SetActive(false);
+        lobbyToastRoutine = null;
     }
 
     public void AddKillFeed(string line)
@@ -668,6 +861,9 @@ public class UIManager : MonoBehaviour
             return;
 
         healthFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.health / player.maxHealth), healthFill.sizeDelta.y);
+        bool scoped = player.IsScoped && !player.isDead;
+        if (scopeOverlay.activeSelf != scoped)
+            scopeOverlay.SetActive(scoped);
         armorFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.armor / player.maxArmor), armorFill.sizeDelta.y);
         boostFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.BoostRemaining / 60f), boostFill.sizeDelta.y);
         healthText.text = Mathf.CeilToInt(player.health).ToString();

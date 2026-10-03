@@ -16,6 +16,8 @@ public static class PostFx
     private static AmbientOcclusion ao;
     private static bool failed;
 
+    public static bool Failed { get { return failed; } }
+
     public static void Setup(Camera cam)
     {
         if (cam == null || layer != null || failed)

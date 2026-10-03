@@ -182,6 +182,7 @@ public class PlayerController : MonoBehaviour, IDamageable
     /// <summary>Picks up a weapon from loot. Returns the message to show.</summary>
     public string GiveWeapon(WeaponData found)
     {
+        found = Gunsmith.Apply(found);
         StoreActive();
         int other = 1 - activeSlot;
         int ammo = found.magazineSize * 2;
@@ -341,8 +342,44 @@ public class PlayerController : MonoBehaviour, IDamageable
         rig.aiming = Time.time - lastFireTime < 1.2f;
     }
 
+    // ----- Lobby showcase -----
+
+    public bool lobbyView;
+
+    public void SetLobbyView(bool on)
+    {
+        lobbyView = on;
+        ClearScope();
+        if (on)
+            cameraPivot.localRotation = Quaternion.Euler(28f, -50f, 0f);   // gun held low across the body
+        if (!on)
+        {
+            playerCamera.transform.localRotation = Quaternion.identity;
+            playerCamera.fieldOfView = 70f;
+        }
+    }
+
+    /// <summary>Shows a weapon in the character's hands in the lobby (does not change the round loadout).</summary>
+    public void ShowcaseWeapon(WeaponData data)
+    {
+        currentWeapon.gameObject.SetActive(true);
+        currentWeapon.Initialize(data, weaponModel);
+    }
+
     private void LateUpdate()
     {
+        if (lobbyView)
+        {
+            // Camera in front of the character, slowly drifting, like a menu showcase.
+            float t = Time.time * 0.25f;
+            Vector3 focus = transform.position + Vector3.up * 0.25f;
+            Vector3 offset = transform.forward * 3.4f + transform.right * Mathf.Sin(t) * 0.35f + Vector3.up * (0.25f + Mathf.Sin(t * 0.7f) * 0.05f);
+            playerCamera.transform.position = focus + offset;
+            playerCamera.transform.LookAt(focus);
+            playerCamera.fieldOfView = 38f;
+            return;
+        }
+
         if (state != PlayerState.Ground || isDead || isDowned)
             aimingDownSights = false;
         float wantedDistance = aimingDownSights ? 1.6f : camTarget;
@@ -364,6 +401,30 @@ public class PlayerController : MonoBehaviour, IDamageable
 
         shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
         Vector3 jitter = Random.insideUnitSphere * shake * 0.25f;
+        bool scopedNow = IsScoped;
+        if (scopedNow != gunHiddenForScope || (scopedNow && scopedWeapon != currentWeapon))
+        {
+            SetGunVisible(scopedWeapon, true);
+            scopedWeapon = scopedNow ? currentWeapon : null;
+            SetGunVisible(scopedWeapon, false);
+            gunHiddenForScope = scopedNow;
+        }
+        if (scopedNow)
+        {
+            // Through the scope: eye position in front of the head, so the body never blocks the lens.
+            // Pulled back when a wall is that close, so the scope can't look through cover.
+            Vector3 eyeLocal = new Vector3(0.12f, 0.3f, 0.35f);
+            Vector3 eye = cameraPivot.TransformPoint(eyeLocal);
+            RaycastHit eyeHit;
+            if (Physics.Linecast(cameraPivot.position, eye, out eyeHit, Physics.DefaultRaycastLayers & ~(1 << 2), QueryTriggerInteraction.Ignore))
+            {
+                float full = Mathf.Max(0.01f, Vector3.Distance(cameraPivot.position, eye));
+                float k = Mathf.Clamp01((Vector3.Distance(cameraPivot.position, eyeHit.point) - 0.12f) / full);
+                eyeLocal *= k;
+            }
+            playerCamera.transform.localPosition = eyeLocal + jitter * 0.3f;
+            return;
+        }
         playerCamera.transform.localPosition = new Vector3(0.55f, 0.35f, -dist) + jitter;
     }
 
@@ -489,6 +550,10 @@ public class PlayerController : MonoBehaviour, IDamageable
         move = Vector3.ClampMagnitude(move, 1f);
 
         float speed = isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : moveSpeed);
+        if (currentWeapon != null && currentWeapon.weaponData != null)
+            speed *= Mathf.Clamp(0.85f + 0.15f * currentWeapon.weaponData.mobilityMul, 0.75f, 1.15f);
+        if (aimingDownSights)
+            speed *= 0.6f;
 
         // Shallow water only: stop before wading into deep sea.
         Vector3 ahead = transform.position + move * 1.5f;
@@ -712,10 +777,50 @@ public class PlayerController : MonoBehaviour, IDamageable
 
     // ----- Aiming, knock-down, skins -----
 
+    private bool gunHiddenForScope;
+    private WeaponController scopedWeapon;
+
+    /// <summary>Leaves the scope view and makes the hidden gun visible again.</summary>
+    private void ClearScope()
+    {
+        aimingDownSights = false;
+        SetGunVisible(scopedWeapon, true);
+        scopedWeapon = null;
+        gunHiddenForScope = false;
+    }
+
+    private static void SetGunVisible(WeaponController w, bool visible)
+    {
+        if (w == null)
+            return;
+        foreach (var r in w.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r is LineRenderer || r.name == "MuzzleFlash")
+                continue;
+            r.forceRenderingOff = !visible;
+        }
+    }
+
+    /// <summary>True while looking through a 3x/6x optic or a sniper scope (full-screen scope view).</summary>
+    public bool IsScoped
+    {
+        get
+        {
+            if (!aimingDownSights || state != PlayerState.Ground || currentWeapon == null || currentWeapon.weaponData == null)
+                return false;
+            return currentWeapon.weaponData.weaponType == WeaponType.Sniper || currentWeapon.weaponData.zoomMul < 0.75f;
+        }
+    }
+
     private float ZoomFov()
     {
         if (currentWeapon == null || currentWeapon.weaponData == null)
             return 55f;
+        return Mathf.Clamp(BaseZoomFov() * currentWeapon.weaponData.zoomMul, 10f, 65f);
+    }
+
+    private float BaseZoomFov()
+    {
         switch (currentWeapon.weaponData.weaponType)
         {
             case WeaponType.Sniper: return 22f;
@@ -868,6 +973,7 @@ public class PlayerController : MonoBehaviour, IDamageable
 
     public void ResetForRound(Vector3 spawnPosition)
     {
+        ClearScope();
         if (vehicle != null)
         {
             vehicle.SetDriver(null);
@@ -900,7 +1006,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         camDistance = 3.6f;
         HeightAboveGround = 0f;
 
-        slots[0].data = WeaponData.CreatePistol();
+        slots[0].data = Gunsmith.Apply(WeaponData.CreatePistol());
         slots[0].ammo = slots[0].data.magazineSize;
         slots[0].reserve = slots[0].data.reserveAmmo;
         slots[1].data = null;
