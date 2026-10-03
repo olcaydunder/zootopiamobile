@@ -181,7 +181,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         float height = transform.position.y - ground;
 
         // Glide far enough to reach landing spots away from the flight path.
-        float horizontalMax = air == BotAir.Freefall ? 30f : 12f;
+        float horizontalMax = air == BotAir.Freefall ? 30f : 15f;
         float vertical = air == BotAir.Freefall ? -32f : -6f;
         Vector3 desired = Vector3.ClampMagnitude(toGoal * 0.6f, horizontalMax) + Vector3.up * vertical;
         airVelocity = Vector3.Lerp(airVelocity, desired, dt * 2f);

@@ -102,10 +102,10 @@ public static class PostFx
             return;
 
         // Low quality (or MSAA off): cheap FXAA keeps edges smooth.
-        layer.enabled = true;
+        bool effects = quality > 0;
+        layer.enabled = effects || (antiAliasing && !msaa);
         layer.antialiasingMode = antiAliasing && !msaa ? PostProcessLayer.Antialiasing.FastApproximateAntialiasing : PostProcessLayer.Antialiasing.None;
         layer.fastApproximateAntialiasing.fastMode = true;
-        bool effects = quality > 0;
         if (volume != null)
             volume.weight = effects ? 1f : 0f;
 
@@ -119,7 +119,12 @@ public static class PostFx
             ao.enabled.Override(quality >= 2);
         if (ao != null)
             ao.quality.Override(quality >= 3 ? AmbientOcclusionQuality.Medium : AmbientOcclusionQuality.Low);
-        if (cam != null && quality >= 2)
-            cam.depthTextureMode |= DepthTextureMode.Depth;
+        if (cam != null)
+        {
+            if (quality >= 2)
+                cam.depthTextureMode |= DepthTextureMode.Depth;
+            else
+                cam.depthTextureMode &= ~DepthTextureMode.Depth;
+        }
     }
 }

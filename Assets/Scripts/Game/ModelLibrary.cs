@@ -181,7 +181,7 @@ public static class ModelLibrary
         m = new Material(MaterialCache.Lit(Color.white));
         m.name = source.name + "_zm";
         m.mainTexture = source.mainTexture;
-        m.color = Color.white;
+        m.color = source.HasProperty("_Color") ? source.color : Color.white;
         m.enableInstancing = true;
         textured[source] = m;
         return m;

@@ -38,6 +38,7 @@ public class TouchControls : MonoBehaviour
     private RectTransform rightFireRect;
     private Vector2 rightFireHome;
     private bool lookIsFireFinger;
+    private int fireFinger = -1;
     private Vector2 fireFollowStart;
     private CanvasGroup group;
     private Image sprintImage;
@@ -194,6 +195,7 @@ public class TouchControls : MonoBehaviour
         moveFinger = -1;
         lookFinger = -1;
         lookIsFireFinger = false;
+        fireFinger = -1;
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
@@ -243,19 +245,24 @@ public class TouchControls : MonoBehaviour
                     if (OverUI(t.position))
                     {
                         // Holding the right fire button also aims (drag your thumb while shooting).
-                        if (lookFinger == -1 && rightFireRect != null && rightFireRect.gameObject.activeInHierarchy &&
-                            RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null) &&
-                            (GameSettings.FireButtonLook || GameSettings.FireButtonFollow))
+                        if (rightFireRect != null && rightFireRect.gameObject.activeInHierarchy &&
+                            RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null))
                         {
-                            lookFinger = t.fingerId;
-                            lastLookScreen = t.position;
-                            lookIsFireFinger = true;
+                            fireFinger = t.fingerId;
                             fireFollowStart = t.position;
+                            if (lookFinger == -1 && GameSettings.FireButtonLook)
+                            {
+                                lookFinger = t.fingerId;
+                                lastLookScreen = t.position;
+                                lookIsFireFinger = true;
+                            }
                         }
                         break;
                     }
 
-                    if (t.position.x < Screen.width * 0.4f && moveFinger == -1)
+                    bool nearStick = GameSettings.JoystickMode == 1 ||
+                        (t.position - RectTransformUtility.WorldToScreenPoint(null, stickBase.position)).magnitude < StickRadius * 1.6f * scale;
+                    if (t.position.x < Screen.width * 0.4f && moveFinger == -1 && nearStick)
                     {
                         moveFinger = t.fingerId;
                         if (GameSettings.JoystickMode == 1)
@@ -291,12 +298,11 @@ public class TouchControls : MonoBehaviour
                     }
                     else if (t.fingerId == lookFinger)
                     {
-                        if (!lookIsFireFinger || GameSettings.FireButtonLook)
-                            LookDelta += (t.position - lastLookScreen) / scale;
+                        LookDelta += (t.position - lastLookScreen) / scale;
                         lastLookScreen = t.position;
-                        if (lookIsFireFinger && GameSettings.FireButtonFollow)
-                            rightFireRect.anchoredPosition = rightFireHome + Vector2.ClampMagnitude((t.position - fireFollowStart) / scale, 150f);
                     }
+                    if (t.fingerId == fireFinger && GameSettings.FireButtonFollow && rightFireRect != null)
+                        rightFireRect.anchoredPosition = rightFireHome + Vector2.ClampMagnitude((t.position - fireFollowStart) / scale, 150f);
                     break;
 
                 case TouchPhase.Ended:
@@ -311,9 +317,13 @@ public class TouchControls : MonoBehaviour
                     else if (t.fingerId == lookFinger)
                     {
                         lookFinger = -1;
-                        if (lookIsFireFinger && rightFireRect != null)
-                            rightFireRect.anchoredPosition = rightFireHome;
                         lookIsFireFinger = false;
+                    }
+                    if (t.fingerId == fireFinger)
+                    {
+                        fireFinger = -1;
+                        if (rightFireRect != null)
+                            rightFireRect.anchoredPosition = rightFireHome;
                     }
                     break;
             }

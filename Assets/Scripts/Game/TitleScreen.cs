@@ -98,7 +98,7 @@ public class TitleScreen : MonoBehaviour
         // ---- Title (over the 3D city)
         title = UIUtil.CreateStretch(t, "Title").gameObject;
         var shade = title.AddComponent<RawImage>();
-        shade.texture = Gradient(new Color(0f, 0f, 0f, 0.05f), new Color(0f, 0f, 0f, 0.8f), false);
+        shade.texture = Gradient(new Color(0.02f, 0.03f, 0.05f, 0.55f), new Color(0.01f, 0.01f, 0.02f, 0.95f), false);
         var tap = title.AddComponent<Button>();
         tap.targetGraphic = shade;
         tap.transition = Selectable.Transition.None;

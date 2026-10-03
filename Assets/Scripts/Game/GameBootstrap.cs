@@ -34,32 +34,50 @@ public class GameBootstrap : MonoBehaviour
         EnsureEventSystem();
     }
 
-    /// <summary>Builds everything over a few frames behind the loading screen, then shows the title.</summary>
+    /// <summary>Builds everything over a few frames behind the loading screen, then shows the title.
+    /// Each step is guarded: an error is reported (hata modu) and start-up carries on.</summary>
     private System.Collections.IEnumerator Start()
     {
         var titleScreen = TitleScreen.Create();
         titleScreen.SetProgress(0.05f, "Harita verisi yükleniyor...");
         yield return null;
         yield return null;
-        MapData.Load();
+        Step(() => MapData.Load());
         titleScreen.SetProgress(0.3f, "Çekmeköy kuruluyor...");
         yield return null;
-        World.Build();
+        Step(World.Build);
         titleScreen.SetProgress(0.75f, "Oyuncular hazırlanıyor...");
         yield return null;
 
-        var manager = new GameObject("GameManager").AddComponent<GameManager>();
-        var player = new GameObject("Player").AddComponent<PlayerController>();
-        manager.RegisterPlayer(player);
-        PostFx.Setup(player.playerCamera);
-        Grass.Create();
-        GameSettings.Load();
+        GameManager manager = null;
+        PlayerController player = null;
+        Step(() =>
+        {
+            manager = new GameObject("GameManager").AddComponent<GameManager>();
+            player = new GameObject("Player").AddComponent<PlayerController>();
+            manager.RegisterPlayer(player);
+        });
+        Step(() => PostFx.Setup(player != null ? player.playerCamera : null));
+        Step(Grass.Create);
+        Step(GameSettings.Load);
         titleScreen.SetProgress(0.95f, "Lobi açılıyor...");
         yield return null;
-        manager.JoinLobby();
+        Step(() => { if (manager != null) manager.JoinLobby(); });
         titleScreen.SetProgress(1f, "Hazır");
         yield return new WaitForSecondsRealtime(0.4f);
         titleScreen.ShowTitle(player);
+    }
+
+    private static void Step(System.Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
     }
 
     private static void EnsureEventSystem()

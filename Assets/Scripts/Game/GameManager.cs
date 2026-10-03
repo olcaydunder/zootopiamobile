@@ -164,7 +164,18 @@ public class GameManager : MonoBehaviour
 
         // Each enemy team picks a different part of the map (a building to loot, or open ground)
         // and jumps from the plane where the flight path passes closest to it.
-        var spots = new List<Vector3>(World.HouseCenters);
+        // Only spots the bots can glide to (~250 m either side of the flight line).
+        Vector3 lineDir = (plane.end - plane.start);
+        lineDir.y = 0f;
+        lineDir.Normalize();
+        var spots = new List<Vector3>();
+        foreach (var h in World.HouseCenters)
+        {
+            Vector3 rel = h - plane.start;
+            rel.y = 0f;
+            if ((rel - lineDir * Vector3.Dot(rel, lineDir)).magnitude < 230f)
+                spots.Add(h);
+        }
         for (int i = spots.Count - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
@@ -180,9 +191,16 @@ public class GameManager : MonoBehaviour
             if (i % teamSize == 0)
             {
                 int pick = (i / teamSize);
-                teamSpot = pick < spots.Count && Random.value < 0.75f
-                    ? spots[pick]
-                    : World.RandomOpenPoint(Vector3.zero, World.IslandRadius - 10f);
+                if (pick < spots.Count && Random.value < 0.75f)
+                    teamSpot = spots[pick];
+                else
+                {
+                    // Open ground somewhere along the flight path, off to either side.
+                    Vector3 side = new Vector3(-lineDir.z, 0f, lineDir.x);
+                    Vector3 onPath = Vector3.Lerp(plane.start, plane.end, Random.Range(0.15f, 0.85f));
+                    onPath.y = 0f;
+                    teamSpot = World.RandomOpenPoint(onPath + side * Random.Range(-200f, 200f), 30f);
+                }
             }
             Vector3 landing = World.RandomOpenPoint(teamSpot, 14f);
             Vector3 fromStart = landing - plane.start;

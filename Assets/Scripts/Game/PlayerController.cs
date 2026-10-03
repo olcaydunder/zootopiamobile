@@ -489,7 +489,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         // Landscape: device +x points up the screen, device -y points right.
         float flip = Screen.orientation == ScreenOrientation.LandscapeRight ? -1f : 1f;
         float k = Mathf.Rad2Deg * Time.deltaTime * GameSettings.GyroSensitivity * Mathf.Lerp(0.6f, 1f, sens) * (aimingDownSights ? ZoomFov() / 70f : 1f);
-        return new Vector2(-r.x * flip, r.y * flip) * k;
+        return new Vector2(-r.x * flip, -r.y * flip) * k;
     }
 
     // ----- Aim assist -----
@@ -578,7 +578,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         int fireMode = currentWeapon.weaponData != null ? GameSettings.FireModeFor(currentWeapon.weaponData.weaponType) : 1;
         if (fireMode == 2 && currentWeapon.weaponData != null && !isSprinting && EnemyUnderCrosshair())
             fire = true;
-        if (fireMode == 0 && fire && !aimingDownSights && !isSprinting)
+        if (fireMode == 0 && fire && !aim && !aimingDownSights && !isSprinting)
         {
             aimingDownSights = true;
             adsFromFire = true;
