@@ -1,0 +1,25 @@
+name: Harita verisi indir
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download elevation + OpenStreetMap
+        run: python Tools/fetch_map.py
+      - name: Commit MapData
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add MapData
+          git commit -m "Map data: elevation + OpenStreetMap around the clinic [skip ci]" || echo "no changes"
+          git push
