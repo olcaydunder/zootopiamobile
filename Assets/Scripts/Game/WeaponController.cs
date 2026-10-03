@@ -40,7 +40,7 @@ public class WeaponController : MonoBehaviour
 
         // Real gun model when available, otherwise a coloured box. Rebuilt when the
         // weapon type, attachments or camo change.
-        string signature = data.weaponType + "|" + data.camo + "|" + string.Join(",", data.attachments ?? new string[0]);
+        string signature = data.weaponType + "|" + data.modelSkin + "|" + data.camo + "|" + string.Join(",", data.attachments ?? new string[0]);
         if (gunModel == null || gunModelType != data.weaponType || signature != gunSignature)
         {
             if (gunModel != null)
@@ -49,7 +49,7 @@ public class WeaponController : MonoBehaviour
                 Destroy(gunModel);
             }
             WeaponDressing.Clear(transform);
-            gunModel = ModelLibrary.Spawn(ModelLibrary.GunPath(data.weaponType), transform);
+            gunModel = ModelLibrary.Spawn(ModelLibrary.GunPath(data.weaponType, data.modelSkin), transform);
             gunModelType = data.weaponType;
             gunSignature = signature;
             if (gunModel != null)

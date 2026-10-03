@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>Drop plane that crosses the island at the start of a match.</summary>
 public class AirPlane : MonoBehaviour
 {
-    public const float Altitude = 120f;
+    public const float Altitude = 170f;
     public const float Speed = 22f;
 
     public Vector3 start;

@@ -183,6 +183,7 @@ public static class Gunsmith
     {
         var l = Loadout(baseData.weaponType);
         var d = baseData.Clone();
+        d.modelSkin = ModelLibrary.SelectedGunSkin(d.weaponType);
         for (int i = 0; i < 5; i++)
         {
             var a = FindAttachment(l[i]);

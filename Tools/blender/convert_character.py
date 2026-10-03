@@ -1,0 +1,238 @@
+"""Turns a Mixamo-rigged GLB character into a game-ready FBX for Zootopia Mobile:
+- bakes its current pose (first frame) as the rest pose and normalises all transforms,
+- decimates heavy meshes and keeps only base-colour textures (1K),
+- retargets the game's clips (Idle, Run, Shoot_OneHanded, RecieveHit, Death) from the
+  Quaternius SoldierMale rig onto the Mixamo skeleton (world-space rotation deltas with
+  rest-direction alignment), and exports FBX the same way as the other character models.
+
+blender --background --python convert_character.py -- in.glb source_rig.fbx out.fbx [decimate_ratio]
+(or: python3 convert_character.py -- ... with the bpy module)
+"""
+import bpy, sys, math
+from mathutils import Matrix, Vector, Quaternion
+
+args = sys.argv[sys.argv.index("--") + 1:]
+SRC_GLB, RIG_FBX, OUT = args[0], args[1], args[2]
+RATIO = float(args[3]) if len(args) > 3 else 0.3
+
+MAP = {  # mixamo suffix -> Quaternius bone
+    "Hips": "Body", "Spine": "Hips", "Spine1": "Abdomen", "Spine2": "Torso", "Neck": "Neck", "Head": "Head",
+    "LeftShoulder": "Shoulder.L", "LeftArm": "UpperArm.L", "LeftForeArm": "LowerArm.L", "LeftHand": "Fist.L",
+    "RightShoulder": "Shoulder.R", "RightArm": "UpperArm.R", "RightForeArm": "LowerArm.R", "RightHand": "Fist.R",
+    "LeftUpLeg": "UpperLeg.L", "LeftLeg": "LowerLeg.L", "LeftFoot": "Foot.L",
+    "RightUpLeg": "UpperLeg.R", "RightLeg": "LowerLeg.R", "RightFoot": "Foot.R",
+}
+CLIPS = ["Idle", "Run", "Shoot_OneHanded", "RecieveHit", "Death"]
+
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.gltf(filepath=SRC_GLB)
+scene = bpy.context.scene
+arm = [o for o in scene.objects if o.type == "ARMATURE"][0]
+meshes = [o for o in scene.objects if o.type == "MESH" and any(m.type == "ARMATURE" for m in o.modifiers)]
+for o in list(scene.objects):
+    if o.type == "MESH" and o not in meshes:
+        bpy.data.objects.remove(o, do_unlink=True)
+
+# 1) current pose (first frame of the active action) becomes the rest pose
+scene.frame_set(int(arm.animation_data.action.frame_range[0]) if arm.animation_data and arm.animation_data.action else 0)
+bpy.context.view_layer.update()
+for o in meshes:
+    bpy.context.view_layer.objects.active = o
+    if o.data.shape_keys:
+        o.shape_key_clear()
+    for m in list(o.modifiers):
+        if m.type == "ARMATURE":
+            bpy.ops.object.modifier_apply(modifier=m.name)
+bpy.context.view_layer.objects.active = arm
+bpy.ops.object.mode_set(mode="POSE")
+bpy.ops.pose.select_all(action="SELECT")
+bpy.ops.pose.armature_apply(selected=False)
+bpy.ops.object.mode_set(mode="OBJECT")
+if arm.animation_data:
+    arm.animation_data.action = None
+for a in list(bpy.data.actions):
+    bpy.data.actions.remove(a)
+
+# 2) flatten the hierarchy and apply transforms
+for o in meshes + [arm]:
+    mw = o.matrix_world.copy()
+    o.parent = None
+    o.matrix_world = mw
+for o in list(scene.objects):
+    if o.type == "EMPTY":
+        bpy.data.objects.remove(o, do_unlink=True)
+bpy.ops.object.select_all(action="DESELECT")
+for o in meshes + [arm]:
+    o.select_set(True)
+bpy.context.view_layer.objects.active = arm
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+for o in meshes:
+    o.parent = arm
+    o.matrix_parent_inverse = Matrix()
+    mod = o.modifiers.new("Armature", "ARMATURE")
+    mod.object = arm
+
+# feet on the ground, centred
+zmin = min((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices)
+print("height", max((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices) - zmin)
+
+# 3) decimate + base-colour-only materials
+for o in meshes:
+    tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
+    if tris > 2500:
+        d = o.modifiers.new("Decimate", "DECIMATE")
+        d.ratio = RATIO
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.modifier_move_to_index(modifier="Decimate", index=0)
+        bpy.ops.object.modifier_apply(modifier="Decimate")
+for m in bpy.data.materials:
+    if not m.use_nodes:
+        continue
+    nt = m.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        continue
+    for inp in bsdf.inputs:
+        if inp.name != "Base Color":
+            for l in list(inp.links):
+                nt.links.remove(l)
+    base = bsdf.inputs["Base Color"]
+    if base.links:
+        src = base.links[0].from_node
+        # follow through colour-mix nodes to the image
+        while src.type != "TEX_IMAGE" and src.inputs and any(i.links for i in src.inputs):
+            src = next(i.links[0].from_node for i in src.inputs if i.links)
+        if src.type == "TEX_IMAGE":
+            nt.links.new(src.outputs["Color"], base)
+            img = src.image
+            if img and max(img.size) > 1024:
+                img.scale(1024, 1024)
+    for n in list(nt.nodes):
+        if n.type == "TEX_IMAGE" and not any(l.to_node == bsdf and l.to_socket.name == "Base Color" for l in n.outputs["Color"].links):
+            nt.nodes.remove(n)
+print("tris after", sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes))
+
+# 4) retarget the game's clips from the Quaternius rig
+before = set(bpy.data.objects)
+bpy.ops.import_scene.fbx(filepath=RIG_FBX)
+new = [o for o in bpy.data.objects if o not in before]
+src = next(o for o in new if o.type == "ARMATURE")
+Ws, Wt = src.matrix_world.copy(), arm.matrix_world.copy()
+
+def mixname(suffix):
+    for b in arm.data.bones:
+        n = b.name.split(":")[-1]
+        base = n.rsplit("_", 1)[0] if n.rsplit("_", 1)[-1].isdigit() else n
+        if base == suffix:
+            return b.name
+    return None
+tmap = {}
+for suf, sname in MAP.items():
+    tn = mixname(suf)
+    if tn and sname in src.data.bones:
+        tmap[tn] = sname
+print("mapped", len(tmap), "of", len(MAP))
+
+def rest_dir(armobj, b):
+    W = armobj.matrix_world
+    return ((W @ b.tail_local) - (W @ b.head_local)).normalized()
+corr = {}
+for tn, sn in tmap.items():
+    corr[tn] = rest_dir(arm, arm.data.bones[tn]).rotation_difference(rest_dir(src, src.data.bones[sn])).to_matrix()
+
+hips_t = mixname("Hips")
+hips_h_t = (Wt @ arm.data.bones[hips_t].head_local).z - zmin
+src_mesh = [o for o in new if o.type == "MESH"]
+src_zmin = min((o.matrix_world @ v.co).z for o in src_mesh for v in o.data.vertices) if src_mesh else 0
+hips_h_s = (Ws @ src.data.bones["Body"].head_local).z - src_zmin
+hscale = hips_h_t / max(1e-4, hips_h_s)
+print("hip heights", hips_h_t, hips_h_s, "scale", hscale)
+
+order = []
+def walk(b):
+    order.append(b)
+    for c in b.children:
+        walk(c)
+for b in arm.data.bones:
+    if b.parent is None:
+        walk(b)
+
+src_actions = {}
+for a in bpy.data.actions:
+    for c in CLIPS:
+        if a.name.endswith("|" + c) or a.name == c:
+            src_actions[c] = a
+print("source clips", list(src_actions))
+
+arm.animation_data_create()
+for pb in arm.pose.bones:
+    pb.rotation_mode = "QUATERNION"
+for clip in CLIPS:
+    sa = src_actions.get(clip)
+    if sa is None:
+        continue
+    src.animation_data.action = sa
+    ta = bpy.data.actions.new(clip)
+    arm.animation_data.action = ta
+    f0, f1 = int(sa.frame_range[0]), int(sa.frame_range[1])
+    s_rest_body = Ws @ src.data.bones["Body"].matrix_local
+    for f in range(f0, f1 + 1):
+        scene.frame_set(f)
+        A = {}
+        for b in order:
+            R = b.matrix_local
+            if b.parent:
+                Rp = b.parent.matrix_local
+                follow = A[b.parent.name] @ (Rp.inverted() @ R)
+            else:
+                follow = R.copy()
+            if b.name in tmap:
+                sn = tmap[b.name]
+                Ms = Ws @ src.pose.bones[sn].matrix
+                Ms0 = Ws @ src.data.bones[sn].matrix_local
+                D = Ms.to_3x3() @ Ms0.to_3x3().inverted()
+                rot_world = D @ corr[b.name] @ (Wt.to_3x3() @ R.to_3x3())
+                rot = Wt.to_3x3().inverted() @ rot_world
+                loc = follow.to_translation()
+                if b.name == hips_t:
+                    delta = Ms.to_translation() - s_rest_body.to_translation()
+                    loc = R.to_translation() + Wt.to_3x3().inverted() @ (delta * hscale)
+                A[b.name] = Matrix.Translation(loc) @ rot.normalized().to_4x4()
+            else:
+                A[b.name] = follow
+        for b in order:
+            R = b.matrix_local
+            if b.parent:
+                local_rest = b.parent.matrix_local.inverted() @ R
+                basis = local_rest.inverted() @ A[b.parent.name].inverted() @ A[b.name]
+            else:
+                basis = R.inverted() @ A[b.name]
+            pb = arm.pose.bones[b.name]
+            loc, q, _ = basis.decompose()
+            pb.rotation_quaternion = q
+            pb.keyframe_insert("rotation_quaternion", frame=f - f0)
+            if b.name == hips_t:
+                pb.location = loc
+                pb.keyframe_insert("location", frame=f - f0)
+    ta.use_fake_user = True
+    print("baked", clip, f1 - f0 + 1, "frames")
+
+# drop the source rig
+for o in new:
+    bpy.data.objects.remove(o, do_unlink=True)
+for a in list(bpy.data.actions):
+    if a.name not in CLIPS:
+        bpy.data.actions.remove(a)
+arm.animation_data.action = bpy.data.actions.get("Idle")
+for a in bpy.data.actions:
+    track = arm.animation_data.nla_tracks.new()
+    track.name = a.name
+    track.strips.new(a.name, 0, a)
+    track.mute = True
+arm.name = "CharacterArmature"
+bpy.ops.object.select_all(action="SELECT")
+bpy.ops.export_scene.fbx(filepath=OUT, use_selection=False, object_types={"ARMATURE", "MESH"},
+                         apply_scale_options="FBX_SCALE_ALL", add_leaf_bones=False, bake_anim=True,
+                         bake_anim_use_all_actions=True, bake_anim_use_nla_strips=False, bake_anim_force_startend_keying=True,
+                         bake_anim_simplify_factor=0.5, path_mode="COPY", embed_textures=True, mesh_smooth_type="FACE")
+print("exported", OUT)

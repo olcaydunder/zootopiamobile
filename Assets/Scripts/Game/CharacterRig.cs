@@ -320,6 +320,8 @@ public class CharacterRig : MonoBehaviour
             smr.updateWhenOffscreen = false;
 
         rightHand = ModelLibrary.FindDeep(model.transform, "Fist.R");
+        if (rightHand == null)
+            rightHand = FindMixamoHand(model.transform);   // Mixamo rigs: "mixamorig:RightHand" (maybe with a _NN suffix)
 
         AnimationClip[] clips = ModelLibrary.Clips(path);
         var found = new AnimationClip[StateNames.Length];
@@ -377,6 +379,23 @@ public class CharacterRig : MonoBehaviour
         output.SetSourcePlayable(mixer);
         graph.Play();
         return true;
+    }
+
+    private static Transform FindMixamoHand(Transform t)
+    {
+        string n = t.name;
+        int colon = n.LastIndexOf(':');
+        if (colon >= 0)
+            n = n.Substring(colon + 1);
+        if (n == "RightHand" || (n.StartsWith("RightHand_") && char.IsDigit(n[n.Length - 1])))
+            return t;
+        foreach (Transform c in t)
+        {
+            var f = FindMixamoHand(c);
+            if (f != null)
+                return f;
+        }
+        return null;
     }
 
     /// <summary>Short flinch when taking damage.</summary>

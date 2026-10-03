@@ -83,37 +83,43 @@ public static class PostFx
             layer = null;
         }
 
-        Apply(GameSettings.Quality);
+        Apply(GameSettings.Quality, GameSettings.AntiAliasing, GameSettings.Bloom);
     }
 
-    public static void Apply(int quality)
+    /// <summary>quality 0 low .. 3 max; antiAliasing = "Düzgünleştirme", bloom = "Parlaklık".</summary>
+    public static void Apply(int quality, bool antiAliasing, bool bloomOn)
     {
         var cam = Camera.main;
+        bool msaa = antiAliasing && quality > 0;
         if (cam != null)
         {
-            cam.allowMSAA = quality > 0;
+            cam.allowMSAA = msaa;
             cam.allowHDR = false;
         }
-        QualitySettings.antiAliasing = quality == 0 ? 0 : (quality == 1 ? 2 : 4);
+        QualitySettings.antiAliasing = !msaa ? 0 : (quality == 1 ? 2 : 4);
 
         if (layer == null)
             return;
 
-        // Low quality: no effects, but cheap FXAA so edges are still smooth.
+        // Low quality (or MSAA off): cheap FXAA keeps edges smooth.
         layer.enabled = true;
-        layer.antialiasingMode = quality == 0 ? PostProcessLayer.Antialiasing.FastApproximateAntialiasing : PostProcessLayer.Antialiasing.None;
+        layer.antialiasingMode = antiAliasing && !msaa ? PostProcessLayer.Antialiasing.FastApproximateAntialiasing : PostProcessLayer.Antialiasing.None;
         layer.fastApproximateAntialiasing.fastMode = true;
+        bool effects = quality > 0;
         if (volume != null)
-            volume.weight = quality == 0 ? 0f : 1f;
+            volume.weight = effects ? 1f : 0f;
 
         if (bloom != null)
         {
-            bloom.intensity.Override(quality == 2 ? 1.6f : 1.1f);
+            bloom.enabled.Override(bloomOn);
+            bloom.intensity.Override(quality >= 2 ? 1.6f : 1.1f);
             bloom.fastMode.Override(quality < 2);
         }
         if (ao != null)
-            ao.enabled.Override(quality == 2);
-        if (cam != null && quality == 2)
+            ao.enabled.Override(quality >= 2);
+        if (ao != null)
+            ao.quality.Override(quality >= 3 ? AmbientOcclusionQuality.Medium : AmbientOcclusionQuality.Low);
+        if (cam != null && quality >= 2)
             cam.depthTextureMode |= DepthTextureMode.Depth;
     }
 }

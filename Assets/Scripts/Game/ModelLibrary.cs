@@ -8,11 +8,48 @@ using UnityEngine;
 public static class ModelLibrary
 {
     public const string PlayerSkin = "SoldierMale";
-    public static readonly string[] EnemySkins = { "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale" };
-    /// <summary>Skins the player can buy in the lobby shop, with prices in coins.</summary>
-    public static readonly string[] ShopSkins = { "SoldierMale", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
-    public static readonly string[] ShopNames = { "Asker", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
-    public static readonly int[] ShopPrices = { 0, 150, 150, 300, 500, 400 };
+    public static readonly string[] EnemySkins = { "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher" };
+    /// <summary>Characters the player can pick (all free).</summary>
+    public static readonly string[] ShopSkins = { "SoldierMale", "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
+    public static readonly string[] ShopNames = { "Asker", "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
+    public static readonly string[] ShopRoles = { "Dengeli piyade", "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci" };
+    public static readonly int[] ShopPrices = { 0, 0, 0, 0, 0, 0, 0 };
+
+    // ----- Weapon model variants ("" = the standard model) -----
+
+    public static string[] GunSkins(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Pistol: return new[] { "", "Flame" };
+            case WeaponType.Rifle: return new[] { "", "AK19" };
+            case WeaponType.Sniper: return new[] { "", "Shadow" };
+            default: return new[] { "" };
+        }
+    }
+
+    public static string GunSkinName(WeaponType type, string skin)
+    {
+        switch (skin)
+        {
+            case "Flame": return "Alev Kartalı";
+            case "AK19": return "AK-19 Taktik";
+            case "Shadow": return "Gölge Avcı";
+            default: return "Standart";
+        }
+    }
+
+    public static string SelectedGunSkin(WeaponType type)
+    {
+        string s = PlayerPrefs.GetString("zm_gunskin_" + type, "");
+        return System.Array.IndexOf(GunSkins(type), s) >= 0 ? s : "";
+    }
+
+    public static void SelectGunSkin(WeaponType type, string skin)
+    {
+        PlayerPrefs.SetString("zm_gunskin_" + type, skin ?? "");
+        PlayerPrefs.Save();
+    }
 
     public static readonly string[] CoverProps = { "SackTrench_Small", "SackTrench", "Barrier_Single", "Container_Small", "Container_Long", "ExplodingBarrel", "GasTank", "TrashContainer", "CardboardBoxes_4", "Debris_Tires", "WaterTank_Floor" };
     public static readonly string[] SmallProps = { "Crate", "Pallet", "CardboardBoxes_2", "TrafficCone" };
@@ -60,6 +97,18 @@ public static class ModelLibrary
     public static string PropPath(string prop)
     {
         return "Models/Props/" + prop;
+    }
+
+    /// <summary>Gun model path for a variant, falling back to the standard model if it's missing.</summary>
+    public static string GunPath(WeaponType type, string skin)
+    {
+        if (!string.IsNullOrEmpty(skin))
+        {
+            string p = GunPath(type) + "_" + skin;
+            if (Prefab(p) != null)
+                return p;
+        }
+        return GunPath(type);
     }
 
     public static string GunPath(WeaponType type)
@@ -110,13 +159,32 @@ public static class ModelLibrary
             var mats = r.sharedMaterials;
             for (int i = 0; i < mats.Length; i++)
             {
-                if (mats[i] != null)
-                    mats[i] = MaterialCache.Lit(mats[i].color);
+                if (mats[i] == null)
+                    continue;
+                // Textured models (Sketchfab assets) keep their texture; plain-colour ones share by colour.
+                mats[i] = mats[i].mainTexture != null ? Textured(mats[i]) : MaterialCache.Lit(mats[i].color);
             }
             r.sharedMaterials = mats;
             if (!castShadows)
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
+    }
+
+    private static readonly Dictionary<Material, Material> textured = new Dictionary<Material, Material>();
+
+    /// <summary>Same texture on the game's own Standard material (guaranteed to be in the build).</summary>
+    private static Material Textured(Material source)
+    {
+        Material m;
+        if (textured.TryGetValue(source, out m) && m != null)
+            return m;
+        m = new Material(MaterialCache.Lit(Color.white));
+        m.name = source.name + "_zm";
+        m.mainTexture = source.mainTexture;
+        m.color = Color.white;
+        m.enableInstancing = true;
+        textured[source] = m;
+        return m;
     }
 
     public static void SetLayer(GameObject obj, int layer)

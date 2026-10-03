@@ -11,8 +11,9 @@ public class SafeZoneController : MonoBehaviour
     public bool active;
 
     // Tuned for the 700 m city map (runs ~6 m/s, jeeps on the streets).
-    private static readonly float[] WaitTimes = { 110f, 70f, 50f, 38f, 28f, 18f };
-    private static readonly float[] ShrinkTimes = { 70f, 50f, 38f, 28f, 20f, 14f };
+    // The zone starts closing every 30 seconds (wait 30 s, then shrink).
+    private static readonly float[] WaitTimes = { 30f, 30f, 30f, 30f, 30f, 30f };
+    private static readonly float[] ShrinkTimes = { 50f, 40f, 32f, 26f, 20f, 15f };
     private static readonly float[] RadiusFractions = { 0.62f, 0.4f, 0.25f, 0.14f, 0.06f, 0f };
     private static readonly float[] DamagePerSecond = { 2f, 4f, 6f, 9f, 13f, 18f };
 

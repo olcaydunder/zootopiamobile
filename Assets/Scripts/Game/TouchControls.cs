@@ -36,6 +36,10 @@ public class TouchControls : MonoBehaviour
     private HoldButton rightFire;
     private HoldButton leftFire;
     private RectTransform rightFireRect;
+    private Vector2 rightFireHome;
+    private bool lookIsFireFinger;
+    private Vector2 fireFollowStart;
+    private CanvasGroup group;
     private Image sprintImage;
     private Text medkitLabel, drinkLabel, grenadeLabel, swapLabel, vehicleLabel, airLabel;
     private GameObject combatGroup;
@@ -68,6 +72,7 @@ public class TouchControls : MonoBehaviour
         Instance = this;
         canvas = parentCanvas;
         root = (RectTransform)transform;
+        group = gameObject.AddComponent<CanvasGroup>();
 
         Text unused;
 
@@ -93,6 +98,7 @@ public class TouchControls : MonoBehaviour
         var fireR = UIUtil.CreateButton(g, "ATEŞ", new Vector2(1f, 0f), new Vector2(-230f, 260f), new Vector2(200f, 200f), FireColor, true, 30, out unused);
         rightFire = fireR.gameObject.AddComponent<HoldButton>();
         rightFireRect = (RectTransform)fireR.transform;
+        rightFireHome = rightFireRect.anchoredPosition;
         var fireL = UIUtil.CreateButton(g, "ATEŞ", Vector2.zero, new Vector2(250f, 560f), new Vector2(130f, 130f), FireColor, true, 22, out unused);
         leftFire = fireL.gameObject.AddComponent<HoldButton>();
 
@@ -129,6 +135,20 @@ public class TouchControls : MonoBehaviour
 
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
+        ApplySettings();
+    }
+
+    /// <summary>Applies the control options from the settings screen.</summary>
+    public void ApplySettings()
+    {
+        if (leftFire != null)
+            leftFire.gameObject.SetActive(GameSettings.LeftFireButton);
+        if (group != null)
+            group.alpha = GameSettings.ButtonOpacity;
+        if (stickBase != null && moveFinger == -1)
+            stickBase.anchoredPosition = stickHome;
+        if (rightFireRect != null)
+            rightFireRect.anchoredPosition = rightFireHome;
     }
 
     /// <summary>Called by the UI every frame to show only the buttons that make sense right now.</summary>
@@ -173,6 +193,9 @@ public class TouchControls : MonoBehaviour
         LookDelta = Vector2.zero;
         moveFinger = -1;
         lookFinger = -1;
+        lookIsFireFinger = false;
+        if (rightFireRect != null)
+            rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
         drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = false;
         SprintOn = false;
@@ -221,10 +244,13 @@ public class TouchControls : MonoBehaviour
                     {
                         // Holding the right fire button also aims (drag your thumb while shooting).
                         if (lookFinger == -1 && rightFireRect != null && rightFireRect.gameObject.activeInHierarchy &&
-                            RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null))
+                            RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null) &&
+                            (GameSettings.FireButtonLook || GameSettings.FireButtonFollow))
                         {
                             lookFinger = t.fingerId;
                             lastLookScreen = t.position;
+                            lookIsFireFinger = true;
+                            fireFollowStart = t.position;
                         }
                         break;
                     }
@@ -232,15 +258,25 @@ public class TouchControls : MonoBehaviour
                     if (t.position.x < Screen.width * 0.4f && moveFinger == -1)
                     {
                         moveFinger = t.fingerId;
-                        moveStartScreen = t.position;
-                        Vector2 local;
-                        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(root, t.position, null, out local))
-                            stickBase.anchoredPosition = local - root.rect.min;
+                        if (GameSettings.JoystickMode == 1)
+                        {
+                            // Dynamic: the stick appears under the thumb.
+                            moveStartScreen = t.position;
+                            Vector2 local;
+                            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(root, t.position, null, out local))
+                                stickBase.anchoredPosition = local - root.rect.min;
+                        }
+                        else
+                        {
+                            // Fixed: the stick stays put; direction is measured from its centre.
+                            moveStartScreen = RectTransformUtility.WorldToScreenPoint(null, stickBase.position);
+                        }
                     }
                     else if (lookFinger == -1)
                     {
                         lookFinger = t.fingerId;
                         lastLookScreen = t.position;
+                        lookIsFireFinger = false;
                     }
                     break;
 
@@ -255,8 +291,11 @@ public class TouchControls : MonoBehaviour
                     }
                     else if (t.fingerId == lookFinger)
                     {
-                        LookDelta += (t.position - lastLookScreen) / scale;
+                        if (!lookIsFireFinger || GameSettings.FireButtonLook)
+                            LookDelta += (t.position - lastLookScreen) / scale;
                         lastLookScreen = t.position;
+                        if (lookIsFireFinger && GameSettings.FireButtonFollow)
+                            rightFireRect.anchoredPosition = rightFireHome + Vector2.ClampMagnitude((t.position - fireFollowStart) / scale, 150f);
                     }
                     break;
 
@@ -272,6 +311,9 @@ public class TouchControls : MonoBehaviour
                     else if (t.fingerId == lookFinger)
                     {
                         lookFinger = -1;
+                        if (lookIsFireFinger && rightFireRect != null)
+                            rightFireRect.anchoredPosition = rightFireHome;
+                        lookIsFireFinger = false;
                     }
                     break;
             }

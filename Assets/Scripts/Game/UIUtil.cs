@@ -13,8 +13,12 @@ public static class UIUtil
         {
             if (font == null)
             {
+                // Barlow Condensed (SIL Open Font License, Resources/Fonts) – the condensed look of
+                // big mobile shooters, with full Turkish characters.
+                font = Resources.Load<Font>("Fonts/ZootopiaFont");
                 // Unity 2022.2+ ships LegacyRuntime.ttf; Arial.ttf only exists in older versions.
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if (font == null)
+                    font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 if (font == null)
                     font = Font.CreateDynamicFontFromOSFont("Arial", 32);
             }

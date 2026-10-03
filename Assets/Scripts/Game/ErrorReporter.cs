@@ -250,6 +250,14 @@ public class ErrorReporter : MonoBehaviour
                 Check("ZM-C-04", "Shader bu telefonda desteklenmiyor: " + name, "Grafik kalitesini Düşük yapmayı dene.");
         }
 
+        foreach (var skin in ModelLibrary.ShopSkins)
+            if (ModelLibrary.Prefab(ModelLibrary.CharacterPath(skin)) == null)
+                Check("ZM-C-12", "Karakter modeli eksik: " + skin, "O karakter basit şekillerle gösterilir.");
+        foreach (var w in Gunsmith.Weapons)
+            foreach (var gs in ModelLibrary.GunSkins(w))
+                if (!string.IsNullOrEmpty(gs) && ModelLibrary.Prefab(ModelLibrary.GunPath(w) + "_" + gs) == null)
+                    Check("ZM-C-13", "Silah modeli eksik: " + w + " " + gs, "Standart model kullanılıyor.");
+
         if (!MapData.Loaded)
             Check("ZM-C-10", "Çekmeköy harita verisi yüklenemedi (Resources/Map).", "Yedek ada haritası kullanılıyor.");
         if (CityBuilder.LastError != null)
@@ -284,7 +292,7 @@ public class ErrorReporter : MonoBehaviour
                 sb.Append(" x").Append(e.count);
             sb.Append('\n').Append(e.message).Append('\n');
             if (!string.IsNullOrEmpty(e.hint))
-                sb.Append("  → ").Append(e.hint).Append('\n');
+                sb.Append("  -> ").Append(e.hint).Append('\n');
             if (!string.IsNullOrEmpty(e.stack))
                 sb.Append(Trim(e.stack, 8));
             sb.Append('\n');
@@ -433,7 +441,7 @@ public class ErrorReporter : MonoBehaviour
                 sb.Append("  x").Append(e.count);
             sb.Append("</color>\n").Append(Escape(e.message.Split('\n')[0])).Append('\n');
             if (!string.IsNullOrEmpty(e.hint))
-                sb.Append("<color=#9fe39f>→ ").Append(Escape(e.hint)).Append("</color>\n");
+                sb.Append("<color=#9fe39f>-> ").Append(Escape(e.hint)).Append("</color>\n");
             if (!string.IsNullOrEmpty(e.stack))
                 sb.Append("<size=20><color=#8a94a3>").Append(Escape(Trim(e.stack, 3))).Append("</color></size>");
             sb.Append('\n');

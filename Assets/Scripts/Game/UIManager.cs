@@ -78,7 +78,6 @@ public class UIManager : MonoBehaviour
     private GameObject settingsPanel;
     private GameObject shopPanel;
     private GameObject pausePanel;
-    private Text sensText, qualityText, volumeText, debugToggleText;
     private Text shopCoinsText;
     private readonly List<Text> shopLabels = new List<Text>();
     private readonly List<Image> shopButtons = new List<Image>();
@@ -130,6 +129,7 @@ public class UIManager : MonoBehaviour
         resultPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (gunsmith != null) gunsmith.Hide();
+        if (matchPrep != null) matchPrep.Hide();
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -196,7 +196,7 @@ public class UIManager : MonoBehaviour
         lobbyGunText.color = Theme.TextDim;
 
         var charTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, -40f), new Vector2(440f, 130f), Theme.Panel, false, 20, out unused);
-        charTile.onClick.AddListener(OpenShop);
+        charTile.onClick.AddListener(() => { HideAll(); matchPrep.Open(selectedMode); });   // character + weapon select
         var ct = charTile.transform;
         UIUtil.CreateImage(ct, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 130f), new Color(0.3f, 0.7f, 1f), false).raycastTarget = false;
         var cTitle = UIUtil.CreateText(ct, "KARAKTERLER", new Vector2(0f, 1f), new Vector2(200f, -38f), new Vector2(360f, 50f), 32, TextAnchor.MiddleLeft);
@@ -233,7 +233,7 @@ public class UIManager : MonoBehaviour
         mapLabel.color = Theme.Accent;
 
         UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel)
-            .onClick.AddListener(() => GameManager.Instance.StartMatch(selectedMode));
+            .onClick.AddListener(() => { HideAll(); matchPrep.Open(selectedMode); });
         lobbyStartLabel.color = new Color(0.1f, 0.08f, 0.02f);
         lobbyStartLabel.GetComponent<Shadow>().enabled = false;
 
@@ -250,6 +250,7 @@ public class UIManager : MonoBehaviour
         }
 
         gunsmith = GunsmithScreen.Create(canvas.transform);
+        matchPrep = MatchPrepScreen.Create(canvas.transform);
         SelectMode(0);
     }
 
@@ -523,61 +524,24 @@ public class UIManager : MonoBehaviour
         return value;
     }
 
+    private SettingsScreen settingsScreen;
+    private MatchPrepScreen matchPrep;
+
     private void BuildSettings()
     {
-        settingsPanel = CreateOverlay("SettingsPanel", new Vector2(900f, 800f));
-        var box = settingsPanel.transform.Find("Box");
-        var c = new Vector2(0.5f, 0.5f);
-        var title = UIUtil.CreateText(box, "AYARLAR", c, new Vector2(0f, 320f), new Vector2(600f, 70f), 48, TextAnchor.MiddleCenter);
-        title.fontStyle = FontStyle.Bold;
-
-        sensText = SettingRow(box, "Bakış hassasiyeti", 200f,
-            () => { GameSettings.Sensitivity = Mathf.Max(0.4f, GameSettings.Sensitivity - 0.1f); SettingsChanged(); },
-            () => { GameSettings.Sensitivity = Mathf.Min(2f, GameSettings.Sensitivity + 0.1f); SettingsChanged(); });
-        qualityText = SettingRow(box, "Grafik kalitesi", 100f,
-            () => { GameSettings.Quality = Mathf.Max(0, GameSettings.Quality - 1); SettingsChanged(); },
-            () => { GameSettings.Quality = Mathf.Min(2, GameSettings.Quality + 1); SettingsChanged(); });
-        volumeText = SettingRow(box, "Ses", 0f,
-            () => { GameSettings.Volume = Mathf.Max(0f, GameSettings.Volume - 0.1f); SettingsChanged(); },
-            () => { GameSettings.Volume = Mathf.Min(1f, GameSettings.Volume + 0.1f); SettingsChanged(); });
-
-        Text unused;
-        UIUtil.CreateText(box, "Hata modu", c, new Vector2(-250f, -105f), new Vector2(320f, 60f), 34, TextAnchor.MiddleLeft);
-        UIUtil.CreateButton(box, "", c, new Vector2(110f, -105f), new Vector2(200f, 70f), new Color(0.25f, 0.3f, 0.4f, 1f), false, 30, out debugToggleText)
-            .onClick.AddListener(() => { ErrorReporter.SetDebugMode(!ErrorReporter.DebugMode); RefreshSettings(); });
-        UIUtil.CreateButton(box, "HATA EKRANI", c, new Vector2(0f, -200f), new Vector2(360f, 76f), new Color(0.8f, 0.25f, 0.2f, 1f), false, 30, out unused)
-            .onClick.AddListener(() => { if (ErrorReporter.Instance != null) ErrorReporter.Instance.OpenPanel(); });
-        UIUtil.CreateButton(box, "KAPAT", c, new Vector2(0f, -310f), new Vector2(300f, 86f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 34, out unused)
-            .onClick.AddListener(CloseSettings);
-    }
-
-    private void SettingsChanged()
-    {
-        GameSettings.Save();
-        RefreshSettings();
-    }
-
-    private void RefreshSettings()
-    {
-        sensText.text = GameSettings.Sensitivity.ToString("0.0") + "x";
-        qualityText.text = GameSettings.QualityNames[GameSettings.Quality];
-        volumeText.text = Mathf.RoundToInt(GameSettings.Volume * 100f) + "%";
-        debugToggleText.text = ErrorReporter.DebugMode ? "AÇIK" : "KAPALI";
+        settingsScreen = SettingsScreen.Create(canvas.transform);
+        settingsPanel = settingsScreen.gameObject;
     }
 
     public void OpenSettings(bool fromPause)
     {
         settingsFromPause = fromPause;
         if (pausePanel != null) pausePanel.SetActive(false);
-        RefreshSettings();
-        settingsPanel.SetActive(true);
-    }
-
-    private void CloseSettings()
-    {
-        settingsPanel.SetActive(false);
-        if (settingsFromPause)
-            pausePanel.SetActive(true);
+        settingsScreen.Open(() =>
+        {
+            if (settingsFromPause && pausePanel != null)
+                pausePanel.SetActive(true);
+        });
     }
 
     private void BuildShop()

@@ -21,6 +21,10 @@
 - **Nişan alma:** NİŞAN butonu ile yakınlaştırma, daha az sekme; keskin nişancı ve 3x/6x dürbünde tam ekran dürbün görünümü
 - **Silah Atölyesi:** 5 aparat yuvası (namlu, nişangâh, alt namlu, şarjör, dipçik) ile 17 aparat, 9 kamuflaj (desenli, parlayan efsanevi/mitik olanlar dahil), hasar/atış hızı/isabet/mobilite/menzil/kontrol çubuklarında artı-eksi gösterimi, döndürülebilir 3D silah önizlemesi; seçimler maçta aldığın silahlara otomatik uygulanır
 - **Lobi:** Karakterin silahıyla ortada; profil, altın, mod seçimi (Solo/Duo/Squad), BAŞLAT, Silah Atölyesi, Karakterler, Kariyer
+- **Giriş ekranı:** Yükleme çubuğu ve ipuçlarıyla açılış, ardından şehrin üstünde süzülen kamerayla "DOKUNARAK BAŞLA" ekranı; oyun genelinde Barlow Condensed yazı tipi
+- **Hazırlık ekranı:** BAŞLAT'tan sonra karakter (Kasap Leydi dahil 7 karakter) ve maça birlikte girdiğin birincil silah seçilir; silah modelleri (AK-19 Taktik, Gölge Avcı, Alev Kartalı tabanca) seçilebilir
+- **Profesyonel ayarlar:** Temel (nişan yardımı, ateş etme modu: tek dokunuşla nişangâh / nişan almadan / otomatik / kişisel), Kontroller (sabit/takip ateş düğmesi, sol oyun kolu modu, sol ateş düğmesi, düğme görünürlüğü), Ses ve Grafikler (Düşük–Maks. kalite, 30/60/Maks. FPS, düzgünleştirme, gölgeler, parlaklık), Hassasiyet (hız ivmesi, kamera/nişangâh/dürbün hassasiyeti, jiroskop), Künye
+- **Alan daralması:** Her aşama 30 saniye bekler, sonra daralır; botlar haritanın farklı bölgelerine dağılarak atlar
 - **Hata modu:** Ayarlar → Hata modu AÇIK. Ekranda FPS ve kırmızı HATA rozeti görünür; HATA EKRANI tüm hataları `ZM-...` kodlarıyla listeler, RAPORU KOPYALA cihaz bilgisiyle birlikte panoya kopyalar. Önceki oturumun hataları da saklanır (`zm_hata.log`)
 - **Yere düşme:** Duo/Squad'da can bitince yere düşersin; bot takım arkadaşın gelip 5 saniyede kaldırır
 - **Mağaza:** Maçlardan kazanılan altınla 6 farklı karakter açılır ve kuşanılır

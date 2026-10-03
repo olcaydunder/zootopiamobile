@@ -115,7 +115,7 @@ public class GameManager : MonoBehaviour
     public void RefreshLobbyWeapon()
     {
         if (player != null && currentState == GameState.Lobby)
-            player.ShowcaseWeapon(Gunsmith.Apply(WeaponData.CreateRifle()));
+            player.ShowcaseWeapon(Loadout.PrimaryWeapon());
     }
 
     public void StartMatch(MatchMode mode)
@@ -147,6 +147,7 @@ public class GameManager : MonoBehaviour
 
         player.SetLobbyView(false);
         player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
+        player.GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));   // the primary chosen in HAZIRLIK
         player.BoardPlane(plane);
         Combatants.Add(player);
 
@@ -161,12 +162,34 @@ public class GameManager : MonoBehaviour
             bot.BoardPlane(plane, 1.1f, Vector3.zero, true);    // waits for the player to jump
         }
 
+        // Each enemy team picks a different part of the map (a building to loot, or open ground)
+        // and jumps from the plane where the flight path passes closest to it.
+        var spots = new List<Vector3>(World.HouseCenters);
+        for (int i = spots.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            Vector3 tmp = spots[i]; spots[i] = spots[j]; spots[j] = tmp;
+        }
+        Vector3 flight = plane.end - plane.start;
+        flight.y = 0f;
+        Vector3 teamSpot = Vector3.zero;
         for (int i = 0; i < enemies; i++)
         {
             int team = 1 + i / teamSize;
             var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team % EnemyColors.Length]);
-            Vector3 landing = World.RandomOpenPoint(Vector3.zero, World.IslandRadius - 10f);
-            bot.BoardPlane(plane, Random.Range(0.12f, 0.88f), landing, false);
+            if (i % teamSize == 0)
+            {
+                int pick = (i / teamSize);
+                teamSpot = pick < spots.Count && Random.value < 0.75f
+                    ? spots[pick]
+                    : World.RandomOpenPoint(Vector3.zero, World.IslandRadius - 10f);
+            }
+            Vector3 landing = World.RandomOpenPoint(teamSpot, 14f);
+            Vector3 fromStart = landing - plane.start;
+            fromStart.y = 0f;
+            float along = flight.sqrMagnitude > 1f ? Vector3.Dot(fromStart, flight) / flight.sqrMagnitude : Random.value;
+            float jumpAt = Mathf.Clamp(along - 0.05f + Random.Range(-0.03f, 0.03f), 0.06f, 0.94f);
+            bot.BoardPlane(plane, jumpAt, landing, false);
         }
 
         for (int v = 0; v < World.VehicleSpots.Count; v++)

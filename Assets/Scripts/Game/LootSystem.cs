@@ -80,8 +80,22 @@ public class LootSystem : MonoBehaviour
 
         Color body = ColorFor(type);
         Color band = new Color(0.15f, 0.15f, 0.15f);
-        var model = ModelLibrary.Spawn(ModelLibrary.PropPath("Crate"), crate.transform);
-        if (model != null)
+        // Armour shows the real gear: a plate-carrier vest or a tactical helmet lying on the ground.
+        GameObject gear = type == LootType.Armor
+            ? ModelLibrary.Spawn(ModelLibrary.PropPath(Random.value < 0.5f ? "ArmorVest" : "ArmorHelmet"), crate.transform)
+            : null;
+        var model = gear == null ? ModelLibrary.Spawn(ModelLibrary.PropPath("Crate"), crate.transform) : null;
+        if (gear != null)
+        {
+            ModelLibrary.ShareMaterials(gear, false);
+            Bounds b = ModelLibrary.RenderBounds(gear);
+            float k = 0.5f / Mathf.Max(0.01f, Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)));
+            if (k < 0.4f || k > 2.5f)
+                gear.transform.localScale *= k;
+            b = ModelLibrary.RenderBounds(gear);
+            gear.transform.localPosition = new Vector3(0f, -0.3f - (b.min.y - position.y), 0f);
+        }
+        else if (model != null)
         {
             // Wooden crate model (~0.8 m) shrunk to 0.55 m, with a coloured strap showing what is inside.
             model.transform.localScale *= 0.7f;

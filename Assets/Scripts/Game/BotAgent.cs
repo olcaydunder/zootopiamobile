@@ -180,7 +180,8 @@ public class BotAgent : MonoBehaviour, IDamageable
         float ground = World.GroundHeight(transform.position.x, transform.position.z);
         float height = transform.position.y - ground;
 
-        float horizontalMax = air == BotAir.Freefall ? 18f : 7f;
+        // Glide far enough to reach landing spots away from the flight path.
+        float horizontalMax = air == BotAir.Freefall ? 30f : 12f;
         float vertical = air == BotAir.Freefall ? -32f : -6f;
         Vector3 desired = Vector3.ClampMagnitude(toGoal * 0.6f, horizontalMax) + Vector3.up * vertical;
         airVelocity = Vector3.Lerp(airVelocity, desired, dt * 2f);
@@ -188,7 +189,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         if (toGoal.sqrMagnitude > 1f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toGoal), dt * 3f);
 
-        if (air == BotAir.Freefall && height < 50f)
+        if (air == BotAir.Freefall && height < 90f)
         {
             air = BotAir.Parachute;
             rig.pose = RigPose.Parachute;
