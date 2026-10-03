@@ -94,8 +94,22 @@ public class BotAgent : MonoBehaviour, IDamageable
     {
         team = teamId;
         botName = displayName;
+        string skin = teamId == 0 ? ModelLibrary.PlayerSkin : ModelLibrary.EnemySkins[Random.Range(0, ModelLibrary.EnemySkins.Length)];
         rig = CharacterRig.Build(gameObject, color, new Color(0.22f, 0.23f, 0.25f),
-            Skins[Random.Range(0, Skins.Length)], Helmets[Random.Range(0, Helmets.Length)], new Color(0.38f, 0.32f, 0.22f));
+            Skins[Random.Range(0, Skins.Length)], Helmets[Random.Range(0, Helmets.Length)], new Color(0.38f, 0.32f, 0.22f), skin);
+        rig.weaponHold = weapon.transform;
+        if (teamId == 0)
+        {
+            // Green marker over teammates' heads.
+            var marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Destroy(marker.GetComponent<Collider>());
+            marker.transform.SetParent(transform, false);
+            marker.transform.localPosition = new Vector3(0f, 1.35f, 0f);
+            marker.transform.localScale = new Vector3(0.18f, 0.24f, 0.18f);
+            var mr = marker.GetComponent<Renderer>();
+            mr.sharedMaterial = UIUtil.UnlitMaterial(new Color(0.3f, 1f, 0.4f, 0.9f));
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
         weapon.Initialize(weaponData, weaponModel);
         armor = Random.value < 0.3f ? 40f : 0f;
         grenades = Random.value < 0.4f ? 1 : 0;
@@ -409,6 +423,8 @@ public class BotAgent : MonoBehaviour, IDamageable
         }
 
         health -= amount;
+        if (attackerTeam >= 0)
+            rig.PlayHit();
         if (health <= 0f)
         {
             health = 0f;

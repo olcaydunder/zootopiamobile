@@ -15,6 +15,9 @@ public class WeaponController : MonoBehaviour
     private float tracerOffTime;
     private Transform flash;
     private float flashOffTime;
+    private GameObject gunModel;
+    private bool hasGunModel;
+    private WeaponType gunModelType;
 
     public void Initialize(WeaponData data, Renderer model)
     {
@@ -33,8 +36,27 @@ public class WeaponController : MonoBehaviour
 
         if (model != null)
             modelRenderer = model;
+
+        // Real gun model when available, otherwise a coloured box.
+        if (gunModel == null || gunModelType != data.weaponType)
+        {
+            if (gunModel != null)
+                Destroy(gunModel);
+            gunModel = ModelLibrary.Spawn(ModelLibrary.GunPath(data.weaponType), transform);
+            gunModelType = data.weaponType;
+            if (gunModel != null)
+            {
+                gunModel.transform.localPosition = Vector3.zero;
+                gunModel.transform.localRotation = Quaternion.identity;
+                ModelLibrary.SetLayer(gunModel, gameObject.layer);
+                FixGunScale(gunModel, data.weaponType);
+            }
+        }
+        hasGunModel = gunModel != null;
+
         if (modelRenderer != null)
         {
+            modelRenderer.enabled = !hasGunModel;
             modelRenderer.sharedMaterial = MaterialCache.Lit(data.color);
             float length = data.weaponType == WeaponType.Pistol ? 0.35f : data.weaponType == WeaponType.Sniper ? 1.1f : data.weaponType == WeaponType.SMG ? 0.6f : 0.85f;
             modelRenderer.transform.localScale = new Vector3(0.1f, 0.13f, length);
@@ -42,6 +64,22 @@ public class WeaponController : MonoBehaviour
 
         EnsureTracer();
         EnsureFlash();
+    }
+
+    /// <summary>Guards against FBX unit differences (cm vs m): the gun should be about its real length.</summary>
+    private static void FixGunScale(GameObject gun, WeaponType type)
+    {
+        float expected = ModelLibrary.MuzzleDistance(type) * 1.45f;
+        float longest = 0f;
+        foreach (var mf in gun.GetComponentsInChildren<MeshFilter>())
+        {
+            if (mf.sharedMesh == null)
+                continue;
+            Vector3 size = Vector3.Scale(mf.sharedMesh.bounds.size, mf.transform.lossyScale);
+            longest = Mathf.Max(longest, Mathf.Max(Mathf.Abs(size.x), Mathf.Max(Mathf.Abs(size.y), Mathf.Abs(size.z))));
+        }
+        if (longest > 0.0001f && (longest > expected * 2.5f || longest < expected / 2.5f))
+            gun.transform.localScale *= expected / longest;
     }
 
     public bool CanFire
@@ -249,8 +287,15 @@ public class WeaponController : MonoBehaviour
     {
         if (flash == null)
             return;
-        float length = modelRenderer != null ? modelRenderer.transform.localScale.z : 0.8f;
-        flash.localPosition = new Vector3(0f, 0f, length * 0.5f + 0.12f);
+        if (hasGunModel && weaponData != null)
+        {
+            flash.localPosition = new Vector3(0f, 0.04f, ModelLibrary.MuzzleDistance(weaponData.weaponType) + 0.08f);
+        }
+        else
+        {
+            float length = modelRenderer != null ? modelRenderer.transform.localScale.z : 0.8f;
+            flash.localPosition = new Vector3(0f, 0f, length * 0.5f + 0.12f);
+        }
         flash.localScale = Vector3.one * Random.Range(0.28f, 0.45f);
         flash.gameObject.SetActive(true);
         flashOffTime = Time.time + 0.045f;

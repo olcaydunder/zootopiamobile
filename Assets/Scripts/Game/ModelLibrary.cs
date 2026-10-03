@@ -1,0 +1,116 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Loads the 3D models shipped in Resources/Models (Quaternius CC0 packs, see ASSETS.md).
+/// Every caller falls back to the procedural shapes if a model is missing.
+/// </summary>
+public static class ModelLibrary
+{
+    public const string PlayerSkin = "SoldierMale";
+    public static readonly string[] EnemySkins = { "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale" };
+    public static readonly string[] CoverProps = { "SackTrench_Small", "SackTrench", "Barrier_Single", "Container_Small", "Container_Long", "ExplodingBarrel", "GasTank", "TrashContainer", "CardboardBoxes_4", "Debris_Tires", "WaterTank_Floor" };
+    public static readonly string[] SmallProps = { "Crate", "Pallet", "CardboardBoxes_2", "TrafficCone" };
+
+    private static readonly Dictionary<string, GameObject> prefabs = new Dictionary<string, GameObject>();
+    private static readonly Dictionary<string, AnimationClip[]> clips = new Dictionary<string, AnimationClip[]>();
+
+    public static GameObject Prefab(string path)
+    {
+        GameObject p;
+        if (!prefabs.TryGetValue(path, out p))
+        {
+            p = Resources.Load<GameObject>(path);
+            prefabs[path] = p;
+        }
+        return p;
+    }
+
+    public static AnimationClip[] Clips(string path)
+    {
+        AnimationClip[] c;
+        if (!clips.TryGetValue(path, out c))
+        {
+            c = Resources.LoadAll<AnimationClip>(path);
+            clips[path] = c;
+        }
+        return c;
+    }
+
+    public static GameObject Spawn(string path, Transform parent)
+    {
+        var p = Prefab(path);
+        if (p == null)
+            return null;
+        var go = Object.Instantiate(p, parent, false);
+        go.name = p.name;
+        return go;
+    }
+
+    public static string CharacterPath(string skin)
+    {
+        return "Models/Characters/" + skin;
+    }
+
+    public static string PropPath(string prop)
+    {
+        return "Models/Props/" + prop;
+    }
+
+    public static string GunPath(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Pistol: return "Models/Guns/Pistol";
+            case WeaponType.SMG: return "Models/Guns/SMG";
+            case WeaponType.Shotgun: return "Models/Guns/Shotgun";
+            case WeaponType.Sniper: return "Models/Guns/Sniper";
+            default: return "Models/Guns/Rifle";
+        }
+    }
+
+    /// <summary>Distance from the grip to the muzzle of each gun model (metres, +Z forward).</summary>
+    public static float MuzzleDistance(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Pistol: return 0.28f;
+            case WeaponType.SMG: return 0.49f;
+            case WeaponType.Shotgun: return 0.86f;
+            case WeaponType.Sniper: return 0.86f;
+            default: return 0.63f;
+        }
+    }
+
+    /// <summary>World-space bounds of all renderers under a root.</summary>
+    public static Bounds RenderBounds(GameObject root)
+    {
+        var renderers = root.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+            return new Bounds(root.transform.position, Vector3.zero);
+        Bounds b = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            b.Encapsulate(renderers[i].bounds);
+        return b;
+    }
+
+    public static void SetLayer(GameObject obj, int layer)
+    {
+        obj.layer = layer;
+        foreach (Transform child in obj.transform)
+            SetLayer(child.gameObject, layer);
+    }
+
+    public static Transform FindDeep(Transform root, string name)
+    {
+        if (root.name == name)
+            return root;
+        foreach (Transform child in root)
+        {
+            var found = FindDeep(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+}

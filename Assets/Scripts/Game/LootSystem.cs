@@ -80,9 +80,27 @@ public class LootSystem : MonoBehaviour
 
         Color body = ColorFor(type);
         Color band = new Color(0.15f, 0.15f, 0.15f);
-        Part(crate.transform, PrimitiveType.Cube, Vector3.zero, new Vector3(0.7f, 0.42f, 0.5f), body);
-        Part(crate.transform, PrimitiveType.Cube, new Vector3(0f, 0.22f, 0f), new Vector3(0.74f, 0.06f, 0.54f), body * 0.8f);
-        Part(crate.transform, PrimitiveType.Cube, Vector3.zero, new Vector3(0.12f, 0.44f, 0.52f), band);
+        var model = ModelLibrary.Spawn(ModelLibrary.PropPath("Crate"), crate.transform);
+        if (model != null)
+        {
+            // Wooden crate model (~0.8 m) shrunk to 0.55 m, with a coloured strap showing what is inside.
+            model.transform.localScale *= 0.7f;
+            Bounds b = ModelLibrary.RenderBounds(model);
+            float k = 0.55f / Mathf.Max(0.01f, b.size.y);
+            if (k < 0.4f || k > 2.5f)
+                model.transform.localScale *= k;
+            b = ModelLibrary.RenderBounds(model);
+            model.transform.localPosition = new Vector3(0f, -0.3f - (b.min.y - position.y), 0f);
+            foreach (var r in model.GetComponentsInChildren<Renderer>())
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Part(crate.transform, PrimitiveType.Cube, new Vector3(0f, 0.27f, 0f), new Vector3(0.6f, 0.04f, 0.16f), body);
+        }
+        else
+        {
+            Part(crate.transform, PrimitiveType.Cube, Vector3.zero, new Vector3(0.7f, 0.42f, 0.5f), body);
+            Part(crate.transform, PrimitiveType.Cube, new Vector3(0f, 0.22f, 0f), new Vector3(0.74f, 0.06f, 0.54f), body * 0.8f);
+            Part(crate.transform, PrimitiveType.Cube, Vector3.zero, new Vector3(0.12f, 0.44f, 0.52f), band);
+        }
         // Small floating marker so loot is easy to spot.
         Part(crate.transform, PrimitiveType.Sphere, new Vector3(0f, 0.75f, 0f), Vector3.one * 0.16f, Color.Lerp(body, Color.white, 0.4f));
 

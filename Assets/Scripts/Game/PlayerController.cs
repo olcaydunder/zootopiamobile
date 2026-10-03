@@ -84,10 +84,12 @@ public class PlayerController : MonoBehaviour, IDamageable
         controller.slopeLimit = 50f;
 
         rig = CharacterRig.Build(gameObject, new Color(0.2f, 0.45f, 0.85f), new Color(0.25f, 0.27f, 0.3f),
-            new Color(0.93f, 0.78f, 0.63f), new Color(0.32f, 0.38f, 0.26f), new Color(0.42f, 0.34f, 0.22f));
+            new Color(0.93f, 0.78f, 0.63f), new Color(0.32f, 0.38f, 0.26f), new Color(0.42f, 0.34f, 0.22f), ModelLibrary.PlayerSkin);
 
         CreateCamera();
         CreateWeapon();
+        rig.weaponHold = currentWeapon.transform;
+        rig.aimReference = cameraPivot;
 
         wind = Sfx.CreateLoop(transform, SoundBank.WindLoop, 0.5f, false);
 
@@ -698,6 +700,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         {
             gm.uiManager.FlashDamage();
             Shake(0.15f);
+            rig.PlayHit();
         }
 
         if (health <= 0f)

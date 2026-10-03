@@ -9,9 +9,9 @@
 
 - **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
 - **Tepeli ada:** Çim, toprak, kum ve kaya dokulu arazi, dalgalanan deniz, gökyüzü, güneş, gölgeler ve sis
-- **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar
-- **Karakterler:** Kask, yelek ve sırt çantalı insan figürleri; yürüme, nişan, eğilme, paraşüt, sürüş ve düşme animasyonları
-- **Silahlar:** Tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme
+- **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar; kum torbası, bariyer, konteyner, varil gibi 3D siper modelleri
+- **Karakterler:** Animasyonlu 3D karakter modelleri (asker, işçi, kovboy, ninja, doktor); bekleme, koşma, ateş etme, darbe alma ve ölme animasyonları
+- **Silahlar:** Elde taşınan 3D silah modelleri: tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme
 - **Ganimet:** Silah, mermi, ilk yardım, enerji içeceği, el bombası, zırh; elenen botlar sandık bırakır
 - **Araçlar:** Binilebilen ciplerle hızlı ulaşım ve ezme hasarı
 - **Güvenli bölge:** 6 aşamada daralan mavi duvar, sonraki bölge çemberi
@@ -19,7 +19,7 @@
 - **Arayüz:** Mini harita, isabet işareti, hasar sayıları, öldürme akışı, yükseklik/hız göstergesi
 - **Ses ve efekt:** Silah, patlama, adım, uçak, rüzgâr, motor sesleri; namlu alevi, kıvılcım, toz, patlama efektleri
 - **Profil:** Seviye, XP, altın, maç/zafer/öldürme istatistikleri (cihazda kaydedilir)
-- Hiçbir model, doku veya ses dosyası kullanılmaz; her şey koddan üretilir
+- Karakter, silah ve siper modelleri Quaternius'un CC0 paketlerinden (bkz. `ASSETS.md`); geri kalan her şey koddan üretilir
 
 ## Derleme (bilgisayar gerekmez)
 

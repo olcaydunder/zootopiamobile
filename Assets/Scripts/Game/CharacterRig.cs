@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 public enum RigPose
 {
@@ -10,7 +12,9 @@ public enum RigPose
 }
 
 /// <summary>
-/// Simple blocky humanoid (head, torso, arms, legs, helmet, backpack) with code-driven animation:
+/// Character visuals. Uses an animated 3D model from Resources/Models/Characters when available
+/// (idle, run, shoot, hit and death clips played through the Playables API), otherwise a
+/// simple blocky humanoid (head, torso, arms, legs, helmet, backpack) with code-driven animation:
 /// walking, aiming, crouching, skydiving, parachuting, driving and falling over when killed.
 /// Built around a CharacterController of height 1.8 centred on the transform (feet at y = -0.9).
 /// </summary>
@@ -31,10 +35,35 @@ public class CharacterRig : MonoBehaviour
     private float phase;
     private float deathT;
 
+    // Model mode
+    public Transform weaponHold;      // moved to the right hand every frame
+    public Transform aimReference;    // rotation the gun should point along
+    private GameObject model;
+    private Transform rightHand;
+    private Animator animator;
+    private PlayableGraph graph;
+    private AnimationMixerPlayable mixer;
+    private AnimationClipPlayable[] states;
+    private float[] weights;
+    private bool[] looping;
+    private float hitTimer;
+    private bool deathStarted;
+    private Animation legacy;
+    private string legacyState;
+    private const int Idle = 0, Run = 1, Shoot = 2, Death = 3, Hit = 4;
+    private static readonly string[] StateNames = { "Idle", "Run", "Shoot", "Death", "RecieveHit" };
+
+    public bool HasModel { get { return model != null; } }
+
     public static CharacterRig Build(GameObject owner, Color shirt, Color pants, Color skin, Color helmet, Color pack)
     {
+        return Build(owner, shirt, pants, skin, helmet, pack, null);
+    }
+
+    public static CharacterRig Build(GameObject owner, Color shirt, Color pants, Color skin, Color helmet, Color pack, string modelSkin)
+    {
         var rig = owner.AddComponent<CharacterRig>();
-        rig.Create(shirt, pants, skin, helmet, pack);
+        rig.Create(shirt, pants, skin, helmet, pack, modelSkin);
         return rig;
     }
 
@@ -58,9 +87,17 @@ public class CharacterRig : MonoBehaviour
         return t;
     }
 
-    private void Create(Color shirt, Color pants, Color skin, Color helmet, Color pack)
+    private void Create(Color shirt, Color pants, Color skin, Color helmet, Color pack, string modelSkin)
     {
         root = Pivot(transform, "Rig", Vector3.zero);
+        if (string.IsNullOrEmpty(modelSkin) || !TryCreateModel(modelSkin, skin))
+            CreateBlocky(shirt, pants, skin, helmet, pack);
+        CreateParachute(helmet);
+        lastPos = transform.position;
+    }
+
+    private void CreateBlocky(Color shirt, Color pants, Color skin, Color helmet, Color pack)
+    {
         Color boots = new Color(0.18f, 0.15f, 0.12f);
 
         // Legs (pivot at hip)
@@ -91,7 +128,10 @@ public class CharacterRig : MonoBehaviour
         armR = Pivot(torso, "ArmR", new Vector3(0.3f, 0.58f, 0f));
         Part(armR, "Arm", PrimitiveType.Cube, new Vector3(0f, -0.28f, 0f), new Vector3(0.13f, 0.58f, 0.14f), shirt);
         Part(armR, "Hand", PrimitiveType.Cube, new Vector3(0f, -0.6f, 0f), new Vector3(0.11f, 0.1f, 0.11f), skin);
+    }
 
+    private void CreateParachute(Color helmet)
+    {
         // Parachute (hidden until used)
         canopy = new GameObject("Parachute");
         canopy.transform.SetParent(transform, false);
@@ -116,8 +156,6 @@ public class CharacterRig : MonoBehaviour
             line.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.85f, 0.85f, 0.8f));
         }
         canopy.SetActive(false);
-
-        lastPos = transform.position;
     }
 
     public void SetVisible(bool visible)
@@ -133,8 +171,19 @@ public class CharacterRig : MonoBehaviour
         pose = RigPose.Normal;
         crouched = false;
         deathT = 0f;
+        deathStarted = false;
+        hitTimer = 0f;
         root.localPosition = Vector3.zero;
         root.localRotation = Quaternion.identity;
+        if (states != null)
+        {
+            for (int i = 0; i < states.Length; i++)
+            {
+                weights[i] = i == Idle ? 1f : 0f;
+                if (states[i].IsValid())
+                    states[i].SetTime(0);
+            }
+        }
         lastPos = transform.position;
         SetVisible(true);
     }
@@ -151,6 +200,12 @@ public class CharacterRig : MonoBehaviour
         speed = Mathf.Lerp(speed, delta.magnitude / dt, dt * 10f);
 
         canopy.SetActive(pose == RigPose.Parachute);
+
+        if (model != null)
+        {
+            AnimateModel(dt);
+            return;
+        }
 
         switch (pose)
         {
@@ -220,5 +275,205 @@ public class CharacterRig : MonoBehaviour
         root.localPosition = new Vector3(0f, -0.7f * k, -0.3f * k);
         armL.localRotation = Quaternion.Euler(-150f * k, 0f, -20f * k);
         armR.localRotation = Quaternion.Euler(-150f * k, 0f, 20f * k);
+    }
+
+    // ----- Animated model -----
+
+    private bool TryCreateModel(string skin, Color skinTone)
+    {
+        string path = ModelLibrary.CharacterPath(skin);
+        model = ModelLibrary.Spawn(path, root);
+        if (model == null)
+            return false;
+
+        // The pack's characters have near-black faces; give them a real skin tone.
+        foreach (var r in model.GetComponentsInChildren<Renderer>())
+        {
+            var mats = r.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (mats[i] != null && mats[i].name.StartsWith("Skin"))
+                {
+                    mats[i] = MaterialCache.Lit(skinTone);
+                    changed = true;
+                }
+            }
+            if (changed)
+                r.sharedMaterials = mats;
+        }
+
+        // Normalise height to 1.8 m with the feet at the bottom of the CharacterController.
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
+        Bounds b = ModelLibrary.RenderBounds(model);
+        float height = Mathf.Max(0.01f, b.size.y);
+        float scale = 1.8f / height;
+        model.transform.localScale = model.transform.localScale * scale;
+        b = ModelLibrary.RenderBounds(model);
+        float feetOffset = b.min.y - transform.position.y;
+        model.transform.localPosition = new Vector3(0f, -0.9f - feetOffset, 0f);
+
+        foreach (var smr in model.GetComponentsInChildren<SkinnedMeshRenderer>())
+            smr.updateWhenOffscreen = false;
+
+        rightHand = ModelLibrary.FindDeep(model.transform, "Fist.R");
+
+        AnimationClip[] clips = ModelLibrary.Clips(path);
+        var found = new AnimationClip[StateNames.Length];
+        foreach (var clip in clips)
+        {
+            if (clip == null || clip.name.StartsWith("__preview__"))
+                continue;
+            for (int i = 0; i < StateNames.Length; i++)
+                if (found[i] == null && clip.name.Contains(StateNames[i]))
+                    found[i] = clip;
+        }
+        if (found[Idle] == null)
+            return true;    // static model: still better than blocks
+
+        if (found[Idle].legacy)
+        {
+            legacy = model.GetComponent<Animation>();
+            if (legacy == null)
+                legacy = model.AddComponent<Animation>();
+            for (int i = 0; i < found.Length; i++)
+            {
+                if (found[i] == null)
+                    continue;
+                legacy.AddClip(found[i], StateNames[i]);
+                legacy[StateNames[i]].wrapMode = (i == Idle || i == Run || i == Shoot) ? WrapMode.Loop : WrapMode.ClampForever;
+            }
+            legacy.Play(StateNames[Idle]);
+            legacyState = StateNames[Idle];
+            return true;
+        }
+
+        animator = model.GetComponent<Animator>();
+        if (animator == null)
+            animator = model.AddComponent<Animator>();
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+
+        graph = PlayableGraph.Create("Character_" + skin);
+        graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+        mixer = AnimationMixerPlayable.Create(graph, StateNames.Length);
+        states = new AnimationClipPlayable[StateNames.Length];
+        weights = new float[StateNames.Length];
+        looping = new bool[StateNames.Length];
+        for (int i = 0; i < StateNames.Length; i++)
+        {
+            AnimationClip clip = found[i] != null ? found[i] : found[Idle];
+            states[i] = AnimationClipPlayable.Create(graph, clip);
+            states[i].SetApplyFootIK(false);
+            graph.Connect(states[i], 0, mixer, i);
+            looping[i] = i == Idle || i == Run || i == Shoot;
+            weights[i] = i == Idle ? 1f : 0f;
+            mixer.SetInputWeight(i, weights[i]);
+        }
+        var output = AnimationPlayableOutput.Create(graph, "Animation", animator);
+        output.SetSourcePlayable(mixer);
+        graph.Play();
+        return true;
+    }
+
+    /// <summary>Short flinch when taking damage.</summary>
+    public void PlayHit()
+    {
+        if (model == null || pose == RigPose.Dead)
+            return;
+        hitTimer = 0.3f;
+        if (states != null && states[Hit].IsValid())
+            states[Hit].SetTime(0);
+    }
+
+    private void AnimateModel(float dt)
+    {
+        // Body orientation for the special poses (no dedicated clips for these).
+        Quaternion bodyRot = Quaternion.identity;
+        Vector3 bodyPos = Vector3.zero;
+        int target;
+        switch (pose)
+        {
+            case RigPose.Dead:
+                target = Death;
+                break;
+            case RigPose.Freefall:
+                target = Idle;
+                bodyRot = Quaternion.Euler(70f, 0f, 0f);
+                break;
+            case RigPose.Parachute:
+                target = Idle;
+                break;
+            case RigPose.Driving:
+                target = Idle;
+                bodyPos = new Vector3(0f, -0.45f, 0f);
+                break;
+            default:
+                target = speed > 0.6f ? Run : (aiming ? Shoot : Idle);
+                if (crouched)
+                    bodyPos = new Vector3(0f, -0.25f, 0f);
+                break;
+        }
+        root.localRotation = Quaternion.Slerp(root.localRotation, bodyRot, dt * 6f);
+        root.localPosition = Vector3.Lerp(root.localPosition, bodyPos, dt * 10f);
+        root.localScale = new Vector3(1f, crouched && pose == RigPose.Normal ? 0.82f : 1f, 1f);
+
+        if (legacy != null)
+        {
+            string wanted = StateNames[target];
+            if (wanted != legacyState && legacy.GetClip(wanted) != null)
+            {
+                legacy.CrossFade(wanted, 0.15f);
+                legacyState = wanted;
+            }
+        }
+        else if (states != null)
+        {
+            if (target == Death && !deathStarted)
+            {
+                deathStarted = true;
+                states[Death].SetTime(0);
+            }
+
+            hitTimer = Mathf.Max(0f, hitTimer - dt);
+            float total = 0f;
+            for (int i = 0; i < weights.Length; i++)
+            {
+                float goal = i == target ? 1f : 0f;
+                if (i == Hit)
+                    goal = hitTimer > 0f && target != Death ? 0.7f : 0f;
+                weights[i] = Mathf.MoveTowards(weights[i], goal, dt * (target == Death ? 6f : 9f));
+                total += weights[i];
+            }
+            for (int i = 0; i < weights.Length; i++)
+                mixer.SetInputWeight(i, total > 0.001f ? weights[i] / total : (i == Idle ? 1f : 0f));
+
+            states[Run].SetSpeed(Mathf.Clamp(speed / 4.5f, 0.6f, 1.6f));
+
+            for (int i = 0; i < states.Length; i++)
+            {
+                if (!looping[i])
+                    continue;
+                float length = states[i].GetAnimationClip().length;
+                double t = states[i].GetTime();
+                if (length > 0.01f && t > length)
+                    states[i].SetTime(t % length);
+            }
+        }
+
+        // Keep the gun in the right hand, pointing where the character aims.
+        if (weaponHold != null && rightHand != null && pose == RigPose.Normal)
+        {
+            Quaternion aim = aimReference != null ? aimReference.rotation : transform.rotation;
+            weaponHold.position = rightHand.position + aim * new Vector3(0f, 0.02f, 0.05f);
+            weaponHold.rotation = aim;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (graph.IsValid())
+            graph.Destroy();
     }
 }

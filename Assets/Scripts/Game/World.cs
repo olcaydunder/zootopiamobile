@@ -121,6 +121,12 @@ public static class World
 
         // Fewer draw calls: everything static is merged by material.
         StaticBatchingUtility.Combine(props.gameObject);
+
+        // Model props (sandbags, barriers, containers...) live outside the batched root
+        // because imported meshes are not CPU-readable.
+        var cover = new GameObject("Cover").transform;
+        cover.SetParent(Root, false);
+        BuildCover(cover, rng);
     }
 
     private static void ComputeHeightGrid()
@@ -682,6 +688,91 @@ public static class World
             leaf.AddComponent<MeshFilter>().sharedMesh = blob;
             leaf.AddComponent<MeshRenderer>().sharedMaterial = MaterialCache.Lit(green);
         }
+    }
+
+    // ----- Cover props (3D models) -----
+
+    private static void BuildCover(Transform parent, System.Random rng)
+    {
+        if (ModelLibrary.Prefab(ModelLibrary.PropPath("Crate")) == null)
+            return;
+
+        // Small clutter next to buildings.
+        foreach (var c in HouseCenters)
+        {
+            int n = 1 + rng.Next(3);
+            for (int i = 0; i < n; i++)
+            {
+                float a = Rand(rng, 0f, Mathf.PI * 2f);
+                float r = Rand(rng, 5.5f, 8f);
+                Vector3 p = new Vector3(c.x + Mathf.Cos(a) * r, 0f, c.z + Mathf.Sin(a) * r);
+                if (!IsLand(p.x, p.z))
+                    continue;
+                string name = rng.NextDouble() < 0.75
+                    ? ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)]
+                    : ModelLibrary.CoverProps[rng.Next(ModelLibrary.CoverProps.Length)];
+                PlaceProp(parent, name, p, Rand(rng, 0f, 360f));
+            }
+        }
+
+        // Cover in the open.
+        int placed = 0;
+        for (int attempt = 0; attempt < 200 && placed < 45; attempt++)
+        {
+            Vector3 p = RandomLandPoint(rng, 10f, IslandRadius - 6f);
+            if (Slope(p.x, p.z) > 0.3f || NearHouse(p, 11f))
+                continue;
+            string name = ModelLibrary.CoverProps[rng.Next(ModelLibrary.CoverProps.Length)];
+            PlaceProp(parent, name, p, Rand(rng, 0f, 360f));
+            placed++;
+
+            // Sometimes a little cluster: crates or barrels beside the main piece.
+            if (rng.NextDouble() < 0.35)
+            {
+                Vector3 q = p + new Vector3(Rand(rng, -3f, 3f), 0f, Rand(rng, -3f, 3f));
+                PlaceProp(parent, ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)], q, Rand(rng, 0f, 360f));
+            }
+        }
+    }
+
+    private static void PlaceProp(Transform parent, string name, Vector3 p, float yaw)
+    {
+        var holder = new GameObject(name).transform;
+        holder.SetParent(parent, false);
+        holder.position = new Vector3(p.x, 0f, p.z);
+
+        var model = ModelLibrary.Spawn(ModelLibrary.PropPath(name), holder);
+        if (model == null)
+        {
+            Object.Destroy(holder.gameObject);
+            return;
+        }
+        model.transform.localPosition = Vector3.zero;
+
+        // Guard against unit mix-ups (props are 0.5 - 5 m).
+        Bounds b = ModelLibrary.RenderBounds(model);
+        float biggest = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (biggest > 30f)
+            model.transform.localScale *= 0.01f;
+        b = ModelLibrary.RenderBounds(model);
+
+        // Sit on the lowest ground under the footprint so nothing floats on slopes.
+        float ground = float.MaxValue;
+        for (int i = 0; i < 4; i++)
+        {
+            float x = p.x + (i % 2 == 0 ? -0.5f : 0.5f) * b.size.x;
+            float z = p.z + (i < 2 ? -0.5f : 0.5f) * b.size.z;
+            ground = Mathf.Min(ground, HeightAt(x, z));
+        }
+        float baseOffset = b.min.y - holder.position.y;
+        holder.position = new Vector3(p.x, ground - baseOffset - 0.03f, p.z);
+
+        // Solid box collider for cover, computed before rotating.
+        b = ModelLibrary.RenderBounds(model);
+        var box = holder.gameObject.AddComponent<BoxCollider>();
+        box.center = b.center - holder.position;
+        box.size = b.size;
+        holder.rotation = Quaternion.Euler(0f, yaw, 0f);
     }
 
     // ----- Minimap -----

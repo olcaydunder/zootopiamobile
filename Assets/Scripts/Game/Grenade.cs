@@ -20,6 +20,18 @@ public class Grenade : MonoBehaviour
         go.transform.localScale = Vector3.one * 0.18f;
         go.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.2f, 0.28f, 0.16f));
 
+        var model = ModelLibrary.Spawn(ModelLibrary.PropPath("Grenade"), go.transform);
+        if (model != null)
+        {
+            go.GetComponent<Renderer>().enabled = false;
+            // The sphere is scaled 0.18; the pack's grenade is ~0.6 m, so scale it to ~0.16 m.
+            Bounds b = ModelLibrary.RenderBounds(model);
+            float size = Mathf.Max(0.001f, Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)));
+            model.transform.localScale *= 0.16f / size;
+            model.transform.localPosition = Vector3.zero;
+            ModelLibrary.SetLayer(model, go.layer);
+        }
+
         var rb = go.AddComponent<Rigidbody>();
         rb.mass = 0.4f;
         rb.drag = 0.15f;
