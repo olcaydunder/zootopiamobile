@@ -117,7 +117,7 @@ jobs:
           androidKeyaliasPass: android
 
       - name: Derleme hatalarını göster
-        if: failure()
+        if: always()
         run: |
           f=build/zm_build_errors.txt
           if [ -f "$f" ]; then
