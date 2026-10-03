@@ -250,6 +250,11 @@ public class ErrorReporter : MonoBehaviour
                 Check("ZM-C-04", "Shader bu telefonda desteklenmiyor: " + name, "Grafik kalitesini Düşük yapmayı dene.");
         }
 
+        if (!MapData.Loaded)
+            Check("ZM-C-10", "Çekmeköy harita verisi yüklenemedi (Resources/Map).", "Yedek ada haritası kullanılıyor.");
+        if (CityBuilder.LastError != null)
+            Check("ZM-C-11", "Şehir kurulurken hata: " + CityBuilder.LastError, "Bazı binalar/yollar eksik olabilir.");
+
         if (PostFx.Failed)
             Check("ZM-C-05", "Post-processing başlatılamadı.", "Bloom/renk efektleri kapalı; oyun yine çalışır.");
         if (!SystemInfo.supportsInstancing)

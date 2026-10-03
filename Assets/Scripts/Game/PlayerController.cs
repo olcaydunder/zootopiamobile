@@ -373,10 +373,11 @@ public class PlayerController : MonoBehaviour, IDamageable
             // Camera in front of the character, slowly drifting, like a menu showcase.
             float t = Time.time * 0.25f;
             Vector3 focus = transform.position + Vector3.up * 0.25f;
-            Vector3 offset = transform.forward * 3.4f + transform.right * Mathf.Sin(t) * 0.35f + Vector3.up * (0.25f + Mathf.Sin(t * 0.7f) * 0.05f);
+            // A little further back and higher than a close-up, so the clinic sign behind shows too.
+            Vector3 offset = transform.forward * 3.9f + transform.right * Mathf.Sin(t) * 0.35f + Vector3.up * (0.45f + Mathf.Sin(t * 0.7f) * 0.05f);
             playerCamera.transform.position = focus + offset;
-            playerCamera.transform.LookAt(focus);
-            playerCamera.fieldOfView = 38f;
+            playerCamera.transform.LookAt(focus + Vector3.up * 0.6f);
+            playerCamera.fieldOfView = 44f;
             return;
         }
 

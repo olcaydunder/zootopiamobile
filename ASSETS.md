@@ -12,3 +12,15 @@ The models were taken from the CC0 copies in [Karnak19/bagarre](https://github.c
 decompressed with gltf-transform, the shared animation clips merged into each character, and converted to FBX with Blender.
 
 Everything else (terrain, sea, sky, trees, rocks, houses, jeep, plane, sounds, effects) is generated in code.
+
+## Map data (Çekmeköy, Ekşioğlu)
+
+The battle map is the real neighbourhood around Zootopia Veteriner Kliniği (Turgut Özal Cd., Ekşioğlu, Çekmeköy/İstanbul).
+
+| Data | Source | License |
+| --- | --- | --- |
+| Buildings, streets, parks, woods | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors | ODbL 1.0 (attribution shown in the game lobby) |
+| Terrain heights | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen; SRTM and other public sources) | see the registry page |
+
+`.github/workflows/map-data.yml` downloads the raw data into `MapData/`; `Tools/build_map.py` bakes it into
+`Assets/Resources/Map/{height,ground,features}.bytes`, which `MapData.cs` / `CityBuilder.cs` turn into the 3D town at runtime.

@@ -3,23 +3,26 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Builds the whole island from code: hilly terrain with a painted colour map, animated sea,
-/// sky, sun, fog, trees, rocks, bushes and houses. Also exposes height queries, loot/vehicle spots
-/// and a minimap texture for the rest of the game.
+/// Builds the whole map from code. The map is the real neighbourhood around the clinic
+/// (Ekşioğlu, Çekmeköy) from MapData: real terrain heights, streets and buildings, surrounded by sea.
+/// If the baked map files are missing it falls back to a procedural island.
+/// Also exposes height queries, loot/vehicle spots and a minimap texture for the rest of the game.
 /// </summary>
 public static class World
 {
-    public const float IslandRadius = 85f;     // average coastline distance from the centre
-    public const float MapSize = 260f;         // terrain mesh width (water beyond)
+    public const float IslandRadius = 340f;    // playable radius from the centre (the clinic)
+    public const float MapSize = 880f;         // terrain mesh width (water beyond)
     private const float SeedX = 31.7f;
     private const float SeedZ = 87.3f;
-    private const int GridRes = 512;           // colour-map / minimap sampling grid
-    private const int MeshRes = 200;           // terrain mesh resolution
+    private const int GridRes = 512;           // foam / fallback sampling grid
+    private const int MeshRes = 400;           // terrain mesh resolution (matches the 401-node height grid)
+    private const int TerrainChunks = 8;
 
     public static Transform Root { get; private set; }
     public static Texture2D MinimapTexture { get; private set; }
     public static readonly List<Vector3> LootSpots = new List<Vector3>();
     public static readonly List<Vector3> VehicleSpots = new List<Vector3>();
+    public static readonly List<float> VehicleYaws = new List<float>();
     public static readonly List<Vector3> HouseCenters = new List<Vector3>();
     private static readonly List<Vector4> houseFootprints = new List<Vector4>(); // x, z, halfWidth, halfDepth
 
@@ -34,6 +37,8 @@ public static class World
 
     public static float HeightAt(float x, float z)
     {
+        if (MapData.Load())
+            return MapData.Height(x, z);
         float r = Mathf.Sqrt(x * x + z * z);
         float angle = Mathf.Atan2(z, x);
         float coastNoise = Mathf.PerlinNoise(Mathf.Cos(angle) * 1.6f + SeedX, Mathf.Sin(angle) * 1.6f + SeedZ) - 0.5f;
@@ -75,6 +80,8 @@ public static class World
     /// <summary>True inside (or right next to) a building, where grass and props shouldn't go.</summary>
     public static bool IsBlocked(float x, float z)
     {
+        if (MapData.Loaded)
+            return MapData.Ground(x, z) == MapData.GroundBuilding;
         for (int i = 0; i < houseFootprints.Count; i++)
         {
             Vector4 f = houseFootprints[i];
@@ -85,6 +92,32 @@ public static class World
                 return true;
         }
         return false;
+    }
+
+    /// <summary>Where instanced grass may grow (not on roads, pavements or inside buildings).</summary>
+    public static bool GrassAllowed(float x, float z)
+    {
+        if (!MapData.Loaded)
+            return !IsBlocked(x, z);
+        switch (MapData.Ground(x, z))
+        {
+            case MapData.GroundGrass:
+            case MapData.GroundPark:
+            case MapData.GroundForest:
+            case MapData.GroundCemetery:
+                return true;
+            case MapData.GroundUrban:
+                return Mathf.PerlinNoise(x * 0.09f + 5f, z * 0.09f + 9f) > 0.55f;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Registers an enterable building (for loot, props and spacing checks).</summary>
+    public static void AddHouse(Vector3 center, float halfWidth, float halfDepth)
+    {
+        HouseCenters.Add(center);
+        houseFootprints.Add(new Vector4(center.x, center.z, halfWidth, halfDepth));
     }
 
     public static bool IsLand(float x, float z)
@@ -102,7 +135,7 @@ public static class World
             float x = around.x + p.x;
             float z = around.z + p.y;
             float h = HeightAt(x, z);
-            if (h < 0.8f)
+            if (h < 0.8f || IsBlocked(x, z) || (MapData.Loaded && MapData.Ground(x, z) == MapData.GroundPool))
                 continue;
             Vector3 pos = new Vector3(x, h + 0.95f, z);
             best = pos;
@@ -119,9 +152,13 @@ public static class World
         Root = new GameObject("World").transform;
         LootSpots.Clear();
         VehicleSpots.Clear();
+        VehicleYaws.Clear();
         HouseCenters.Clear();
         houseFootprints.Clear();
 
+        bool city = MapData.Load();
+        if (city && (Mathf.Abs(MapData.MapSize - MapSize) > 0.01f || MapData.HeightRes != MeshRes + 1))
+            Debug.LogError("ZM harita: boyut uyuşmuyor (" + MapData.MapSize + " m, " + MapData.HeightRes + " nokta) — World.MapSize/MeshRes ile aynı olmalı");
         ComputeHeightGrid();
         SetupAtmosphere();
         BuildTerrain();
@@ -130,8 +167,16 @@ public static class World
         var props = new GameObject("Props").transform;
         props.SetParent(Root, false);
         var rng = new System.Random(1923);
-        BuildHouses(props, rng);
-        BuildNature(props, rng);
+        if (city)
+        {
+            CityBuilder.Build(Root);
+            BuildCityNature(props, rng);
+        }
+        else
+        {
+            BuildHouses(props, rng);
+            BuildNature(props, rng);
+        }
         BuildMinimap();
 
         // Fewer draw calls: everything static is merged by material.
@@ -141,7 +186,8 @@ public static class World
         // because imported meshes are not CPU-readable.
         var cover = new GameObject("Cover").transform;
         cover.SetParent(Root, false);
-        BuildLobbySet(cover);
+        if (!city)
+            BuildLobbySet(cover);
         BuildCover(cover, rng);
     }
 
@@ -210,61 +256,45 @@ public static class World
 
     private static void BuildTerrain()
     {
-        // Mesh
-        var verts = new List<Vector3>((MeshRes + 1) * (MeshRes + 1));
-        var uvs = new List<Vector2>(verts.Capacity);
-        var tris = new List<int>(MeshRes * MeshRes * 6);
+        // Height samples on the mesh grid (exactly the baked height nodes when the city map is loaded).
+        int n = MeshRes + 1;
         float step = MapSize / MeshRes;
         float half = MapSize * 0.5f;
-        for (int z = 0; z <= MeshRes; z++)
-        {
-            for (int x = 0; x <= MeshRes; x++)
-            {
-                float wx = x * step - half;
-                float wz = z * step - half;
-                verts.Add(new Vector3(wx, HeightAt(wx, wz), wz));
-                uvs.Add(new Vector2((float)x / MeshRes, (float)z / MeshRes));
-            }
-        }
-        for (int z = 0; z < MeshRes; z++)
-        {
-            for (int x = 0; x < MeshRes; x++)
-            {
-                int i = z * (MeshRes + 1) + x;
-                tris.Add(i); tris.Add(i + MeshRes + 1); tris.Add(i + 1);
-                tris.Add(i + 1); tris.Add(i + MeshRes + 1); tris.Add(i + MeshRes + 2);
-            }
-        }
-        var mesh = new Mesh { name = "IslandTerrain" };
-        mesh.SetVertices(verts);
-        mesh.SetUVs(0, uvs);
-        mesh.SetTriangles(tris, 0);
-        mesh.RecalculateNormals();
-        mesh.RecalculateTangents();   // for the detail normal map
-        mesh.RecalculateBounds();
+        var h = new float[n * n];
+        for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+                h[z * n + x] = MapData.Loaded && MapData.HeightRes == n ? MapData.Node(x, z) : HeightAt(x * step - half, z * step - half);
 
-        // Colour map painted from height, slope and noise.
-        var colors = new Color32[GridRes * GridRes];
-        float cell = MapSize / GridRes;
-        for (int z = 0; z < GridRes; z++)
+        // Colour map painted from ground type (city) or height/slope/noise (fallback).
+        int res = MapData.Loaded ? MapData.GroundRes : GridRes;
+        float cell = MapSize / res;
+        var colors = new Color32[res * res];
+        for (int z = 0; z < res; z++)
         {
-            for (int x = 0; x < GridRes; x++)
+            for (int x = 0; x < res; x++)
             {
-                float h = GridHeight(x, z);
-                float dx = GridHeight(x + 1, z) - GridHeight(x - 1, z);
-                float dz = GridHeight(x, z + 1) - GridHeight(x, z - 1);
-                float slope = Mathf.Sqrt(dx * dx + dz * dz) / (2f * cell);
-                float wx = x * cell - MapSize * 0.5f;
-                float wz = z * cell - MapSize * 0.5f;
-                colors[z * GridRes + x] = TerrainColor(h, slope, wx, wz);
+                float wx = (x + 0.5f) * cell - half;
+                float wz = (z + 0.5f) * cell - half;
+                // Height and slope from the nearest mesh nodes (fast: ~1M pixels).
+                int gx = Mathf.Clamp(Mathf.RoundToInt((wx + half) / step), 1, n - 2);
+                int gz = Mathf.Clamp(Mathf.RoundToInt((wz + half) / step), 1, n - 2);
+                float hh = h[gz * n + gx];
+                float dx = h[gz * n + gx + 1] - h[gz * n + gx - 1];
+                float dz = h[(gz + 1) * n + gx] - h[(gz - 1) * n + gx];
+                float slope = Mathf.Sqrt(dx * dx + dz * dz) / (2f * step);
+                colors[z * res + x] = MapData.Loaded
+                    ? CityColor(MapData.GroundCell(x, z), hh, slope, wx, wz)
+                    : TerrainColor(hh, slope, wx, wz);
             }
         }
-        var colorMap = new Texture2D(GridRes, GridRes, TextureFormat.RGBA32, true);
+        var colorMap = new Texture2D(res, res, TextureFormat.RGBA32, true);
         colorMap.wrapMode = TextureWrapMode.Clamp;
         colorMap.filterMode = FilterMode.Trilinear;
         colorMap.anisoLevel = 8;
         colorMap.SetPixels32(colors);
         colorMap.Apply(true, true);
+        groundColors = colors;
+        groundColorRes = res;
 
         var mat = CloneResource("ZootopiaTerrain");
         mat.SetTexture("_MainTex", colorMap);
@@ -272,13 +302,140 @@ public static class World
         mat.SetTexture("_DetailTex", noise);
         mat.SetTexture("_DetailNormal", NormalFromHeight(noise));
 
-        var terrain = new GameObject("Terrain");
-        terrain.transform.SetParent(Root, false);
-        terrain.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var mr = terrain.AddComponent<MeshRenderer>();
-        mr.sharedMaterial = mat;
-        mr.shadowCastingMode = ShadowCastingMode.Off;
-        terrain.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // Mesh in chunks (fewer vertices per mesh, and the camera culls what it can't see).
+        var terrainRoot = new GameObject("Terrain").transform;
+        terrainRoot.SetParent(Root, false);
+        int per = MeshRes / TerrainChunks;
+        for (int cz = 0; cz < TerrainChunks; cz++)
+        {
+            for (int cx = 0; cx < TerrainChunks; cx++)
+            {
+                var verts = new List<Vector3>((per + 1) * (per + 1));
+                var uvs = new List<Vector2>(verts.Capacity);
+                var tris = new List<int>(per * per * 6);
+                for (int z = 0; z <= per; z++)
+                {
+                    for (int x = 0; x <= per; x++)
+                    {
+                        int gx = cx * per + x, gz = cz * per + z;
+                        verts.Add(new Vector3(gx * step - half, h[gz * n + gx], gz * step - half));
+                        uvs.Add(new Vector2((float)gx / MeshRes, (float)gz / MeshRes));
+                    }
+                }
+                for (int z = 0; z < per; z++)
+                {
+                    for (int x = 0; x < per; x++)
+                    {
+                        int i = z * (per + 1) + x;
+                        tris.Add(i); tris.Add(i + per + 1); tris.Add(i + 1);
+                        tris.Add(i + 1); tris.Add(i + per + 1); tris.Add(i + per + 2);
+                    }
+                }
+                var mesh = new Mesh { name = "Terrain_" + cx + "_" + cz };
+                mesh.SetVertices(verts);
+                mesh.SetUVs(0, uvs);
+                mesh.SetTriangles(tris, 0);
+                // Normals from the full grid so chunk borders don't show seams.
+                var normals = new Vector3[verts.Count];
+                for (int z = 0; z <= per; z++)
+                {
+                    for (int x = 0; x <= per; x++)
+                    {
+                        int gx = cx * per + x, gz = cz * per + z;
+                        float l = h[gz * n + Mathf.Max(0, gx - 1)], r = h[gz * n + Mathf.Min(n - 1, gx + 1)];
+                        float d = h[Mathf.Max(0, gz - 1) * n + gx], u = h[Mathf.Min(n - 1, gz + 1) * n + gx];
+                        normals[z * (per + 1) + x] = new Vector3(l - r, 2f * step, d - u).normalized;
+                    }
+                }
+                mesh.normals = normals;
+                mesh.RecalculateTangents();   // for the detail normal map
+                mesh.RecalculateBounds();
+
+                var chunk = new GameObject(mesh.name);
+                chunk.transform.SetParent(terrainRoot, false);
+                chunk.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var mr = chunk.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = mat;
+                mr.shadowCastingMode = ShadowCastingMode.Off;
+                chunk.AddComponent<MeshCollider>().sharedMesh = mesh;
+            }
+        }
+    }
+
+    private static Color32[] groundColors;
+    private static int groundColorRes;
+
+    /// <summary>Ground colour for the city map: lawns, packed earth, pavements, asphalt, sand at the shore.</summary>
+    private static Color32 CityColor(byte ground, float h, float slope, float wx, float wz)
+    {
+        float n1 = Mathf.PerlinNoise(wx * 0.05f + 11f, wz * 0.05f + 7f);
+        float n2 = Mathf.PerlinNoise(wx * 0.13f + 3f, wz * 0.13f + 19f);
+        float n3 = Mathf.PerlinNoise(wx * 0.35f + 31f, wz * 0.35f + 2f);
+
+        Color grassA = new Color(0.3f, 0.5f, 0.2f);
+        Color grassB = new Color(0.42f, 0.58f, 0.24f);
+        Color dry = new Color(0.58f, 0.58f, 0.32f);
+        Color dirt = new Color(0.5f, 0.4f, 0.28f);
+        Color c;
+        switch (ground)
+        {
+            case MapData.GroundPark:
+                c = Color.Lerp(new Color(0.28f, 0.52f, 0.2f), new Color(0.36f, 0.6f, 0.24f), n1);
+                break;
+            case MapData.GroundDirt:
+                c = Color.Lerp(dirt, new Color(0.62f, 0.52f, 0.38f), n2);
+                break;
+            case MapData.GroundUrban:
+                c = Color.Lerp(new Color(0.55f, 0.5f, 0.42f), new Color(0.62f, 0.6f, 0.56f), n2);
+                if (Mathf.PerlinNoise(wx * 0.09f + 5f, wz * 0.09f + 9f) > 0.55f)
+                    c = Color.Lerp(c, Color.Lerp(grassA, dry, n3), 0.75f);
+                break;
+            case MapData.GroundIndustrial:
+                c = Color.Lerp(new Color(0.55f, 0.55f, 0.53f), new Color(0.64f, 0.63f, 0.6f), n2);
+                break;
+            case MapData.GroundForest:
+                c = Color.Lerp(new Color(0.22f, 0.34f, 0.15f), new Color(0.36f, 0.33f, 0.2f), n2);
+                break;
+            case MapData.GroundCemetery:
+                c = Color.Lerp(grassA, grassB, n1);
+                if (n3 > 0.62f)
+                    c = new Color(0.7f, 0.7f, 0.68f);
+                break;
+            case MapData.GroundPitch:
+                c = new Color(0.25f, 0.55f, 0.25f) * (0.95f + n3 * 0.1f);
+                break;
+            case MapData.GroundPool:
+                c = new Color(0.25f, 0.6f, 0.78f);
+                break;
+            case MapData.GroundSidewalk:
+                c = new Color(0.68f, 0.66f, 0.62f) * (0.94f + n3 * 0.08f);
+                break;
+            case MapData.GroundParking:
+                c = new Color(0.36f, 0.36f, 0.37f) * (0.95f + n3 * 0.08f);
+                break;
+            case MapData.GroundRoad:
+                c = new Color(0.3f, 0.3f, 0.31f);
+                break;
+            case MapData.GroundBuilding:
+                c = new Color(0.5f, 0.48f, 0.45f);
+                break;
+            default:
+                c = Color.Lerp(grassA, grassB, n1);
+                c = Color.Lerp(c, dry, Mathf.Clamp01((n2 - 0.6f) * 3f));
+                break;
+        }
+
+        // Shore: sand and wet sand outside the town.
+        Color sand = new Color(0.86f, 0.79f, 0.58f);
+        Color wetSand = new Color(0.62f, 0.56f, 0.4f);
+        if (h < 0f)
+            c = Color.Lerp(wetSand * 0.8f, wetSand, Mathf.InverseLerp(-4f, 0f, h));
+        else if (h < 1.6f)
+            c = Color.Lerp(sand, c, Mathf.InverseLerp(0.9f, 1.6f, h));
+
+        if (ground <= MapData.GroundForest || ground == MapData.GroundCemetery)
+            c = Color.Lerp(c, new Color(0.48f, 0.47f, 0.45f), Mathf.Clamp01((slope - 0.6f) * 2.5f));
+        return c;
     }
 
     private static Color32 TerrainColor(float h, float slope, float wx, float wz)
@@ -397,10 +554,10 @@ public static class World
         var water = new GameObject("Sea");
         water.transform.SetParent(Root, false);
         water.transform.position = new Vector3(0f, -0.15f, 0f);
-        water.AddComponent<MeshFilter>().sharedMesh = MeshUtil.Grid(900f, 150);
+        water.AddComponent<MeshFilter>().sharedMesh = MeshUtil.Grid(2400f, 160);
         var mr = water.AddComponent<MeshRenderer>();
         var mat = CloneResource("ZootopiaWater");
-        mat.SetFloat("_ShoreRadius", IslandRadius);
+        mat.SetFloat("_ShoreRadius", MapData.Loaded ? MapData.PlayHalf + 15f : IslandRadius);
         mat.SetFloat("_MapSize", MapSize);
         mat.SetTexture("_FoamTex", FoamMask());
         mr.sharedMaterial = mat;
@@ -457,7 +614,7 @@ public static class World
             float x = Mathf.Cos(a) * r;
             float z = Mathf.Sin(a) * r;
             float h = HeightAt(x, z);
-            if (h > 1.3f)
+            if (h > 1.3f && !IsBlocked(x, z))
                 return new Vector3(x, h, z);
         }
         return new Vector3(0f, HeightAt(0f, 0f), 0f);
@@ -784,7 +941,7 @@ public static class World
                 float a = Rand(rng, 0f, Mathf.PI * 2f);
                 float r = Rand(rng, outer + 1.5f, outer + 4f);
                 Vector3 p = new Vector3(c.x + Mathf.Cos(a) * r, 0f, c.z + Mathf.Sin(a) * r);
-                if (!IsLand(p.x, p.z) || NearVehicleSpot(p, 4f) || p.x * p.x + p.z * p.z < 100f)
+                if (!IsLand(p.x, p.z) || IsBlocked(p.x, p.z) || NearVehicleSpot(p, 4f) || NearLobby(p, 12f))
                     continue;
                 string name = rng.NextDouble() < 0.75
                     ? ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)]
@@ -798,7 +955,7 @@ public static class World
         for (int attempt = 0; attempt < 200 && placed < 45; attempt++)
         {
             Vector3 p = RandomLandPoint(rng, 10f, IslandRadius - 6f);
-            if (Slope(p.x, p.z) > 0.3f || NearHouse(p, 13f) || NearVehicleSpot(p, 6f))
+            if (Slope(p.x, p.z) > 0.3f || NearHouse(p, 13f) || NearVehicleSpot(p, 6f) || NearLobby(p, 14f) || OnStreet(p))
                 continue;
             string name = ModelLibrary.CoverProps[rng.Next(ModelLibrary.CoverProps.Length)];
             PlaceProp(parent, name, p, Rand(rng, 0f, 360f));
@@ -808,7 +965,7 @@ public static class World
             if (rng.NextDouble() < 0.35)
             {
                 Vector3 q = p + new Vector3(Rand(rng, -3f, 3f), 0f, Rand(rng, -3f, 3f));
-                if (q.x * q.x + q.z * q.z > 100f)
+                if (!NearLobby(q, 12f) && !IsBlocked(q.x, q.z))
                     PlaceProp(parent, ModelLibrary.SmallProps[rng.Next(ModelLibrary.SmallProps.Length)], q, Rand(rng, 0f, 360f));
             }
         }
@@ -816,7 +973,84 @@ public static class World
 
     public static Vector3 LobbySpot
     {
-        get { return new Vector3(0f, HeightAt(0f, 0f) + 0.06f, 0f); }
+        get
+        {
+            if (MapData.Load())
+                return new Vector3(MapData.LobbyPoint.x, HeightAt(MapData.LobbyPoint.x, MapData.LobbyPoint.y) + 0.06f, MapData.LobbyPoint.y);
+            return new Vector3(0f, HeightAt(0f, 0f) + 0.06f, 0f);
+        }
+    }
+
+    /// <summary>Which way the lobby character faces (towards the camera, with the clinic behind).</summary>
+    public static float LobbyYaw
+    {
+        get { return MapData.Load() ? MapData.LobbyYaw : 180f; }
+    }
+
+    /// <summary>Roads, pavements, car parks and pools stay clear of big cover props (jeeps and bots use them).</summary>
+    private static bool OnStreet(Vector3 p)
+    {
+        if (!MapData.Loaded)
+            return false;
+        byte g = MapData.Ground(p.x, p.z);
+        return g == MapData.GroundRoad || g == MapData.GroundSidewalk || g == MapData.GroundParking || g == MapData.GroundPool;
+    }
+
+    private static bool NearLobby(Vector3 p, float distance)
+    {
+        Vector3 l = LobbySpot;
+        float dx = l.x - p.x, dz = l.z - p.z;
+        return dx * dx + dz * dz < distance * distance;
+    }
+
+    /// <summary>Bushes and a few rocks in the parks, gardens and woods of the city map (trees come from MapData).</summary>
+    private static void BuildCityNature(Transform parent, System.Random rng)
+    {
+        var rockMeshes = new Mesh[4];
+        for (int i = 0; i < rockMeshes.Length; i++)
+            rockMeshes[i] = MeshUtil.Blob(100 + i, 0.35f);
+        var bushMeshes = new Mesh[3];
+        for (int i = 0; i < bushMeshes.Length; i++)
+            bushMeshes[i] = MeshUtil.Blob(200 + i, 0.2f);
+
+        int bushes = 0, rocks = 0;
+        for (int attempt = 0; attempt < 3000 && (bushes < 140 || rocks < 30); attempt++)
+        {
+            Vector3 p = RandomLandPoint(rng, 5f, IslandRadius);
+            byte g = MapData.Ground(p.x, p.z);
+            bool green = g == MapData.GroundPark || g == MapData.GroundForest || g == MapData.GroundGrass || g == MapData.GroundCemetery;
+            if (!green && !(g == MapData.GroundUrban && rng.NextDouble() < 0.25))
+                continue;
+            if (NearLobby(p, 10f))
+                continue;
+            if (rocks < 30 && (g == MapData.GroundForest || g == MapData.GroundGrass) && rng.NextDouble() < 0.25)
+            {
+                var rock = new GameObject("Rock");
+                rock.transform.SetParent(parent, false);
+                float s = Rand(rng, 0.8f, 2.4f);
+                rock.transform.position = p + Vector3.up * (s * 0.15f);
+                rock.transform.rotation = Quaternion.Euler(Rand(rng, -10f, 10f), Rand(rng, 0f, 360f), Rand(rng, -10f, 10f));
+                rock.transform.localScale = new Vector3(s * Rand(rng, 0.9f, 1.4f), s * Rand(rng, 0.55f, 0.9f), s);
+                Mesh m = rockMeshes[rng.Next(rockMeshes.Length)];
+                rock.AddComponent<MeshFilter>().sharedMesh = m;
+                rock.AddComponent<MeshRenderer>().sharedMaterial = MaterialCache.Lit(RockGrays[rng.Next(RockGrays.Length)]);
+                var mc = rock.AddComponent<MeshCollider>();
+                mc.sharedMesh = m;
+                mc.convex = true;
+                rocks++;
+            }
+            else if (bushes < 140)
+            {
+                var bush = new GameObject("Bush");
+                bush.transform.SetParent(parent, false);
+                float s = Rand(rng, 0.9f, 1.6f);
+                bush.transform.position = p + Vector3.up * (s * 0.3f);
+                bush.transform.localScale = new Vector3(s * 1.3f, s, s * 1.2f);
+                bush.AddComponent<MeshFilter>().sharedMesh = bushMeshes[rng.Next(bushMeshes.Length)];
+                bush.AddComponent<MeshRenderer>().sharedMaterial = MaterialCache.Lit(LeafGreens[rng.Next(LeafGreens.Length)] * 0.85f);
+                bushes++;
+            }
+        }
     }
 
     /// <summary>Small set behind the lobby character: concrete pad, sandbags, barriers, container.</summary>
@@ -900,39 +1134,55 @@ public static class World
 
     private static void BuildMinimap()
     {
-        const int size = 256;
+        const int size = 512;
         var pixels = new Color32[size * size];
-        float scale = (float)GridRes / size;
-        float cell = MapSize / GridRes;
-        Color32 houseColor = new Color32(70, 62, 56, 255);
+        float half = MapSize * 0.5f;
+        float cellW = MapSize / size;
         for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < size; x++)
             {
-                int gx = Mathf.Min(GridRes, Mathf.RoundToInt(x * scale));
-                int gz = Mathf.Min(GridRes, Mathf.RoundToInt(y * scale));
-                float h = GridHeight(gx, gz);
-                float wx = gx * cell - MapSize * 0.5f;
-                float wz = gz * cell - MapSize * 0.5f;
+                float wx = (x + 0.5f) * cellW - half;
+                float wz = (y + 0.5f) * cellW - half;
+                float h = HeightAt(wx, wz);
                 Color c;
                 if (h < 0.05f)
                     c = Color.Lerp(WaterShallow, WaterDeep, Mathf.InverseLerp(0f, -5f, h));
+                else if (groundColors != null)
+                {
+                    int gx = Mathf.Clamp((int)((wx + half) / MapSize * groundColorRes), 0, groundColorRes - 1);
+                    int gz = Mathf.Clamp((int)((wz + half) / MapSize * groundColorRes), 0, groundColorRes - 1);
+                    c = groundColors[gz * groundColorRes + gx];
+                    if (MapData.Loaded)
+                    {
+                        byte g = MapData.Ground(wx, wz);
+                        if (g == MapData.GroundBuilding)
+                            c = new Color(0.62f, 0.5f, 0.42f);
+                        else if (g == MapData.GroundRoad)
+                            c = new Color(0.22f, 0.22f, 0.24f);
+                    }
+                    c *= 0.9f + Mathf.Clamp01(h / 40f) * 0.2f;
+                }
                 else
-                    c = (Color)TerrainColor(h, 0f, wx, wz) * (0.9f + Mathf.Clamp01(h / 15f) * 0.25f);
+                    c = (Color)TerrainColor(h, 0f, wx, wz);
                 pixels[y * size + x] = c;
             }
         }
 
-        foreach (var f in houseFootprints)
+        if (!MapData.Loaded)
         {
-            int cx = Mathf.RoundToInt((f.x / MapSize + 0.5f) * size);
-            int cz = Mathf.RoundToInt((f.y / MapSize + 0.5f) * size);
-            int rx = Mathf.Max(1, Mathf.RoundToInt(f.z / MapSize * size));
-            int rz = Mathf.Max(1, Mathf.RoundToInt(f.w / MapSize * size));
-            for (int y = cz - rz; y <= cz + rz; y++)
-                for (int x = cx - rx; x <= cx + rx; x++)
-                    if (x >= 0 && y >= 0 && x < size && y < size)
-                        pixels[y * size + x] = houseColor;
+            Color32 houseColor = new Color32(70, 62, 56, 255);
+            foreach (var f in houseFootprints)
+            {
+                int cx = Mathf.RoundToInt((f.x / MapSize + 0.5f) * size);
+                int cz = Mathf.RoundToInt((f.y / MapSize + 0.5f) * size);
+                int rx = Mathf.Max(1, Mathf.RoundToInt(f.z / MapSize * size));
+                int rz = Mathf.Max(1, Mathf.RoundToInt(f.w / MapSize * size));
+                for (int y = cz - rz; y <= cz + rz; y++)
+                    for (int x = cx - rx; x <= cx + rx; x++)
+                        if (x >= 0 && y >= 0 && x < size && y < size)
+                            pixels[y * size + x] = houseColor;
+            }
         }
 
         MinimapTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);

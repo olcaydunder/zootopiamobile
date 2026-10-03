@@ -95,7 +95,7 @@ public class GameManager : MonoBehaviour
         {
             player.ApplySkin(profile.equippedSkin);
             player.ResetForRound(World.LobbySpot + Vector3.up * 0.95f);
-            player.transform.rotation = Quaternion.Euler(0f, 180f, 0f);   // faces the lit side
+            player.transform.rotation = Quaternion.Euler(0f, World.LobbyYaw, 0f);   // faces the street, clinic behind
             player.SetLobbyView(true);
             RefreshLobbyWeapon();
         }
@@ -169,11 +169,14 @@ public class GameManager : MonoBehaviour
             bot.BoardPlane(plane, Random.Range(0.12f, 0.88f), landing, false);
         }
 
-        foreach (var spot in World.VehicleSpots)
-            vehicles.Add(Vehicle.Spawn(spot, Random.Range(0f, 360f), JeepColors[Random.Range(0, JeepColors.Length)]));
+        for (int v = 0; v < World.VehicleSpots.Count; v++)
+        {
+            float yaw = v < World.VehicleYaws.Count ? World.VehicleYaws[v] : Random.Range(0f, 360f);
+            vehicles.Add(Vehicle.Spawn(World.VehicleSpots[v], yaw, JeepColors[Random.Range(0, JeepColors.Length)]));
+        }
 
-        lootSystem.SpawnLoot(45);
-        safeZone.Init(Vector3.zero, World.IslandRadius * 1.15f);
+        lootSystem.SpawnLoot(70);
+        safeZone.Init(Vector3.zero, MapData.Loaded ? MapData.PlayHalf * 1.42f + 10f : World.IslandRadius * 1.15f);
 
         currentState = GameState.InGame;
         uiManager.ShowBattleHud();

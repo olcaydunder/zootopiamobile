@@ -8,7 +8,8 @@
 ## Özellikler
 
 - **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
-- **Tepeli ada:** Çim, toprak, kum ve kaya dokulu arazi, dalgalanan deniz, gökyüzü, güneş, gölgeler ve sis
+- **Gerçek harita: Çekmeköy / Ekşioğlu.** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar (şeritli asfalt, kaldırımlar, sokak lambaları), parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir (ganimet içeride); klinik tabelasıyla lobinin arka planında. Haritanın etrafı deniz
+- **Yakınlaşan mini harita:** Yerdeyken oyuncunun çevresini yakın gösterir, uçakta tüm haritayı
 - **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar; kum torbası, bariyer, konteyner, varil gibi 3D siper modelleri
 - **Karakterler:** Animasyonlu 3D karakter modelleri (asker, işçi, kovboy, ninja, doktor); bekleme, koşma, ateş etme, darbe alma ve ölme animasyonları
 - **Silahlar:** Elde taşınan 3D silah modelleri: tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme

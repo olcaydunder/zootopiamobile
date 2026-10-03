@@ -68,7 +68,7 @@ public static class GameSettings
         QualitySettings.softParticles = false;
         Grass.SetQuality(Quality);
 
-        float fogEnd = Quality == 0 ? 170f : (Quality == 2 ? 320f : 260f);
+        float fogEnd = Quality == 0 ? 200f : (Quality == 2 ? 420f : 320f);
         RenderSettings.fogEndDistance = fogEnd;
         RenderSettings.fogStartDistance = fogEnd * 0.3f;
         var cam = Camera.main;

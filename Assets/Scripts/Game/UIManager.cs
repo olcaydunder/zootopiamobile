@@ -64,6 +64,9 @@ public class UIManager : MonoBehaviour
 
     // Minimap
     private const float MapPx = 300f;
+    private RawImage minimapRaw;
+    private float mapZoom = 1f;
+    private Vector2 mapCenterUV = new Vector2(0.5f, 0.5f);
     private RectTransform mapRect;
     private RectTransform playerMarker;
     private RectTransform zoneRing;
@@ -226,7 +229,7 @@ public class UIManager : MonoBehaviour
             modeTitles.Add(mt);
             modeSubs.Add(ms);
         }
-        var mapLabel = UIUtil.CreateText(t, "BATTLE ROYALE  •  Zootopia Adası  •  25 oyuncu", new Vector2(1f, 0.5f), new Vector2(-280f, 290f), new Vector2(480f, 40f), 22, TextAnchor.MiddleLeft);
+        var mapLabel = UIUtil.CreateText(t, MapData.Loaded ? "BATTLE ROYALE  •  Çekmeköy  •  25 oyuncu" : "BATTLE ROYALE  •  Zootopia Adası  •  25 oyuncu", new Vector2(1f, 0.5f), new Vector2(-280f, 290f), new Vector2(480f, 40f), 22, TextAnchor.MiddleLeft);
         mapLabel.color = Theme.Accent;
 
         UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel)
@@ -240,6 +243,11 @@ public class UIManager : MonoBehaviour
         title.color = Theme.Accent;
         var credit = UIUtil.CreateText(t, ProducerCredit, new Vector2(0f, 0f), new Vector2(330f, 75f), new Vector2(600f, 40f), 24, TextAnchor.MiddleLeft);
         credit.color = Theme.TextDim;
+        if (MapData.Loaded)
+        {
+            var osm = UIUtil.CreateText(t, "Harita: Ekşioğlu, Çekmeköy  •  © OpenStreetMap katkıcıları", new Vector2(0f, 0f), new Vector2(330f, 40f), new Vector2(600f, 30f), 18, TextAnchor.MiddleLeft);
+            osm.color = Theme.TextDim;
+        }
 
         gunsmith = GunsmithScreen.Create(canvas.transform);
         SelectMode(0);
@@ -429,6 +437,7 @@ public class UIManager : MonoBehaviour
         mapRect = UIUtil.CreateRect(frame.transform, "Minimap", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MapPx, MapPx));
         var raw = mapRect.gameObject.AddComponent<RawImage>();
         raw.texture = World.MinimapTexture;
+        minimapRaw = raw;
         raw.raycastTarget = false;
         mapRect.gameObject.AddComponent<RectMask2D>();
 
@@ -462,10 +471,11 @@ public class UIManager : MonoBehaviour
         UIUtil.CreateText(frame.transform, "K", new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(30f, 30f), 22, TextAnchor.MiddleCenter);
     }
 
-    private static Vector2 MapPos(Vector3 world)
+    /// <summary>World position to minimap pixels (relative to the current view centre and zoom).</summary>
+    private Vector2 MapPos(Vector3 world)
     {
         Vector2 uv = World.ToMapUV(world);
-        return (uv - new Vector2(0.5f, 0.5f)) * MapPx;
+        return (uv - mapCenterUV) * MapPx * mapZoom;
     }
 
     private RectTransform CreateFill(Transform parent, string fillName, Vector2 position, float height, Color color)
@@ -754,7 +764,7 @@ public class UIManager : MonoBehaviour
         HideAll();
         resultTitle.text = won ? "ZAFER! #1" : "#" + place + " / " + teams;
         resultTitle.color = won ? new Color(1f, 0.85f, 0.3f) : Color.white;
-        resultDetails.text = (won ? "Adada son kalan sensin!" : "Elendin. Bir dahaki sefere!") +
+        resultDetails.text = (won ? "Ayakta kalan son kişi sensin!" : "Elendin. Bir dahaki sefere!") +
                              "\nÖldürme: " + kills + "     +" + xp + " XP     +" + coins + " Altın";
         resultPanel.SetActive(true);
     }
@@ -950,6 +960,18 @@ public class UIManager : MonoBehaviour
 
     private void UpdateMinimap(GameManager gm, PlayerController player)
     {
+        // Whole map from the plane / in the air, zoomed around the player on the ground (~270 m across).
+        bool air = player.state == PlayerState.Plane || player.state == PlayerState.Freefall || player.state == PlayerState.Parachute;
+        float wantZoom = air ? 1f : World.MapSize / 270f;
+        mapZoom = Mathf.Lerp(mapZoom, wantZoom, Time.deltaTime * 3f);
+        if (Mathf.Abs(mapZoom - wantZoom) < 0.01f)
+            mapZoom = wantZoom;
+        float halfView = 0.5f / mapZoom;
+        Vector2 puv = World.ToMapUV(player.transform.position);
+        mapCenterUV = new Vector2(Mathf.Clamp(puv.x, halfView, 1f - halfView), Mathf.Clamp(puv.y, halfView, 1f - halfView));
+        if (minimapRaw != null)
+            minimapRaw.uvRect = new Rect(mapCenterUV.x - halfView, mapCenterUV.y - halfView, halfView * 2f, halfView * 2f);
+
         playerMarker.anchoredPosition = MapPos(player.transform.position);
         float yaw = player.state == PlayerState.Driving && player.vehicle != null ? player.vehicle.Yaw : player.transform.eulerAngles.y;
         playerMarker.localRotation = Quaternion.Euler(0f, 0f, -yaw);
@@ -960,7 +982,7 @@ public class UIManager : MonoBehaviour
         if (zoneOn)
         {
             zoneRing.anchoredPosition = MapPos(zone.center);
-            float size = zone.radius * 2f / World.MapSize * MapPx;
+            float size = zone.radius * 2f / World.MapSize * MapPx * mapZoom;
             zoneRing.sizeDelta = new Vector2(size, size);
         }
         bool nextOn = zoneOn && zone.HasNext;
@@ -968,7 +990,7 @@ public class UIManager : MonoBehaviour
         if (nextOn)
         {
             nextZoneRing.anchoredPosition = MapPos(zone.NextCenter);
-            float size = zone.NextRadius * 2f / World.MapSize * MapPx;
+            float size = zone.NextRadius * 2f / World.MapSize * MapPx * mapZoom;
             nextZoneRing.sizeDelta = new Vector2(size, size);
         }
 

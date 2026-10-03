@@ -10,8 +10,9 @@ public class SafeZoneController : MonoBehaviour
     public float radius = 60f;
     public bool active;
 
-    private static readonly float[] WaitTimes = { 75f, 40f, 32f, 26f, 20f, 15f };
-    private static readonly float[] ShrinkTimes = { 30f, 25f, 22f, 18f, 15f, 12f };
+    // Tuned for the 700 m city map (runs ~6 m/s, jeeps on the streets).
+    private static readonly float[] WaitTimes = { 110f, 70f, 50f, 38f, 28f, 18f };
+    private static readonly float[] ShrinkTimes = { 70f, 50f, 38f, 28f, 20f, 14f };
     private static readonly float[] RadiusFractions = { 0.62f, 0.4f, 0.25f, 0.14f, 0.06f, 0f };
     private static readonly float[] DamagePerSecond = { 2f, 4f, 6f, 9f, 13f, 18f };
 
@@ -211,7 +212,7 @@ public class SafeZoneController : MonoBehaviour
             Vector2 p = Random.insideUnitCircle * r;
             float x = center.x + p.x;
             float z = center.z + p.y;
-            if (World.IsLand(x, z))
+            if (World.IsLand(x, z) && !World.IsBlocked(x, z))
                 return new Vector3(x, World.HeightAt(x, z) + 1f, z);
         }
         return new Vector3(center.x, World.HeightAt(center.x, center.z) + 1f, center.z);

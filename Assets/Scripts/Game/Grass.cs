@@ -106,7 +106,7 @@ public class Grass : MonoBehaviour
             float x = (cx + (float)rng.NextDouble()) * CellSize;
             float z = (cz + (float)rng.NextDouble()) * CellSize;
             float h = World.HeightAt(x, z);
-            if (h < 1.6f || World.IsBlocked(x, z))
+            if (h < 1.6f || !World.GrassAllowed(x, z))
                 continue;
             float dx = World.HeightAt(x + 0.5f, z) - World.HeightAt(x - 0.5f, z);
             float dz = World.HeightAt(x, z + 0.5f) - World.HeightAt(x, z - 0.5f);

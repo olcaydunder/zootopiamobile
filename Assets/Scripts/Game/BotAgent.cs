@@ -199,6 +199,9 @@ public class BotAgent : MonoBehaviour, IDamageable
         if (next.y - 0.95f <= landHeight)
         {
             transform.position = new Vector3(next.x, landHeight + 0.95f, next.z);
+            // Never end up stuck on a roof (bots can't jump down parapets): step down next to the building.
+            if (World.IsBlocked(next.x, next.z))
+                transform.position = World.RandomOpenPoint(new Vector3(next.x, 0f, next.z), 14f);
             air = BotAir.None;
             controller.enabled = true;
             rig.pose = RigPose.Normal;
@@ -234,7 +237,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         if (target != null && (target.IsDead || target.IsAirborne))
             target = null;
 
-        Vector3 move = DecideMovement(gm);
+        Vector3 move = Steer(DecideMovement(gm));
         Vector3 lookDir = move;
 
         if (target != null && targetVisible)
@@ -323,6 +326,87 @@ public class BotAgent : MonoBehaviour, IDamageable
             return car != null && ReferenceEquals(car.driver, other);
         }
         return true;
+    }
+
+    // ----- Getting around buildings -----
+
+    private static readonly float[] AvoidAngles = { 35f, 70f, 110f, 150f };
+    private float avoidSign = 1f;
+    private float avoidSignUntil;
+    private Vector3 stuckCheckPos;
+    private float stuckCheckTime;
+    private Vector3 unstickDir;
+    private float unstickUntil;
+
+    /// <summary>Turns the wanted direction away from walls, and breaks free when the bot hasn't moved for a while.</summary>
+    private Vector3 Steer(Vector3 move)
+    {
+        float speed = move.magnitude;
+        if (speed < 0.05f || IsAirborne)
+        {
+            stuckCheckPos = transform.position;
+            stuckCheckTime = Time.time;
+            return move;
+        }
+
+        if (Time.time < unstickUntil)
+            return unstickDir * speed;
+
+        // Stuck: wanted to walk for 1.5 s but barely moved (not while fighting: strafing goes back and forth).
+        if (target != null && targetVisible)
+        {
+            stuckCheckPos = transform.position;
+            stuckCheckTime = Time.time;
+        }
+        else if (Time.time - stuckCheckTime > 1.5f)
+        {
+            Vector3 moved = transform.position - stuckCheckPos;
+            moved.y = 0f;
+            if (moved.magnitude < 0.5f)
+            {
+                avoidSign = -avoidSign;
+                Vector2 r = Random.insideUnitCircle.normalized;
+                unstickDir = new Vector3(r.x, 0f, r.y);
+                unstickUntil = Time.time + 0.9f;
+                wanderTimer = 0f;   // pick a new wander target
+            }
+            stuckCheckPos = transform.position;
+            stuckCheckTime = Time.time;
+        }
+
+        Vector3 dir = move / speed;
+        if (!Blocked(dir))
+            return move;
+        if (Time.time > avoidSignUntil)
+        {
+            avoidSign = Random.value < 0.5f ? -1f : 1f;
+            avoidSignUntil = Time.time + 1.2f;
+        }
+        foreach (float a in AvoidAngles)
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                float sign = s == 0 ? avoidSign : -avoidSign;
+                Vector3 d = Quaternion.Euler(0f, a * sign, 0f) * dir;
+                if (!Blocked(d))
+                {
+                    avoidSign = sign;
+                    return d * speed;
+                }
+            }
+        }
+        return move;
+    }
+
+    private bool Blocked(Vector3 dir)
+    {
+        // From knee height (0.6 m above the feet): steps and kerbs the controller can climb are ignored.
+        Vector3 origin = transform.position - Vector3.up * 0.35f;
+        RaycastHit hit;
+        if (!Physics.SphereCast(origin, 0.3f, dir, out hit, 1.6f, Physics.DefaultRaycastLayers & ~(1 << 2), QueryTriggerInteraction.Ignore))
+            return false;
+        // Gentle slopes and kerbs are fine; walls and other characters are not.
+        return hit.normal.y < 0.6f;
     }
 
     private Vector3 DecideMovement(GameManager gm)
