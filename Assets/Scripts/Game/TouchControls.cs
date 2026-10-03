@@ -136,6 +136,8 @@ public class TouchControls : MonoBehaviour
 
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
+        foreach (var feel in GetComponentsInChildren<ButtonFeel>(true))
+            feel.silent = true;   // in-game controls: squash + buzz, no click sound
         ApplySettings();
     }
 

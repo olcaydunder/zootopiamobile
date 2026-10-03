@@ -160,12 +160,201 @@ public static class CityBuilder
             Mat(NewMat(new Color(0.26f, 0.48f, 0.18f), null)), Mat(NewMat(new Color(0.5f, 0.58f, 0.22f), null))
         };
 
+        if (PhotoTex.Available)
+            UsePhotoTextures();
+
         cube = PrimitiveMesh(PrimitiveType.Cube);
         cylinder = PrimitiveMesh(PrimitiveType.Cylinder);
         sphere = PrimitiveMesh(PrimitiveType.Sphere);
         blobs = new Mesh[6];
         for (int i = 0; i < blobs.Length; i++)
             blobs[i] = MeshUtil.Blob(300 + i, 0.25f);
+    }
+
+    private static bool photo;
+    private static int railMat;
+
+    /// <summary>Swaps the procedural materials for photo-scanned ones (plaster, metal, concrete,
+    /// roof tiles, paving, bark, asphalt) with real windows, glass reflections and road markings.</summary>
+    private static void UsePhotoTextures()
+    {
+        var facadeBase = Resources.Load<Material>("ZootopiaFacade");
+        var roadBase = Resources.Load<Material>("ZootopiaRoad");
+        if (facadeBase == null || roadBase == null)
+            return;
+        photo = true;
+
+        var windows = WindowMask(false);
+        var glass = GlassMask(false);
+        var industrial = WindowMask(true);
+        var industrialGlass = GlassMask(true);
+        var blank = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+        var clear = new Color32[16];
+        blank.SetPixels32(clear);
+        blank.Apply();
+
+        System.Func<Texture2D, Texture2D, Color, Texture2D, Texture2D, Vector2, Material> facade = (baseTex, baseNrm, tint, win, gl, scale) =>
+        {
+            var m = new Material(facadeBase);
+            m.SetTexture("_BaseTex", baseTex);
+            if (baseNrm != null)
+                m.SetTexture("_BaseNrm", baseNrm);
+            m.SetColor("_Color", tint);
+            m.SetTexture("_WindowTex", win);
+            m.SetTexture("_GlassTex", gl);
+            m.SetTextureScale("_WindowTex", new Vector2(0.5f, 0.5f));
+            m.SetVector("_BaseScale", new Vector4(scale.x, scale.y, 0f, 0f));
+            return m;
+        };
+
+        var plaster = PhotoTex.Get("plaster_diff");
+        var plasterN = PhotoTex.Get("plaster_nor");
+        for (int i = 0; i < FacadeColors.Length; i++)
+        {
+            materials[facadeMats[i]] = facade(plaster, plasterN, FacadeColors[i], windows, glass, new Vector2(2.8f, 2.6f));
+            var shell = NewMat(FacadeColors[i] * 1.05f, plaster);
+            shell.mainTextureScale = new Vector2(0.6f, 0.6f);
+            materials[shellMats[i]] = shell;
+        }
+        var metalTex = PhotoTex.Get("metal_diff") ?? plaster;
+        materials[metalMat] = facade(metalTex, PhotoTex.Get("metal_nor"), new Color(0.82f, 0.86f, 0.9f), industrial, industrialGlass, new Vector2(2f, 1.2f));
+        materials[stoneMat] = facade(plaster, plasterN, new Color(0.97f, 0.95f, 0.9f), blank, blank, new Vector2(2f, 2f));
+
+        var concrete = PhotoTex.Get("concrete_diff");
+        if (concrete != null)
+        {
+            materials[plinthMat] = NewMat(new Color(0.85f, 0.83f, 0.8f), concrete);
+            materials[roofMat] = NewMat(new Color(0.8f, 0.8f, 0.78f), concrete);
+        }
+        var tiles = PhotoTex.Get("rooftiles_diff");
+        if (tiles != null)
+            materials[tileRoofMat] = NewMat(new Color(1f, 0.92f, 0.88f), tiles);
+        var paving = PhotoTex.Get("paving_diff");
+        if (paving != null)
+            materials[floorMat] = NewMat(Color.white, paving);
+        var bark = PhotoTex.Get("bark_diff");
+        if (bark != null)
+            materials[trunkMat] = NewMat(new Color(0.9f, 0.85f, 0.8f), bark);
+
+        System.Func<bool, Material> road = lined =>
+        {
+            var m = new Material(roadBase);
+            m.SetTexture("_AsphaltTex", PhotoTex.Get("asphalt_diff"));
+            var n = PhotoTex.Get("asphalt_nor");
+            if (n != null)
+                m.SetTexture("_AsphaltNrm", n);
+            m.SetTexture("_MainTex", RoadMarkings(lined));
+            m.SetFloat("_AsphaltTiling", 0.2f);
+            return m;
+        };
+        materials[asphaltLinedMat] = road(true);
+        materials[asphaltMat] = road(false);
+        railMat = Mat(NewMat(new Color(0.22f, 0.23f, 0.25f), null));
+    }
+
+    /// <summary>2 bays x 2 storeys of windows (RGB colour, A mask): plain glass, curtains, blinds, lit room.</summary>
+    private static Texture2D WindowMask(bool industrial)
+    {
+        const int s = 256;
+        var px = new Color32[s * s];
+        for (int y = 0; y < s; y++)
+        {
+            for (int x = 0; x < s; x++)
+            {
+                int cell = (x * 2 / s) + (y * 2 / s) * 2;
+                float u = (x % (s / 2) + 0.5f) / (s / 2), v = (y % (s / 2) + 0.5f) / (s / 2);
+                Color c = new Color(0f, 0f, 0f, 0f);
+                if (industrial)
+                {
+                    if (v > 0.6f && v < 0.8f && u > 0.04f && u < 0.96f)
+                        c = (u * 8f) % 1f < 0.06f ? new Color(0.35f, 0.37f, 0.4f, 1f) : new Color(0.14f, 0.18f, 0.22f, 1f);
+                    else if (v < 0.03f)
+                        c = new Color(0.4f, 0.42f, 0.44f, 0.6f);
+                }
+                else
+                {
+                    if (v < 0.045f)
+                        c = new Color(0.66f, 0.64f, 0.6f, 0.55f);                       // floor slab band
+                    bool frame = u > 0.24f && u < 0.76f && v > 0.28f && v < 0.86f;
+                    bool glassArea = u > 0.27f && u < 0.73f && v > 0.31f && v < 0.83f;
+                    if (frame)
+                        c = new Color(0.93f, 0.93f, 0.91f, 1f);
+                    if (glassArea)
+                    {
+                        float shade = Mathf.Lerp(0.1f, 0.2f, v);
+                        c = new Color(shade * 0.8f, shade * 0.95f, shade * 1.15f, 1f);
+                        if (cell == 1 && (u < 0.37f || u > 0.63f))
+                            c = new Color(0.78f, 0.7f, 0.56f, 1f);                       // curtains
+                        else if (cell == 2 && ((int)(v * 60f)) % 2 == 0)
+                            c = new Color(0.72f, 0.72f, 0.7f, 1f);                       // blinds
+                        else if (cell == 3 && v < 0.6f)
+                            c = new Color(0.42f, 0.36f, 0.26f, 1f);                      // warm room
+                        if (Mathf.Abs(u - 0.5f) < 0.012f)
+                            c = new Color(0.93f, 0.93f, 0.91f, 1f);                      // mullion
+                    }
+                    if (u > 0.22f && u < 0.78f && v > 0.25f && v < 0.28f)
+                        c = new Color(0.7f, 0.7f, 0.68f, 1f);                            // sill
+                    if (u > 0.25f && u < 0.75f && v > 0.86f && v < 0.92f)
+                        c = new Color(0.55f, 0.55f, 0.55f, 1f);                          // shutter box
+                }
+                px[y * s + x] = c;
+            }
+        }
+        return MakeTexture(s, s, px, true);
+    }
+
+    /// <summary>Where the window mask is reflective glass (R).</summary>
+    private static Texture2D GlassMask(bool industrial)
+    {
+        const int s = 128;
+        var px = new Color32[s * s];
+        for (int y = 0; y < s; y++)
+        {
+            for (int x = 0; x < s; x++)
+            {
+                int cell = (x * 2 / s) + (y * 2 / s) * 2;
+                float u = (x % (s / 2) + 0.5f) / (s / 2), v = (y % (s / 2) + 0.5f) / (s / 2);
+                float g = 0f;
+                if (industrial)
+                    g = v > 0.6f && v < 0.8f && u > 0.04f && u < 0.96f ? 0.8f : 0f;
+                else if (u > 0.27f && u < 0.73f && v > 0.31f && v < 0.83f && Mathf.Abs(u - 0.5f) >= 0.012f)
+                {
+                    g = 1f;
+                    if (cell == 1 && (u < 0.37f || u > 0.63f)) g = 0.1f;
+                    if (cell == 2) g = 0.35f;
+                    if (cell == 3 && v < 0.6f) g = 0.4f;
+                }
+                byte b = (byte)(g * 255f);
+                px[y * s + x] = new Color32(b, b, b, 255);
+            }
+        }
+        return MakeTexture(s, s, px, true);
+    }
+
+    /// <summary>Road paint and kerbs (RGB colour, A mask); u across the road, v along (8 m per tile).</summary>
+    private static Texture2D RoadMarkings(bool lined)
+    {
+        const int w = 64, h = 128;
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float u = (x + 0.5f) / w, v = (y + 0.5f) / h;
+                float edge = Mathf.Min(u, 1f - u);
+                Color c = new Color(0f, 0f, 0f, 0f);
+                if (edge < 0.03f)
+                    c = new Color(0.62f, 0.6f, 0.57f, 1f);                  // kerb stones
+                else if (edge < 0.034f)
+                    c = new Color(0.2f, 0.2f, 0.2f, 0.6f);                   // gutter shadow
+                else if (lined && edge > 0.05f && edge < 0.07f)
+                    c = new Color(0.92f, 0.92f, 0.88f, 0.9f);                // edge line
+                else if (lined && Mathf.Abs(u - 0.5f) < 0.013f && v < 0.5f)
+                    c = new Color(0.95f, 0.95f, 0.9f, 0.9f);                 // centre dash
+                px[y * w + x] = c;
+            }
+        }
+        return MakeTexture(w, h, px, true);
     }
 
     private static readonly Dictionary<PrimitiveType, Mesh> primitives = new Dictionary<PrimitiveType, Mesh>();
@@ -638,8 +827,53 @@ public static class CityBuilder
         else
             FlatRoof(chunk, o, b.roofTriangles, ccw, yTop, parapet);
 
+        if (photo && b.kind == MapData.KindApartment && b.levels >= 3)
+            Balconies(chunk, o, ccw, y0, b.levels, colorIdx);
+
         if (b.kind == MapData.KindMosque)
             MosqueExtras(chunk, b, L, S, hw, hd, y0, yTop);
+    }
+
+    /// <summary>Balconies (slab + railing) on every other bay of the two longest walls, from the first floor up.</summary>
+    private static void Balconies(int chunk, Vector2[] o, bool ccw, float y0, int levels, int colorIdx)
+    {
+        int n = o.Length;
+        int best = -1, second = -1;
+        float bestLen = 0f, secondLen = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float len = (o[(i + 1) % n] - o[i]).magnitude;
+            if (len > bestLen) { second = best; secondLen = bestLen; best = i; bestLen = len; }
+            else if (len > secondLen) { second = i; secondLen = len; }
+        }
+        foreach (int e in new[] { best, second })
+        {
+            if (e < 0)
+                continue;
+            Vector2 a = o[e], c = o[(e + 1) % n];
+            Vector2 d = c - a;
+            float len = d.magnitude;
+            if (len < 9f)
+                continue;
+            Vector3 along = new Vector3(d.x, 0f, d.y) / len;
+            Vector3 outward = ccw ? new Vector3(d.y, 0f, -d.x) / len : new Vector3(-d.y, 0f, d.x) / len;
+            float bays = Mathf.Max(1f, Mathf.Round(len / 3.2f));
+            float bayLen = len / bays;
+            for (int k = (e % 2); k < bays; k += 2)
+            {
+                Vector3 basePos = new Vector3(a.x, 0f, a.y) + along * (bayLen * (k + 0.5f));
+                for (int f = 1; f < levels; f++)
+                {
+                    Vector3 p = basePos + Vector3.up * (y0 + f * FloorHeight);
+                    // slab
+                    Box(chunk, plinthMat, false, p, along, outward, new Vector3(0f, -0.07f, 0.5f), new Vector3(bayLen * 0.4f, 0.08f, 0.5f), 0.5f);
+                    // railing (front + sides)
+                    Box(chunk, railMat, false, p, along, outward, new Vector3(0f, 0.5f, 0.97f), new Vector3(bayLen * 0.4f, 0.5f, 0.025f), 1f);
+                    Box(chunk, railMat, false, p, along, outward, new Vector3(-bayLen * 0.4f, 0.5f, 0.5f), new Vector3(0.025f, 0.5f, 0.47f), 1f);
+                    Box(chunk, railMat, false, p, along, outward, new Vector3(bayLen * 0.4f, 0.5f, 0.5f), new Vector3(0.025f, 0.5f, 0.47f), 1f);
+                }
+            }
+        }
     }
 
     /// <summary>Outer walls of a polygon: concrete plinth below the ground floor, façade above it.</summary>

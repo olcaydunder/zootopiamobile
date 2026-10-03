@@ -149,6 +149,7 @@ public class UIManager : MonoBehaviour
     {
         // Transparent: the 3D character stands in the middle of the screen.
         lobbyPanel = UIUtil.CreateStretch(canvas.transform, "LobbyPanel").gameObject;
+        lobbyPanel.AddComponent<PopIn>();
         var t = lobbyPanel.transform;
         Text unused;
 
@@ -251,6 +252,8 @@ public class UIManager : MonoBehaviour
 
         gunsmith = GunsmithScreen.Create(canvas.transform);
         matchPrep = MatchPrepScreen.Create(canvas.transform);
+        matchPrep.gameObject.AddComponent<PopIn>();
+        gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
     }
 
@@ -339,8 +342,10 @@ public class UIManager : MonoBehaviour
         // Crosshair + hit marker
         var c = new Vector2(0.5f, 0.5f);
         var crossColor = new Color(1f, 1f, 1f, 0.85f);
-        UIUtil.CreateImage(t, "CrossH", c, Vector2.zero, new Vector2(28f, 3f), crossColor, false).raycastTarget = false;
-        UIUtil.CreateImage(t, "CrossV", c, Vector2.zero, new Vector2(3f, 28f), crossColor, false).raycastTarget = false;
+        crossH = UIUtil.CreateImage(t, "CrossH", c, Vector2.zero, new Vector2(28f, 3f), crossColor, false);
+        crossH.raycastTarget = false;
+        crossV = UIUtil.CreateImage(t, "CrossV", c, Vector2.zero, new Vector2(3f, 28f), crossColor, false);
+        crossV.raycastTarget = false;
         hitMarks = new Image[4];
         for (int i = 0; i < 4; i++)
         {
@@ -491,6 +496,7 @@ public class UIManager : MonoBehaviour
     private void BuildResult()
     {
         resultPanel = CreateFullPanel("ResultPanel", new Color(0.02f, 0.04f, 0.08f, 0.8f));
+        resultPanel.AddComponent<PopIn>();
         var t = resultPanel.transform;
         var c = new Vector2(0.5f, 0.5f);
 
@@ -525,11 +531,13 @@ public class UIManager : MonoBehaviour
     }
 
     private SettingsScreen settingsScreen;
+    private Image crossH, crossV;
     private MatchPrepScreen matchPrep;
 
     private void BuildSettings()
     {
         settingsScreen = SettingsScreen.Create(canvas.transform);
+        settingsScreen.gameObject.AddComponent<PopIn>();
         settingsPanel = settingsScreen.gameObject;
     }
 
@@ -631,6 +639,7 @@ public class UIManager : MonoBehaviour
     private void BuildPause()
     {
         pausePanel = CreateOverlay("PausePanel", new Vector2(640f, 560f));
+        pausePanel.AddComponent<PopIn>();
         var box = pausePanel.transform.Find("Box");
         var c = new Vector2(0.5f, 0.5f);
         var title = UIUtil.CreateText(box, "DURAKLATILDI", c, new Vector2(0f, 200f), new Vector2(600f, 70f), 46, TextAnchor.MiddleCenter);
@@ -720,6 +729,11 @@ public class UIManager : MonoBehaviour
         toastText.text = "";
         damageAlpha = 0f;
         touchControls.ResetState();
+        if (crossH != null)
+        {
+            crossH.color = GameSettings.CrosshairColors[GameSettings.CrosshairColor];
+            crossV.color = crossH.color;
+        }
         hudPanel.SetActive(true);
     }
 
@@ -790,6 +804,7 @@ public class UIManager : MonoBehaviour
     public void FlashDamage()
     {
         damageAlpha = 0.35f;
+        Haptics.Tap(25);
     }
 
     /// <summary>Hit marker on the crosshair plus a floating damage number at the hit point.</summary>
@@ -802,6 +817,9 @@ public class UIManager : MonoBehaviour
             m.enabled = true;
         }
         hitMarkUntil = Time.time + (killed ? 0.35f : 0.15f);
+        Haptics.Tap(killed ? 45 : 12);
+        if (!GameSettings.DamageNumbers)
+            return;
 
         var cam = Camera.main;
         if (cam == null)

@@ -189,6 +189,7 @@ public static class World
         if (!city)
             BuildLobbySet(cover);
         BuildCover(cover, rng);
+        CreateReflections();
     }
 
     private static void ComputeHeightGrid()
@@ -214,8 +215,8 @@ public static class World
         if (sun == null)
             sun = new GameObject("Sun").AddComponent<Light>();
         sun.type = LightType.Directional;
-        sun.intensity = 1.15f;
-        sun.color = new Color(1f, 0.95f, 0.85f);
+        sun.intensity = 1.25f;
+        sun.color = new Color(1f, 0.93f, 0.8f);   // warm afternoon sun
         sun.shadows = LightShadows.Hard;
         sun.shadowStrength = 0.65f;
         sun.transform.rotation = Quaternion.Euler(48f, -35f, 0f);
@@ -230,9 +231,11 @@ public static class World
         }
 
         RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.62f, 0.72f, 0.85f);
-        RenderSettings.ambientEquatorColor = new Color(0.55f, 0.6f, 0.58f);
-        RenderSettings.ambientGroundColor = new Color(0.32f, 0.3f, 0.26f);
+        RenderSettings.ambientSkyColor = new Color(0.58f, 0.68f, 0.84f);
+        RenderSettings.ambientEquatorColor = new Color(0.52f, 0.55f, 0.55f);
+        RenderSettings.ambientGroundColor = new Color(0.3f, 0.28f, 0.24f);
+        RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox;
+        RenderSettings.reflectionIntensity = 0.9f;
 
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.Linear;
@@ -287,17 +290,92 @@ public static class World
                     : TerrainColor(hh, slope, wx, wz);
             }
         }
+        groundColors = (Color32[])colors.Clone();
+        groundColorRes = res;
+
+        // Photo-texture layers: splat weights from the ground types, and the colour map's alpha
+        // marks where the painted colour wins (sand, sea floor, pools, rocky slopes).
+        bool layers = MapData.Loaded && PhotoTex.Available;
+        Texture2D splatTex = null;
+        if (layers)
+        {
+            var splat = new Color32[res * res];
+            for (int z = 0; z < res; z++)
+            {
+                for (int x = 0; x < res; x++)
+                {
+                    int i = z * res + x;
+                    float wx = (x + 0.5f) * cell - half;
+                    float wz = (z + 0.5f) * cell - half;
+                    int gx = Mathf.Clamp(Mathf.RoundToInt((wx + half) / step), 1, n - 2);
+                    int gz = Mathf.Clamp(Mathf.RoundToInt((wz + half) / step), 1, n - 2);
+                    float hh = h[gz * n + gx];
+                    float dx = h[gz * n + gx + 1] - h[gz * n + gx - 1];
+                    float dz = h[(gz + 1) * n + gx] - h[(gz - 1) * n + gx];
+                    float slope = Mathf.Sqrt(dx * dx + dz * dz) / (2f * step);
+                    byte g = MapData.GroundCell(x, z);
+                    float nz = Mathf.PerlinNoise(wx * 0.09f + 5f, wz * 0.09f + 9f);
+                    float r = 0f, gr = 0f, b = 0f, a = 0f;
+                    switch (g)
+                    {
+                        case MapData.GroundGrass: r = 1f - Mathf.Clamp01((nz - 0.7f) * 3f); b = 1f - r; break;
+                        case MapData.GroundPark:
+                        case MapData.GroundPitch:
+                        case MapData.GroundCemetery: r = 1f; break;
+                        case MapData.GroundForest: gr = 1f; break;
+                        case MapData.GroundDirt: b = 1f; break;
+                        case MapData.GroundUrban:
+                            if (nz > 0.55f) { r = 0.8f; b = 0.2f; }
+                            else { b = 0.55f; a = 0.45f; }
+                            break;
+                        case MapData.GroundIndustrial:
+                        case MapData.GroundSidewalk:
+                        case MapData.GroundParking:
+                        case MapData.GroundBuilding:
+                        case MapData.GroundPool: a = 1f; break;
+                        default: break;   // road: asphalt (the remainder)
+                    }
+                    splat[i] = new Color32((byte)(r * 255f), (byte)(gr * 255f), (byte)(b * 255f), (byte)(a * 255f));
+
+                    float useColor = g == MapData.GroundPool ? 1f : 0f;
+                    useColor = Mathf.Max(useColor, hh < 0f ? 1f : 1f - Mathf.InverseLerp(0.9f, 1.7f, hh));
+                    if (g <= MapData.GroundForest || g == MapData.GroundCemetery)
+                        useColor = Mathf.Max(useColor, Mathf.Clamp01((slope - 0.6f) * 2.5f));
+                    colors[i].a = (byte)(Mathf.Clamp01(useColor) * 255f);
+                }
+            }
+            splat = BlurSplat(splat, res);
+            splatTex = new Texture2D(res, res, TextureFormat.RGBA32, true);
+            splatTex.wrapMode = TextureWrapMode.Clamp;
+            splatTex.filterMode = FilterMode.Bilinear;
+            splatTex.SetPixels32(splat);
+            splatTex.Apply(true, true);
+        }
+
         var colorMap = new Texture2D(res, res, TextureFormat.RGBA32, true);
         colorMap.wrapMode = TextureWrapMode.Clamp;
         colorMap.filterMode = FilterMode.Trilinear;
         colorMap.anisoLevel = 8;
         colorMap.SetPixels32(colors);
         colorMap.Apply(true, true);
-        groundColors = colors;
-        groundColorRes = res;
 
         var mat = CloneResource("ZootopiaTerrain");
+        TerrainMaterial = mat;
         mat.SetTexture("_MainTex", colorMap);
+        if (layers)
+        {
+            mat.SetTexture("_Splat", splatTex);
+            string[] names = { "grass", "forest", "dirt", "paving", "asphalt" };
+            string[] props = { "_Grass", "_Forest", "_Dirt", "_Paving", "_Asphalt" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                mat.SetTexture(props[i] + "Tex", PhotoTex.Get(names[i] + "_diff"));
+                var nrm = PhotoTex.Get(names[i] + "_nor");
+                if (nrm != null)
+                    mat.SetTexture(props[i] + "Nrm", nrm);
+            }
+            mat.SetFloat("_HasLayers", 1f);
+        }
         var noise = DetailNoise();
         mat.SetTexture("_DetailTex", noise);
         mat.SetTexture("_DetailNormal", NormalFromHeight(noise));
@@ -360,6 +438,75 @@ public static class World
                 chunk.AddComponent<MeshCollider>().sharedMesh = mesh;
             }
         }
+    }
+
+    public static Material TerrainMaterial { get; private set; }
+    private static ReflectionProbe probe;
+
+    /// <summary>One city-wide reflection probe, rendered once: windows and metal reflect the sky and streets.</summary>
+    private static void CreateReflections()
+    {
+        try
+        {
+            var go = new GameObject("CityReflections");
+            go.transform.SetParent(Root, false);
+            go.transform.position = LobbySpot + Vector3.up * 22f;
+            probe = go.AddComponent<ReflectionProbe>();
+            probe.mode = ReflectionProbeMode.Realtime;
+            probe.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
+            probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
+            probe.resolution = 128;
+            probe.size = new Vector3(MapSize * 2.5f, 600f, MapSize * 2.5f);
+            probe.boxProjection = false;
+            probe.hdr = false;
+            probe.shadowDistance = 0f;
+            probe.farClipPlane = 600f;
+            probe.cullingMask = ~(1 << 8);
+            probe.clearFlags = ReflectionProbeClearFlags.Skybox;
+            probe.importance = 1;
+            probe.RenderProbe();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("ZM yansıma: " + e.Message);
+        }
+    }
+
+    /// <summary>Quality-dependent world settings (terrain shader detail level, reflections).</summary>
+    public static void ApplyQuality(int quality)
+    {
+        if (TerrainMaterial != null && TerrainMaterial.shader != null)
+            TerrainMaterial.shader.maximumLOD = quality == 0 ? 100 : 300;
+        if (probe != null)
+            probe.enabled = quality > 0;
+    }
+
+    /// <summary>3-tap box blur in both directions: soft transitions between ground layers.</summary>
+    private static Color32[] BlurSplat(Color32[] src, int res)
+    {
+        var tmp = new Color32[src.Length];
+        var dst = new Color32[src.Length];
+        for (int pass = 0; pass < 2; pass++)
+        {
+            Color32[] from = pass == 0 ? src : tmp;
+            Color32[] to = pass == 0 ? tmp : dst;
+            for (int z = 0; z < res; z++)
+            {
+                for (int x = 0; x < res; x++)
+                {
+                    int r = 0, g = 0, b = 0, a = 0;
+                    for (int k = -1; k <= 1; k++)
+                    {
+                        int xx = pass == 0 ? Mathf.Clamp(x + k, 0, res - 1) : x;
+                        int zz = pass == 1 ? Mathf.Clamp(z + k, 0, res - 1) : z;
+                        Color32 c = from[zz * res + xx];
+                        r += c.r; g += c.g; b += c.b; a += c.a;
+                    }
+                    to[z * res + x] = new Color32((byte)(r / 3), (byte)(g / 3), (byte)(b / 3), (byte)(a / 3));
+                }
+            }
+        }
+        return dst;
     }
 
     private static Color32[] groundColors;

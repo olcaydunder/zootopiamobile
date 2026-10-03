@@ -82,8 +82,21 @@ public class TitleScreen : MonoBehaviour
         loading = UIUtil.CreateStretch(t, "Loading").gameObject;
         var bg = loading.AddComponent<RawImage>();
         bg.texture = Gradient(new Color(0.09f, 0.12f, 0.17f, 1f), new Color(0.02f, 0.03f, 0.05f, 1f), true);
-        Logo(loading.transform, new Vector2(0f, 120f), 1f);
-        var sub = UIUtil.CreateText(loading.transform, "ÇEKMEKÖY SAVAŞ ALANI", new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(900f, 50f), 34, TextAnchor.MiddleCenter);
+        // Key art (the clinic street + Kasap Leydi), filling the screen without stretching.
+        var art = Resources.Load<Texture2D>("UI/KeyArt");
+        Vector2 logoPos = new Vector2(0f, 120f);
+        if (art != null)
+        {
+            var artRect = UIUtil.CreateRect(loading.transform, "KeyArt", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f));
+            artRect.gameObject.AddComponent<RawImage>().texture = art;
+            var fit = artRect.gameObject.AddComponent<AspectRatioFitter>();
+            fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fit.aspectRatio = (float)art.width / art.height;
+            artRect.gameObject.AddComponent<KenBurns>();
+            logoPos = new Vector2(-380f, 170f);
+        }
+        Logo(loading.transform, logoPos, art != null ? 0.85f : 1f);
+        var sub = UIUtil.CreateText(loading.transform, "ÇEKMEKÖY SAVAŞ ALANI", new Vector2(0.5f, 0.5f), logoPos + new Vector2(0f, -150f), new Vector2(900f, 50f), 34, TextAnchor.MiddleCenter);
         sub.color = Theme.TextDim;
 
         UIUtil.CreateImage(loading.transform, "BarBack", new Vector2(0.5f, 0f), new Vector2(0f, 190f), new Vector2(BarWidth + 8f, 18f), new Color(1f, 1f, 1f, 0.12f), false);
@@ -178,5 +191,17 @@ public class TitleScreen : MonoBehaviour
             cam.transform.LookAt(c + Vector3.up * 6f);
             cam.fieldOfView = 50f;
         }
+    }
+}
+
+/// <summary>Slow zoom on the loading art so the screen feels alive.</summary>
+public class KenBurns : MonoBehaviour
+{
+    private float t;
+
+    private void Update()
+    {
+        t += Time.unscaledDeltaTime;
+        transform.localScale = Vector3.one * (1.02f + Mathf.Min(t, 20f) * 0.004f);
     }
 }

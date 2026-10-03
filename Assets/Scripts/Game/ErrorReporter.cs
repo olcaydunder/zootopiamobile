@@ -240,7 +240,7 @@ public class ErrorReporter : MonoBehaviour
         if (ModelLibrary.Prefab(ModelLibrary.GunPath(WeaponType.Rifle)) == null)
             Check("ZM-C-02", "Silah modeli yüklenemedi (Resources/Models/Guns).", "Kutu şeklinde silahlar gösteriliyor.");
 
-        string[] shaders = { "Zootopia/Terrain", "Zootopia/Water", "Zootopia/Sky", "Zootopia/Grass", "Zootopia/Camo", "Standard" };
+        string[] shaders = { "Zootopia/Terrain", "Zootopia/Water", "Zootopia/Sky", "Zootopia/Grass", "Zootopia/Camo", "Zootopia/Facade", "Zootopia/Road", "Standard" };
         foreach (var name in shaders)
         {
             var s = Shader.Find(name);

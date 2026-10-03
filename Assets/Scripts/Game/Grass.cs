@@ -43,8 +43,8 @@ public class Grass : MonoBehaviour
         if (instance == null)
             return;
         instance.enabled = q > 0;
-        instance.radius = q == 2 ? 42f : 30f;
-        instance.density = q == 2 ? 0.7f : 0.45f;
+        instance.radius = q >= 3 ? 55f : (q == 2 ? 42f : 30f);
+        instance.density = q >= 3 ? 1f : (q == 2 ? 0.7f : 0.45f);
         instance.material.SetFloat("_FadeStart", instance.radius - 9f);
         instance.material.SetFloat("_FadeEnd", instance.radius);
         instance.cells.Clear();

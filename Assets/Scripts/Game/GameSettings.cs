@@ -32,7 +32,26 @@ public static class GameSettings
     public static bool Shadows = true;
     public static bool Bloom = true;
     public static float Volume = 1f;             // 0 .. 1
+    public static int Fov = 70;                  // 60 .. 90 (third-person view angle)
+    public static int ViewDistance = 1;          // 0 near, 1 normal, 2 far, 3 max
+    public static float RenderScale = 1f;        // 0.5 .. 1 (screen resolution)
+    public static int GrassDensity = 2;          // 0 off, 1 low, 2 normal, 3 high
+    public static int CrosshairColor;            // index into CrosshairColors
+    public static bool DamageNumbers = true;
+    public static bool Vibration = true;
+    public static bool UiSounds = true;
+    public static bool CameraShake = true;
     public static bool Loaded;
+
+    public static readonly string[] ViewDistanceNames = { "YAKIN", "NORMAL", "UZAK", "MAKS." };
+    public static readonly string[] GrassNames = { "KAPALI", "AZ", "NORMAL", "YOĞUN" };
+    public static readonly string[] CrosshairNames = { "BEYAZ", "YEŞİL", "KIRMIZI", "SARI", "CAMGÖBEĞİ" };
+    public static readonly Color[] CrosshairColors =
+    {
+        new Color(1f, 1f, 1f, 0.9f), new Color(0.35f, 1f, 0.35f, 0.95f), new Color(1f, 0.25f, 0.25f, 0.95f),
+        new Color(1f, 0.85f, 0.2f, 0.95f), new Color(0.3f, 0.95f, 1f, 0.95f)
+    };
+    private static int nativeW, nativeH;
 
     public static readonly string[] QualityNames = { "DÜŞÜK", "ORTA", "YÜKSEK", "MAKS." };
     public static readonly string[] FrameRateNames = { "30 FPS", "60 FPS", "MAKS." };
@@ -65,6 +84,15 @@ public static class GameSettings
         Shadows = PlayerPrefs.GetInt("zm_shadows", Quality == 0 ? 0 : 1) == 1;
         Bloom = PlayerPrefs.GetInt("zm_bloom", Quality == 0 ? 0 : 1) == 1;
         Volume = Mathf.Clamp01(PlayerPrefs.GetFloat("zm_volume", 1f));
+        Fov = Mathf.Clamp(PlayerPrefs.GetInt("zm_fov", 70), 60, 90);
+        ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt("zm_view", Quality == 0 ? 0 : 1), 0, 3);
+        RenderScale = Mathf.Clamp(PlayerPrefs.GetFloat("zm_render_scale", 1f), 0.5f, 1f);
+        GrassDensity = Mathf.Clamp(PlayerPrefs.GetInt("zm_grass", Quality == 0 ? 0 : 2), 0, 3);
+        CrosshairColor = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross", 0), 0, CrosshairColors.Length - 1);
+        DamageNumbers = PlayerPrefs.GetInt("zm_dmg_numbers", 1) == 1;
+        Vibration = PlayerPrefs.GetInt("zm_vibration", 1) == 1;
+        UiSounds = PlayerPrefs.GetInt("zm_ui_sounds", 1) == 1;
+        CameraShake = PlayerPrefs.GetInt("zm_shake", 1) == 1;
         Loaded = true;
         Apply();
     }
@@ -93,6 +121,15 @@ public static class GameSettings
         PlayerPrefs.SetInt("zm_shadows", Shadows ? 1 : 0);
         PlayerPrefs.SetInt("zm_bloom", Bloom ? 1 : 0);
         PlayerPrefs.SetFloat("zm_volume", Volume);
+        PlayerPrefs.SetInt("zm_fov", Fov);
+        PlayerPrefs.SetInt("zm_view", ViewDistance);
+        PlayerPrefs.SetFloat("zm_render_scale", RenderScale);
+        PlayerPrefs.SetInt("zm_grass", GrassDensity);
+        PlayerPrefs.SetInt("zm_cross", CrosshairColor);
+        PlayerPrefs.SetInt("zm_dmg_numbers", DamageNumbers ? 1 : 0);
+        PlayerPrefs.SetInt("zm_vibration", Vibration ? 1 : 0);
+        PlayerPrefs.SetInt("zm_ui_sounds", UiSounds ? 1 : 0);
+        PlayerPrefs.SetInt("zm_shake", CameraShake ? 1 : 0);
         PlayerPrefs.Save();
         Apply();
     }
@@ -105,6 +142,8 @@ public static class GameSettings
             case 0:
                 AimAssist = true;
                 FirePreset = 0;
+                CrosshairColor = 0;
+                DamageNumbers = true;
                 CustomFire[0] = 0; CustomFire[1] = 0; CustomFire[2] = 1; CustomFire[3] = 0; CustomFire[4] = 1;
                 break;
             case 1:
@@ -113,6 +152,8 @@ public static class GameSettings
                 FireButtonFollow = false;
                 JoystickMode = 1;
                 ButtonOpacity = 1f;
+                Vibration = true;
+                UiSounds = true;
                 break;
             case 2:
                 Quality = DefaultQuality();
@@ -121,6 +162,9 @@ public static class GameSettings
                 Shadows = Quality > 0;
                 Bloom = Quality > 0;
                 Volume = 1f;
+                ViewDistance = Quality == 0 ? 0 : 1;
+                RenderScale = 1f;
+                GrassDensity = Quality == 0 ? 0 : 2;
                 break;
             default:
                 Sensitivity = 1f;
@@ -130,6 +174,8 @@ public static class GameSettings
                 Acceleration = 120;
                 Gyro = 0;
                 GyroSensitivity = 1f;
+                Fov = 70;
+                CameraShake = true;
                 break;
         }
         Save();
@@ -184,9 +230,23 @@ public static class GameSettings
         QualitySettings.softParticles = false;
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = FrameRate == 0 ? 30 : (FrameRate == 1 ? 60 : 120);
-        Grass.SetQuality(Mathf.Min(Quality, 2));
+        Grass.SetQuality(GrassDensity);
+        QualitySettings.realtimeReflectionProbes = Quality > 0;
 
-        float fogEnd = Quality == 0 ? 200f : (Quality == 1 ? 320f : (Quality == 2 ? 420f : 520f));
+        // Resolution scale (sharper vs. faster), relative to the phone's native screen.
+        if (nativeW == 0)
+        {
+            nativeW = Display.main.systemWidth;
+            nativeH = Display.main.systemHeight;
+        }
+        if (nativeW > 0 && Application.isMobilePlatform)
+        {
+            int w = Mathf.RoundToInt(nativeW * RenderScale), h = Mathf.RoundToInt(nativeH * RenderScale);
+            if (Screen.width != w || Screen.height != h)
+                Screen.SetResolution(w, h, true);
+        }
+
+        float fogEnd = ViewDistance == 0 ? 200f : (ViewDistance == 1 ? 320f : (ViewDistance == 2 ? 430f : 560f));
         RenderSettings.fogEndDistance = fogEnd;
         RenderSettings.fogStartDistance = fogEnd * 0.3f;
         var cam = Camera.main;
@@ -198,6 +258,7 @@ public static class GameSettings
             sun.shadows = !Shadows ? LightShadows.None : (Quality >= 2 ? LightShadows.Soft : LightShadows.Hard);
 
         PostFx.Apply(Quality, AntiAliasing, Bloom);
+        World.ApplyQuality(Quality);
         if (TouchControls.Instance != null)
             TouchControls.Instance.ApplySettings();
     }

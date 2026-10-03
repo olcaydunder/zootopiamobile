@@ -169,6 +169,7 @@ public static class UIUtil
         var image = CreateImage(parent, label + "Button", anchor, position, size, color, round);
         var button = image.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
+        image.gameObject.AddComponent<ButtonFeel>();
 
         labelText = CreateText(image.transform, label, new Vector2(0.5f, 0.5f), Vector2.zero, size, fontSize, TextAnchor.MiddleCenter);
         labelText.fontStyle = FontStyle.Bold;

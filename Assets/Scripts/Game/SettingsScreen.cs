@@ -194,6 +194,10 @@ public class SettingsScreen : MonoBehaviour
         }
         Note("Tek dokunuşla nişangâh: ateş düğmesine basınca nişangâh açılır.  Otomatik: nişangâh düşmanın üstüne gelince kendiliğinden ateş eder.");
 
+        Header("NİŞANGÂH VE GÖSTERGELER");
+        Segments("NİŞANGÂH RENGİ", GameSettings.CrosshairNames, () => GameSettings.CrosshairColor, v => GameSettings.CrosshairColor = v, true);
+        Segments("HASAR SAYILARI", new[] { "AÇIK", "KAPALI" }, () => GameSettings.DamageNumbers ? 0 : 1, v => GameSettings.DamageNumbers = v == 0);
+
         Header("HATA MODU");
         Segments("HATA MODU (FPS ve hata kodları)", new[] { "AÇIK", "KAPALI" }, () => ErrorReporter.DebugMode ? 0 : 1, v => ErrorReporter.SetDebugMode(v == 0));
         ButtonRow("HATA EKRANI", "AÇ", () => { if (ErrorReporter.Instance != null) ErrorReporter.Instance.OpenPanel(); });
@@ -207,6 +211,11 @@ public class SettingsScreen : MonoBehaviour
         Segments("SOL OYUN KOLU MODU", new[] { "SABİT POZİSYON", "SOL KONTROL" }, () => GameSettings.JoystickMode, v => GameSettings.JoystickMode = v);
         Segments("SOL ATEŞ DÜĞMESİNİ GÖSTER", new[] { "AÇIK", "KAPALI" }, () => GameSettings.LeftFireButton ? 0 : 1, v => GameSettings.LeftFireButton = v == 0);
         Slider("DÜĞME GÖRÜNÜRLÜĞÜ", 30f, 100f, 5f, () => GameSettings.ButtonOpacity * 100f, v => GameSettings.ButtonOpacity = v / 100f, "0'%'");
+
+        Header("HİSSİYAT");
+        Segments("TİTREŞİM", new[] { "AÇIK", "KAPALI" }, () => GameSettings.Vibration ? 0 : 1, v => GameSettings.Vibration = v == 0);
+        Segments("ARAYÜZ SESLERİ", new[] { "AÇIK", "KAPALI" }, () => GameSettings.UiSounds ? 0 : 1, v => GameSettings.UiSounds = v == 0);
+        Segments("KAMERA SARSINTISI", new[] { "AÇIK", "KAPALI" }, () => GameSettings.CameraShake ? 0 : 1, v => GameSettings.CameraShake = v == 0);
     }
 
     private void BuildGraphics()
@@ -217,11 +226,16 @@ public class SettingsScreen : MonoBehaviour
             GameSettings.Quality = v;
             GameSettings.Shadows = v > 0;
             GameSettings.Bloom = v > 0;
+            GameSettings.ViewDistance = v;
+            GameSettings.GrassDensity = v == 0 ? 0 : (v == 3 ? 3 : 2);
         });
         Segments("KARE HIZI", GameSettings.FrameRateNames, () => GameSettings.FrameRate, v => GameSettings.FrameRate = v);
         Segments("DÜZGÜNLEŞTİRME", new[] { "AÇIK", "KAPALI" }, () => GameSettings.AntiAliasing ? 0 : 1, v => GameSettings.AntiAliasing = v == 0);
         Segments("GERÇEK ZAMANLI GÖLGELER", new[] { "AÇIK", "KAPALI" }, () => GameSettings.Shadows ? 0 : 1, v => GameSettings.Shadows = v == 0);
         Segments("PARLAKLIK (BLOOM)", new[] { "AÇIK", "KAPALI" }, () => GameSettings.Bloom ? 0 : 1, v => GameSettings.Bloom = v == 0);
+        Segments("GÖRÜŞ MESAFESİ", GameSettings.ViewDistanceNames, () => GameSettings.ViewDistance, v => GameSettings.ViewDistance = v);
+        Segments("ÇİMEN YOĞUNLUĞU", GameSettings.GrassNames, () => GameSettings.GrassDensity, v => GameSettings.GrassDensity = v);
+        Slider("ÇÖZÜNÜRLÜK", 50f, 100f, 5f, () => GameSettings.RenderScale * 100f, v => GameSettings.RenderScale = v / 100f, "0'%'");
         Note("Telefon ısınırsa veya FPS düşerse kaliteyi ORTA ya da DÜŞÜK yap.");
 
         Header("SES");
@@ -233,6 +247,9 @@ public class SettingsScreen : MonoBehaviour
         Header("DÖNME MODU");
         Segments("DÖNME MODU", new[] { "SABİT", "HIZ İVMESİ" }, () => GameSettings.RotationMode, v => GameSettings.RotationMode = v);
         Slider("   İVME DEĞERİ", 0f, 200f, 1f, () => GameSettings.Acceleration, v => GameSettings.Acceleration = Mathf.RoundToInt(v), "0");
+
+        Header("GÖRÜŞ");
+        Slider("GÖRÜŞ AÇISI (FOV)", 60f, 90f, 1f, () => GameSettings.Fov, v => GameSettings.Fov = Mathf.RoundToInt(v), "0");
 
         Header("HASSASİYET");
         Slider("KAMERA HASSASİYETİ", 40f, 200f, 1f, () => GameSettings.Sensitivity * 100f, v => GameSettings.Sensitivity = v / 100f, "0");
@@ -259,6 +276,8 @@ public class SettingsScreen : MonoBehaviour
         Note("Lisans: creativecommons.org/licenses/by/4.0 – modeller oyun için küçültüldü ve yeniden boyandı.");
         Header("CC0 VE HARİTA");
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");
+        Note("Zemin, cephe, asfalt, kiremit, beton dokuları: Poly Haven (CC0) – Rob Tuytel, Amal Kumar, Stephan Seeliger, Dimitrios Savva, Rico Cilliers, Jenelle van Heerden");
+        Note("Yazı tipi: Barlow Condensed (SIL Open Font License)");
         Note("Harita: Ekşioğlu, Çekmeköy – © OpenStreetMap katkıcıları (ODbL)");
         Note("Arazi yükseltisi: AWS Terrain Tiles (Mapzen, SRTM)");
     }

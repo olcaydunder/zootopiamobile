@@ -131,7 +131,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         }
         playerCamera.nearClipPlane = 0.1f;
         playerCamera.farClipPlane = 450f;
-        playerCamera.fieldOfView = 70f;
+        playerCamera.fieldOfView = GameSettings.Fov;
 
         playerCamera.transform.SetParent(cameraPivot, false);
         playerCamera.transform.localPosition = new Vector3(0.55f, 0.35f, -camDistance);
@@ -355,7 +355,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         if (!on)
         {
             playerCamera.transform.localRotation = Quaternion.identity;
-            playerCamera.fieldOfView = 70f;
+            playerCamera.fieldOfView = GameSettings.Fov;
         }
     }
 
@@ -390,7 +390,7 @@ public class PlayerController : MonoBehaviour, IDamageable
             aimingDownSights = false;
         float wantedDistance = aimingDownSights ? 1.6f : camTarget;
         camDistance = Mathf.Lerp(camDistance, wantedDistance, Time.deltaTime * (aimingDownSights ? 8f : 3f));
-        float wantedFov = aimingDownSights ? ZoomFov() : 70f;
+        float wantedFov = aimingDownSights ? ZoomFov() : GameSettings.Fov;
         playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, wantedFov, Time.deltaTime * 10f);
 
         // Keep the camera out of walls and hills.
@@ -436,6 +436,8 @@ public class PlayerController : MonoBehaviour, IDamageable
 
     public void Shake(float amount)
     {
+        if (!GameSettings.CameraShake)
+            return;
         shake = Mathf.Max(shake, amount);
     }
 
@@ -1071,6 +1073,7 @@ public class PlayerController : MonoBehaviour, IDamageable
             if (state == PlayerState.Driving)
                 ExitVehicle();
             rig.pose = RigPose.Dead;
+            Haptics.Long();
             if (gm != null)
                 gm.OnPlayerEliminated();
             return true;

@@ -33,6 +33,26 @@ Not used (license or IP reasons): Adam Smasher (Cyberpunk 2077), Warthog (Halo),
 Mercedes SLS (car brand), MD 500 (CC-BY-NC-SA), AK LR / XM25 (Sketchfab Standard – not allowed in a public repo),
 two static figure scans, and an AK-47 pack without license information.
 
+## Photo textures (Poly Haven, CC0)
+
+Downloaded by `.github/workflows/textures.yml` (`Tools/fetch_textures.py`) into `Assets/Resources/Textures` (1K diffuse + normal).
+Used by the terrain (5-layer splat), building façades (`Zootopia/Facade`), roads (`Zootopia/Road`), roofs, plinths and tree bark.
+
+| Use | Texture | Authors |
+| --- | --- | --- |
+| grass | [Aerial Grass Rock](https://polyhaven.com/a/aerial_grass_rock) | Rob Tuytel |
+| forest | [Forest Leaves 02](https://polyhaven.com/a/forest_leaves_02) | Rob Tuytel |
+| dirt | [Brown Mud](https://polyhaven.com/a/brown_mud) | Rob Tuytel |
+| asphalt | [Asphalt 02](https://polyhaven.com/a/asphalt_02) | Rob Tuytel |
+| paving | [Pavement 01](https://polyhaven.com/a/pavement_01) | Rob Tuytel |
+| concrete | [Concrete Wall 001](https://polyhaven.com/a/concrete_wall_001) | Dimitrios Savva, Rico Cilliers |
+| plaster | [Painted Plaster Wall](https://polyhaven.com/a/painted_plaster_wall) | Amal Kumar |
+| rooftiles | [Roof Tiles](https://polyhaven.com/a/roof_tiles) | Stephan Seeliger |
+| bark | [Bark Brown 01](https://polyhaven.com/a/bark_brown_01) | Rob Tuytel |
+| metal | [Corrugated Iron](https://polyhaven.com/a/corrugated_iron) | Jenelle van Heerden, Dimitrios Savva |
+
+`Assets/Resources/UI/KeyArt.jpg` (loading screen) was rendered in Blender from the game's own map data and the Kasap Leydi model.
+
 ## Font
 
 [Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) SemiBold by Jeremy Tribby – SIL Open Font License 1.1

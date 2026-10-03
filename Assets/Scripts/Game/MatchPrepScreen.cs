@@ -143,6 +143,8 @@ public class MatchPrepScreen : MonoBehaviour
         unused.GetComponent<Shadow>().enabled = false;
         go.onClick.AddListener(() =>
         {
+            UiSound.Confirm();
+            Haptics.Tap(40);
             gameObject.SetActive(false);
             GameManager.Instance.StartMatch(mode);
         });

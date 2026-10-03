@@ -102,6 +102,11 @@ public static class SoundBank
         return Create(name, data);
     }
 
+    public static AudioClip MakeUiTone(string name, float length, float startHz, float endHz, float decay, float gain)
+    {
+        return Tone(name, length, startHz, endHz, decay, gain);
+    }
+
     private static AudioClip Tone(string name, float length, float startHz, float endHz, float decay, float gain)
     {
         int n = (int)(length * Rate);
