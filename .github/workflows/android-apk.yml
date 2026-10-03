@@ -174,11 +174,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set +e
           jid=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Android APK") | .id')
-          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > full.log || true
-          grep -n -E "error CS|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|failed" full.log | tail -400 > errors.txt || true
-          tail -400 full.log > tail.txt
+          echo "job id: $jid"
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > full.log
+          echo "log lines: $(wc -l < full.log)"
+          grep -E "error CS|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|[Ff]ailed" full.log | grep -v -i "node.js" | tail -60 > errors.txt
+          tail -120 full.log > tail.txt
+          # Errors as one annotation (readable through the API).
+          msg=$(cut -c1-300 errors.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=Unity hataları::${msg}"
+          msg2=$(tail -40 tail.txt | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=Log sonu::${msg2}"
           gzip -k full.log
-          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create build-log errors.txt tail.txt full.log.gz --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
-            --title "Son derleme hatası" --notes "Çalıştırma $GITHUB_RUN_ID, commit ${GITHUB_SHA::8}"
+          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          gh release create build-log errors.txt tail.txt full.log.gz --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" --title "Son derleme hatasi" --notes "run $GITHUB_RUN_ID"
+          exit 0
