@@ -159,3 +159,26 @@ jobs:
             echo ""
             echo "Boyut: ${{ steps.apk.outputs.boyut_mb }} MB"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # When the build fails, publish the Unity errors as a release ("build-log") so they can be read
+  # without opening the Actions page (errors.txt = matching lines, tail.txt = end of the log).
+  hata-kaydi:
+    needs: android
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Derleme hatalarını yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          jid=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Android APK") | .id')
+          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > full.log || true
+          grep -n -E "error CS|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|failed" full.log | tail -400 > errors.txt || true
+          tail -400 full.log > tail.txt
+          gzip -k full.log
+          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create build-log errors.txt tail.txt full.log.gz --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Son derleme hatası" --notes "Çalıştırma $GITHUB_RUN_ID, commit ${GITHUB_SHA::8}"
