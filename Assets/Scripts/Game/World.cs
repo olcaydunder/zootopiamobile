@@ -464,7 +464,9 @@ public static class World
             probe.cullingMask = ~(1 << 8);
             probe.clearFlags = ReflectionProbeClearFlags.Skybox;
             probe.importance = 1;
+            QualitySettings.realtimeReflectionProbes = true;
             probe.RenderProbe();
+            DynamicGI.UpdateEnvironment();
         }
         catch (System.Exception e)
         {
@@ -476,9 +478,14 @@ public static class World
     public static void ApplyQuality(int quality)
     {
         if (TerrainMaterial != null && TerrainMaterial.shader != null)
-            TerrainMaterial.shader.maximumLOD = quality == 0 ? 100 : 300;
+            TerrainMaterial.shader.maximumLOD = quality == 0 || TerrainMaterial.GetFloat("_HasLayers") < 0.5f ? 100 : 300;
         if (probe != null)
+        {
+            bool wasOn = probe.enabled;
             probe.enabled = quality > 0;
+            if (probe.enabled && !wasOn)
+                probe.RenderProbe();
+        }
     }
 
     /// <summary>3-tap box blur in both directions: soft transitions between ground layers.</summary>

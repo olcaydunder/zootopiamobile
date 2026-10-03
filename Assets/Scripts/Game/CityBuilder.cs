@@ -172,6 +172,7 @@ public static class CityBuilder
     }
 
     private static bool photo;
+    private static bool balconies;
     private static int railMat;
 
     /// <summary>Swaps the procedural materials for photo-scanned ones (plaster, metal, concrete,
@@ -183,6 +184,7 @@ public static class CityBuilder
         if (facadeBase == null || roadBase == null)
             return;
         photo = true;
+        balconies = PlayerPrefs.GetInt("zm_quality", 1) > 0;
 
         var windows = WindowMask(false);
         var glass = GlassMask(false);
@@ -343,10 +345,8 @@ public static class CityBuilder
                 float u = (x + 0.5f) / w, v = (y + 0.5f) / h;
                 float edge = Mathf.Min(u, 1f - u);
                 Color c = new Color(0f, 0f, 0f, 0f);
-                if (edge < 0.03f)
-                    c = new Color(0.62f, 0.6f, 0.57f, 1f);                  // kerb stones
-                else if (edge < 0.034f)
-                    c = new Color(0.2f, 0.2f, 0.2f, 0.6f);                   // gutter shadow
+                if (edge < 0.012f)
+                    c = new Color(0.2f, 0.2f, 0.2f, 0.45f);                  // gutter shadow
                 else if (lined && edge > 0.05f && edge < 0.07f)
                     c = new Color(0.92f, 0.92f, 0.88f, 0.9f);                // edge line
                 else if (lined && Mathf.Abs(u - 0.5f) < 0.013f && v < 0.5f)
@@ -735,6 +735,8 @@ public static class CityBuilder
             mesh.SetUVs(0, b.uv);
             mesh.SetTriangles(b.t, 0);
             mesh.RecalculateNormals();
+            if (photo)
+                mesh.RecalculateTangents();   // normal-mapped façades and roads
             mesh.RecalculateBounds();
             var go = new GameObject("CityMesh");
             go.transform.SetParent(city, false);
@@ -827,7 +829,7 @@ public static class CityBuilder
         else
             FlatRoof(chunk, o, b.roofTriangles, ccw, yTop, parapet);
 
-        if (photo && b.kind == MapData.KindApartment && b.levels >= 3)
+        if (photo && balconies && b.kind == MapData.KindApartment && b.levels >= 3)
             Balconies(chunk, o, ccw, y0, b.levels, colorIdx);
 
         if (b.kind == MapData.KindMosque)
@@ -857,6 +859,9 @@ public static class CityBuilder
                 continue;
             Vector3 along = new Vector3(d.x, 0f, d.y) / len;
             Vector3 outward = ccw ? new Vector3(d.y, 0f, -d.x) / len : new Vector3(-d.y, 0f, d.x) / len;
+            Vector2 mid = (a + c) * 0.5f + new Vector2(outward.x, outward.z) * 2.5f;
+            if (World.IsBlocked(mid.x, mid.y))
+                continue;   // a neighbour's wall right there (terraced houses)
             float bays = Mathf.Max(1f, Mathf.Round(len / 3.2f));
             float bayLen = len / bays;
             for (int k = (e % 2); k < bays; k += 2)
@@ -867,10 +872,8 @@ public static class CityBuilder
                     Vector3 p = basePos + Vector3.up * (y0 + f * FloorHeight);
                     // slab
                     Box(chunk, plinthMat, false, p, along, outward, new Vector3(0f, -0.07f, 0.5f), new Vector3(bayLen * 0.4f, 0.08f, 0.5f), 0.5f);
-                    // railing (front + sides)
+                    // railing (front)
                     Box(chunk, railMat, false, p, along, outward, new Vector3(0f, 0.5f, 0.97f), new Vector3(bayLen * 0.4f, 0.5f, 0.025f), 1f);
-                    Box(chunk, railMat, false, p, along, outward, new Vector3(-bayLen * 0.4f, 0.5f, 0.5f), new Vector3(0.025f, 0.5f, 0.47f), 1f);
-                    Box(chunk, railMat, false, p, along, outward, new Vector3(bayLen * 0.4f, 0.5f, 0.5f), new Vector3(0.025f, 0.5f, 0.47f), 1f);
                 }
             }
         }
@@ -1145,6 +1148,9 @@ public static class CityBuilder
             float lift = 0.07f + (3 - road.kind) * 0.012f + (index % 7) * 0.001f;
             var pts = Resample(road.points, 3f);
             float hw = road.width * 0.5f;
+            float totalLen = 0f;
+            for (int k = 1; k < pts.Count; k++)
+                totalLen += (pts[k] - pts[k - 1]).magnitude;
             float dist = 0f;
             Vector3 prevL = Vector3.zero, prevR = Vector3.zero;
             float prevV = 0f;
@@ -1167,7 +1173,10 @@ public static class CityBuilder
                 if (i > 0)
                 {
                     Vector2 m = (pts[i] + pts[i - 1]) * 0.5f;
-                    Quad(Get(ChunkOf(m.x, m.y), mat), prevL, L3, R3, prevR,
+                    // No painted lines where roads meet (the ends of each way are usually junctions).
+                    bool nearEnd = dist < hw + 4f || totalLen - dist < hw + 4f;
+                    int quadMat = nearEnd ? asphaltMat : mat;
+                    Quad(Get(ChunkOf(m.x, m.y), quadMat), prevL, L3, R3, prevR,
                         new Vector2(0f, prevV), new Vector2(0f, v), new Vector2(1f, v), new Vector2(1f, prevV), Vector3.up);
                 }
                 prevL = L3; prevR = R3; prevV = v;

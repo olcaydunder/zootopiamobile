@@ -35,7 +35,7 @@ Shader "Zootopia/Terrain"
         LOD 300
 
         CGPROGRAM
-        #pragma surface surf BlinnPhong
+        #pragma surface surf BlinnPhong nolightmap nodynlightmap nodirlightmap noforwardadd exclude_path:deferred exclude_path:prepass
         #pragma target 3.0
 
         sampler2D _MainTex, _Splat, _DetailTex;

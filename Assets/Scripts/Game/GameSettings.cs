@@ -85,7 +85,7 @@ public static class GameSettings
         Bloom = PlayerPrefs.GetInt("zm_bloom", Quality == 0 ? 0 : 1) == 1;
         Volume = Mathf.Clamp01(PlayerPrefs.GetFloat("zm_volume", 1f));
         Fov = Mathf.Clamp(PlayerPrefs.GetInt("zm_fov", 70), 60, 90);
-        ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt("zm_view", Quality == 0 ? 0 : 1), 0, 3);
+        ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt("zm_view", Quality), 0, 3);
         RenderScale = Mathf.Clamp(PlayerPrefs.GetFloat("zm_render_scale", 1f), 0.5f, 1f);
         GrassDensity = Mathf.Clamp(PlayerPrefs.GetInt("zm_grass", Quality == 0 ? 0 : 2), 0, 3);
         CrosshairColor = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross", 0), 0, CrosshairColors.Length - 1);
@@ -236,13 +236,14 @@ public static class GameSettings
         // Resolution scale (sharper vs. faster), relative to the phone's native screen.
         if (nativeW == 0)
         {
-            nativeW = Display.main.systemWidth;
-            nativeH = Display.main.systemHeight;
+            // The game's own full-size window (landscape), before any scaling.
+            nativeW = Mathf.Max(Screen.width, Screen.height);
+            nativeH = Mathf.Min(Screen.width, Screen.height);
         }
         if (nativeW > 0 && Application.isMobilePlatform)
         {
             int w = Mathf.RoundToInt(nativeW * RenderScale), h = Mathf.RoundToInt(nativeH * RenderScale);
-            if (Screen.width != w || Screen.height != h)
+            if (Mathf.Abs(Mathf.Max(Screen.width, Screen.height) - w) > 2)
                 Screen.SetResolution(w, h, true);
         }
 

@@ -17,7 +17,7 @@ Shader "Zootopia/Road"
         LOD 200
 
         CGPROGRAM
-        #pragma surface surf BlinnPhong
+        #pragma surface surf BlinnPhong nolightmap nodynlightmap nodirlightmap noforwardadd exclude_path:deferred exclude_path:prepass
         #pragma target 3.0
 
         sampler2D _AsphaltTex, _AsphaltNrm, _MainTex;

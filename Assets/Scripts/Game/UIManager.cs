@@ -853,6 +853,15 @@ public class UIManager : MonoBehaviour
             return;
 
         healthFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.health / player.maxHealth), healthFill.sizeDelta.y);
+        if (crossH != null)
+        {
+            Color cc = GameSettings.CrosshairColors[GameSettings.CrosshairColor];
+            if (crossH.color != cc)
+            {
+                crossH.color = cc;
+                crossV.color = cc;
+            }
+        }
         bool scoped = player.IsScoped && !player.isDead;
         if (scopeOverlay.activeSelf != scoped)
             scopeOverlay.SetActive(scoped);

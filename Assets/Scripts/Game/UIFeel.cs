@@ -14,8 +14,16 @@ public class ButtonFeel : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
         baseScale = transform.localScale;
     }
 
+    private bool Interactable()
+    {
+        var sel = GetComponent<UnityEngine.UI.Selectable>();
+        return sel == null || sel.IsInteractable();
+    }
+
     public void OnPointerDown(PointerEventData e)
     {
+        if (!Interactable())
+            return;
         pressed = true;
         target = 0.92f;
         Haptics.Tap(silent ? 8 : 12);
@@ -35,7 +43,7 @@ public class ButtonFeel : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
 
     public void OnPointerClick(PointerEventData e)
     {
-        if (!silent)
+        if (!silent && Interactable())
             UiSound.Click();
         current = Mathf.Min(current, 0.94f);
     }
@@ -116,6 +124,7 @@ public static class Haptics
 {
 #if UNITY_ANDROID && !UNITY_EDITOR
     private static AndroidJavaObject vibrator;
+    private static AndroidJavaClass effectClass;
     private static int sdk;
 #endif
     private static bool tried;
@@ -142,8 +151,9 @@ public static class Haptics
                 return;
             if (sdk >= 26)
             {
-                using (var effect = new AndroidJavaClass("android.os.VibrationEffect"))
-                using (var oneShot = effect.CallStatic<AndroidJavaObject>("createOneShot", (long)milliseconds, Mathf.Clamp(milliseconds * 6, 40, 255)))
+                if (effectClass == null)
+                    effectClass = new AndroidJavaClass("android.os.VibrationEffect");
+                using (var oneShot = effectClass.CallStatic<AndroidJavaObject>("createOneShot", (long)milliseconds, Mathf.Clamp(milliseconds * 6, 40, 255)))
                     vibrator.Call("vibrate", oneShot);
             }
             else

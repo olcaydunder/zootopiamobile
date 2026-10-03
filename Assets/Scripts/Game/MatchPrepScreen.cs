@@ -141,6 +141,7 @@ public class MatchPrepScreen : MonoBehaviour
         var go = UIUtil.CreateButton(t, "SAVAŞA GİR", new Vector2(0.5f, 0f), new Vector2(0f, 90f), new Vector2(560f, 120f), Theme.Accent, false, 52, out unused);
         unused.color = new Color(0.1f, 0.08f, 0.02f);
         unused.GetComponent<Shadow>().enabled = false;
+        go.GetComponent<ButtonFeel>().silent = true;   // plays the confirm sound instead of a click
         go.onClick.AddListener(() =>
         {
             UiSound.Confirm();
