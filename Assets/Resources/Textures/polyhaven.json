@@ -1,0 +1,84 @@
+{
+ "grass": {
+  "id": "aerial_grass_rock",
+  "name": "Aerial Grass Rock",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/aerial_grass_rock"
+ },
+ "forest": {
+  "id": "forest_leaves_02",
+  "name": "Forest Leaves 02",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/forest_leaves_02"
+ },
+ "dirt": {
+  "id": "brown_mud",
+  "name": "Brown Mud",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/brown_mud"
+ },
+ "asphalt": {
+  "id": "asphalt_02",
+  "name": "Asphalt 02",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/asphalt_02"
+ },
+ "paving": {
+  "id": "pavement_01",
+  "name": "Pavement 01",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/pavement_01"
+ },
+ "concrete": {
+  "id": "concrete_wall_001",
+  "name": "Concrete Wall 001",
+  "authors": [
+   "Dimitrios Savva",
+   "Rico Cilliers"
+  ],
+  "url": "https://polyhaven.com/a/concrete_wall_001"
+ },
+ "plaster": {
+  "id": "painted_plaster_wall",
+  "name": "Painted Plaster Wall",
+  "authors": [
+   "Amal Kumar"
+  ],
+  "url": "https://polyhaven.com/a/painted_plaster_wall"
+ },
+ "rooftiles": {
+  "id": "roof_tiles",
+  "name": "Roof Tiles",
+  "authors": [
+   "Stephan Seeliger"
+  ],
+  "url": "https://polyhaven.com/a/roof_tiles"
+ },
+ "bark": {
+  "id": "bark_brown_01",
+  "name": "Bark Brown 01",
+  "authors": [
+   "Rob Tuytel"
+  ],
+  "url": "https://polyhaven.com/a/bark_brown_01"
+ },
+ "metal": {
+  "id": "corrugated_iron",
+  "name": "Corrugated Iron",
+  "authors": [
+   "Jenelle van Heerden",
+   "Dimitrios Savva"
+  ],
+  "url": "https://polyhaven.com/a/corrugated_iron"
+ }
+}
