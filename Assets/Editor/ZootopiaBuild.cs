@@ -119,6 +119,63 @@ public static class ZootopiaBuild
         }
     }
 
+    /// <summary>
+    /// GitHub Actions (GameCI) entry point for the online game server: buildMethod ZootopiaBuild.BuildServer
+    /// (targetPlatform StandaloneLinux64). A normal Linux player (Mono) that the server starts with
+    /// -batchmode -nographics -server ...; a VERSION file with the build's commit goes next to it
+    /// (the phones must have the same one, see NetGame.BuildVersion).
+    /// </summary>
+    public static void BuildServer()
+    {
+        Application.logMessageReceived += CaptureLog;
+        WriteErrors("server build method started");
+        try
+        {
+            PreExport();
+            var args = ReadCommandLine();
+            PlayerSettings.SetScriptingBackend(BuildTargetGroup.Standalone, ScriptingImplementation.Mono2x);
+            PlayerSettings.runInBackground = true;
+
+            string output = Arg(args, "customBuildPath", "build/StandaloneLinux64/ZootopiaServer.x86_64");
+            if (!output.EndsWith(".x86_64"))
+                output += ".x86_64";
+            string dir = Path.GetDirectoryName(output);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = output,
+                target = BuildTarget.StandaloneLinux64,
+                options = BuildOptions.None
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            Debug.Log("[ZootopiaBuild] Server result: " + report.summary.result + ", size: " + report.summary.totalSize + " bytes, output: " + output);
+            foreach (var step in report.steps)
+                foreach (var m in step.messages)
+                    if (m.type == LogType.Error || m.type == LogType.Exception)
+                        buildErrors.Add("[step " + step.name + "] " + m.content);
+            WriteErrors("server result: " + report.summary.result);
+            if (report.summary.result != BuildResult.Succeeded)
+            {
+                EditorApplication.Exit(1);
+                return;
+            }
+            string version = File.Exists(VersionFile) ? File.ReadAllText(VersionFile).Trim() : "dev";
+            File.WriteAllText(Path.Combine(string.IsNullOrEmpty(dir) ? "." : dir, "VERSION"), version.Length > 0 ? version : "dev");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[ZootopiaBuild] Server build failed: " + e);
+            WriteErrors("exception: " + e);
+            EditorApplication.Exit(1);
+        }
+    }
+
+    /// <summary>Written by the CI workflow (the commit) before building; read at run time as Resources/zm_version.</summary>
+    public const string VersionFile = "Assets/Resources/zm_version.txt";
+
     private static Dictionary<string, string> ReadCommandLine()
     {
         var result = new Dictionary<string, string>();
@@ -195,6 +252,11 @@ public static class ZootopiaBuild
         PlayerSettings.allowedAutorotateToLandscapeRight = true;
         PlayerSettings.allowedAutorotateToPortrait = false;
         PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+
+        // Online play: the matchmaker is plain HTTP on the game server (no domain / certificate),
+        // so allow http:// requests, and always ask for the Internet permission.
+        PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed;
+        PlayerSettings.Android.forceInternetPermission = true;
 
         // App icon (used for every size and platform).
         var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);

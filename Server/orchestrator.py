@@ -44,7 +44,7 @@ MAX_MATCHES = max(2, min(PORT_COUNT, (os.cpu_count() or 2)))   # ~1 core per mat
 MAX_HUMANS = {"solo": 16, "duo": 16, "squad": 16}
 WAITING_TIMEOUT = 15 * 60       # an empty match that never started is closed after this
 MATCH_MAX_AGE = 45 * 60         # hard limit for any match process
-BUILD_POLL = 300
+BUILD_POLL = 120
 SELF_POLL = 600
 
 lock = threading.RLock()
@@ -284,8 +284,8 @@ class Handler(BaseHTTPRequestHandler):
     def check_version(self, q):
         want = q.get("version", "")
         have = current_build.get("version")
-        if have and want and want != have:
-            self.reply(409, {"ok": False, "error": "Oyunun yeni sürümü var, lütfen güncelle", "server": have})
+        if have and want and want != have and "dev" not in (want, have):
+            self.reply(409, {"ok": False, "error": "Sürüm uyuşmuyor: oyunu güncelle (yeni sürüm çıktıysa sunucu birkaç dakika içinde güncellenir)", "server": have})
             return False
         return True
 

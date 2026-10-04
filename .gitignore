@@ -105,3 +105,7 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 __pycache__/
+
+# Build version (commit) written by the CI workflow before each build (see ZootopiaBuild.VersionFile)
+/Assets/Resources/zm_version.txt
+/Assets/Resources/zm_version.txt.meta

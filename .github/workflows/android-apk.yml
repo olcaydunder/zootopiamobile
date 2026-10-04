@@ -13,6 +13,9 @@
 #   - "son-apk" adlı ön sürümde ZootopiaMobile.apk (telefondan doğrudan indirilir, her derlemede yenilenir)
 #     https://github.com/<sahip>/<depo>/releases/download/son-apk/ZootopiaMobile.apk
 #   - aynı APK, çalıştırma sayfasında 5 gün saklanan bir zip olarak
+#   - "son-server" ön sürümünde ZootopiaServer.tar.gz: çevrimiçi oyun sunucusu (Linux). Kiralık sunucudaki
+#     maç yöneticisi (Server/orchestrator.py) bunu birkaç dakika içinde kendisi indirip kullanır.
+#     APK ile sunucu aynı commit'ten derlenir; sürümleri aynı değilse telefon "güncelle" der.
 #
 # İmza: Tools~/android/gelistirme.keystore (şifresi Android'in standart test şifresi "android").
 # Her derleme aynı anahtarla imzalandığı için yeni APK eskisinin üstüne kurulur, kayıtlar silinmez.
@@ -87,6 +90,11 @@ jobs:
           key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
             Library-Android-
+
+      - name: Sürüm damgası (telefon ve sunucu aynı commit'i taşır)
+        run: |
+          mkdir -p Assets/Resources
+          echo "${GITHUB_SHA::10}" > Assets/Resources/zm_version.txt
 
       - name: Sürüm numarası ve imza anahtarı
         id: hazirlik
@@ -171,10 +179,104 @@ jobs:
             echo "Boyut: ${{ steps.apk.outputs.boyut_mb }} MB"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # When the build fails, publish the Unity errors as a release ("build-log") so they can be read
+  # Online game server: the same game as a headless Linux program (Mono), published as "son-server".
+  server:
+    name: Linux oyun sunucusu
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Unity lisansı ayarlı mı?
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -z "$UNITY_LICENSE" ] || [ -z "$UNITY_EMAIL" ] || [ -z "$UNITY_PASSWORD" ]; then
+            echo "::error title=Unity lisansı eksik::UNITY_LICENSE, UNITY_EMAIL ve UNITY_PASSWORD gizli anahtarları gerekli."
+            exit 1
+          fi
+
+      - name: Disk alanı aç
+        uses: jlumbroso/free-disk-space@v2
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          preinstalled-runtimes: false
+          swap-storage: false
+
+      - name: Kodu indir
+        uses: actions/checkout@v7
+
+      - name: Unity önbelleği (Library, Linux)
+        if: ${{ !inputs.temiz_derleme }}
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-Linux-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-Linux-
+
+      - name: Sürüm damgası (telefon ve sunucu aynı commit'i taşır)
+        run: |
+          mkdir -p Assets/Resources
+          echo "${GITHUB_SHA::10}" > Assets/Resources/zm_version.txt
+
+      - name: Unity ile Linux sunucusu derle
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneLinux64
+          buildName: ZootopiaServer
+          buildMethod: ZootopiaBuild.BuildServer
+          versioning: Custom
+          version: 0.1.${{ github.run_number }}
+
+      - name: Derleme hatalarını göster
+        if: always()
+        run: |
+          f=build/zm_build_errors.txt
+          if [ -f "$f" ]; then
+            msg=$(head -c 6000 "$f" | cut -c1-400 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Sunucu derleme hataları::${msg}"
+          else
+            echo "::warning title=Sunucu derleme hataları::Derleme metodu hiç çalışmadı (büyük ihtimalle C# derleme hatası)."
+          fi
+
+      - name: Sunucu paketini hazırla
+        run: |
+          exe=$(find build -name '*.x86_64' -type f | head -n 1)
+          if [ -z "$exe" ]; then
+            echo "::error title=Sunucu yok::Derleme bitti ama sunucu programı (.x86_64) bulunamadı."
+            exit 1
+          fi
+          mkdir -p paket
+          cp -r "$(dirname "$exe")"/. paket/
+          echo "${GITHUB_SHA::10}" > paket/VERSION
+          tar -czf ZootopiaServer.tar.gz -C paket .
+          echo "Sunucu paketi: $(du -h ZootopiaServer.tar.gz | cut -f1)"
+
+      - name: Sunucunun indireceği sürümü yenile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete son-server --yes --cleanup-tag || true
+          gh release create son-server ZootopiaServer.tar.gz \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Zootopia Mobile - oyun sunucusu (${GITHUB_SHA::8})" \
+            --notes "Çevrimiçi oyun sunucusu, commit ${GITHUB_SHA::8}. Kiralık sunucu bunu kendisi indirir; elle bir şey yapmaya gerek yok."
+          echo "## Oyun sunucusu ${GITHUB_SHA::8} yayınlandı" >> "$GITHUB_STEP_SUMMARY"
+
+  # When a build fails, publish the Unity errors as a release ("build-log") so they can be read
   # without opening the Actions page (errors.txt = matching lines, tail.txt = end of the log).
   hata-kaydi:
-    needs: android
+    needs: [android, server]
     if: failure()
     runs-on: ubuntu-latest
     permissions:
@@ -186,7 +288,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set +e
-          jid=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.name=="Android APK") | .id')
+          jid=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '[.jobs[] | select(.conclusion=="failure")][0].id')
           echo "job id: $jid"
           gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > full.log
           echo "log lines: $(wc -l < full.log)"
