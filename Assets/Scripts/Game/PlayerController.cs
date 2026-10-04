@@ -36,6 +36,8 @@ public class PlayerController : MonoBehaviour, IDamageable
     public float gravity = -20f;
     public float touchLookSensitivity = 0.16f;
     public float mouseSensitivity = 2.5f;
+    /// <summary>Where this player's controls come from (touch/keyboard now; bots or network later).</summary>
+    public IPlayerInput InputSource = new LocalPlayerInput();
 
     public bool isDead;
     public bool isCrouching;
@@ -300,7 +302,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         if (Time.timeScale == 0f)
             return;   // paused
 
-        var tc = TouchControls.Instance;
+        var tc = InputSource;
         HandleLook(tc);
 
         if (isDowned)
@@ -441,13 +443,13 @@ public class PlayerController : MonoBehaviour, IDamageable
         shake = Mathf.Max(shake, amount);
     }
 
-    private void HandleLook(TouchControls tc)
+    private void HandleLook(IPlayerInput tc)
     {
         Vector2 look = Vector2.zero;
         float sens = IsScoped ? GameSettings.ScopeSensitivity : (aimingDownSights ? GameSettings.AdsSensitivity : GameSettings.Sensitivity);
         if (tc != null)
         {
-            Vector2 d = tc.LookDelta;
+            Vector2 d = tc.TouchLookDelta;
             // "Hız ivmesi": fast swipes turn further than slow, precise ones.
             if (GameSettings.RotationMode == 1 && Time.deltaTime > 0f)
             {
@@ -459,8 +461,8 @@ public class PlayerController : MonoBehaviour, IDamageable
         look += GyroLook(sens);
 
         // Desktop testing: hold right mouse button to look around.
-        if (!Application.isMobilePlatform && Input.GetMouseButton(1))
-            look += new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * mouseSensitivity;
+        if (tc != null)
+            look += tc.MouseLook * mouseSensitivity;
 
         pitch = Mathf.Clamp(pitch - look.y, -60f, state == PlayerState.Ground ? 60f : 80f);
 
@@ -549,26 +551,23 @@ public class PlayerController : MonoBehaviour, IDamageable
 
     private bool adsFromFire;
 
-    private Vector2 MoveInput(TouchControls tc)
+    private Vector2 MoveInput(IPlayerInput tc)
     {
-        Vector2 input = tc != null ? tc.Move : Vector2.zero;
-        if (input.sqrMagnitude < 0.01f)
-            input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        return Vector2.ClampMagnitude(input, 1f);
+        return tc != null ? tc.Move : Vector2.zero;
     }
 
-    private void HandleActions(GameManager gm, TouchControls tc)
+    private void HandleActions(GameManager gm, IPlayerInput tc)
     {
-        bool jump = Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeJump());
-        bool crouch = Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C) || (tc != null && tc.ConsumeCrouch());
-        bool reload = Input.GetKeyDown(KeyCode.R) || (tc != null && tc.ConsumeReload());
-        bool medkit = Input.GetKeyDown(KeyCode.X) || (tc != null && tc.ConsumeMedkit());
-        bool drink = Input.GetKeyDown(KeyCode.V) || (tc != null && tc.ConsumeDrink());
-        bool grenade = Input.GetKeyDown(KeyCode.G) || (tc != null && tc.ConsumeGrenade());
-        bool swap = Input.GetKeyDown(KeyCode.Q) || (tc != null && tc.ConsumeSwap());
-        bool useVehicle = Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle());
-        bool fire = (!Application.isMobilePlatform && Input.GetMouseButton(0)) || (tc != null && tc.FireHeld);
-        bool aim = Input.GetKeyDown(KeyCode.E) || (tc != null && tc.ConsumeAim());
+        bool jump = tc != null && tc.ConsumeJump();
+        bool crouch = tc != null && tc.ConsumeCrouch();
+        bool reload = tc != null && tc.ConsumeReload();
+        bool medkit = tc != null && tc.ConsumeMedkit();
+        bool drink = tc != null && tc.ConsumeDrink();
+        bool grenade = tc != null && tc.ConsumeGrenade();
+        bool swap = tc != null && tc.ConsumeSwap();
+        bool useVehicle = tc != null && tc.ConsumeVehicle();
+        bool fire = tc != null && tc.FireHeld;
+        bool aim = tc != null && tc.ConsumeAim();
 
         if (aim)
         {
@@ -648,11 +647,11 @@ public class PlayerController : MonoBehaviour, IDamageable
         }
     }
 
-    private void HandleMovement(TouchControls tc)
+    private void HandleMovement(IPlayerInput tc)
     {
         Vector2 input = MoveInput(tc);
 
-        bool sprintInput = Input.GetKey(KeyCode.LeftShift) || (tc != null && tc.SprintOn);
+        bool sprintInput = tc != null && tc.SprintHeld;
         isSprinting = sprintInput && input.y > 0.4f && !isCrouching;
 
         Vector3 move = transform.right * input.x + transform.forward * input.y;
@@ -714,7 +713,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         transform.rotation = Quaternion.LookRotation(plane.Direction);
     }
 
-    private void UpdatePlane(TouchControls tc)
+    private void UpdatePlane(IPlayerInput tc)
     {
         if (plane == null)
         {
@@ -724,7 +723,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         transform.position = plane.transform.position - Vector3.up * 1.5f;
         HeightAboveGround = transform.position.y - World.HeightAt(transform.position.x, transform.position.z);
 
-        bool jump = Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeAirAction());
+        bool jump = tc != null && tc.ConsumeAirAction();
         if (jump || plane.Finished)
             Jump();
     }
@@ -757,13 +756,13 @@ public class PlayerController : MonoBehaviour, IDamageable
         Sfx.Play(SoundBank.Whoosh, 0.5f, 0.6f);
     }
 
-    private void UpdateAir(TouchControls tc)
+    private void UpdateAir(IPlayerInput tc)
     {
         float dt = Time.deltaTime;
         Vector2 input = MoveInput(tc);
         Vector3 fwd = transform.forward;
         Vector3 right = transform.right;
-        bool action = Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeAirAction());
+        bool action = tc != null && tc.ConsumeAirAction();
 
         float ground = World.GroundHeight(transform.position.x, transform.position.z);
         HeightAboveGround = transform.position.y - ground;
@@ -860,7 +859,7 @@ public class PlayerController : MonoBehaviour, IDamageable
         cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
-    private void UpdateDriving(GameManager gm, TouchControls tc)
+    private void UpdateDriving(GameManager gm, IPlayerInput tc)
     {
         if (vehicle == null)
         {
@@ -869,7 +868,7 @@ public class PlayerController : MonoBehaviour, IDamageable
             return;
         }
 
-        bool exit = Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle());
+        bool exit = tc != null && tc.ConsumeVehicle();
         if (exit)
         {
             ExitVehicle();
@@ -964,7 +963,7 @@ public class PlayerController : MonoBehaviour, IDamageable
             gm.uiManager.Toast("Yere düştün! Takım arkadaşın seni kaldıracak");
     }
 
-    private void UpdateDowned(GameManager gm, TouchControls tc)
+    private void UpdateDowned(GameManager gm, IPlayerInput tc)
     {
         // Bleed out slowly; crawl at walking-pace / 4.
         health -= 4f * Time.deltaTime;
