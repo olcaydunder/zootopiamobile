@@ -3,11 +3,15 @@ using UnityEngine;
 
 public enum AttachmentSlot
 {
-    Muzzle = 0,      // Namlu
-    Optic = 1,       // Nişangah
+    Muzzle = 0,      // Namlu ucu
+    Optic = 1,       // Optik
     Underbarrel = 2, // Alt namlu
     Magazine = 3,    // Şarjör
-    Stock = 4        // Dipçik
+    Stock = 4,       // Dipçik
+    Barrel = 5,      // Namlu
+    Laser = 6,       // Lazer
+    RearGrip = 7,    // Arka tutamak
+    Ammo = 8         // Mermi
 }
 
 public class AttachmentDef
@@ -44,34 +48,76 @@ public class CamoDef
 /// </summary>
 public static class Gunsmith
 {
-    public static readonly string[] SlotNames = { "Namlu", "Nişangah", "Alt Namlu", "Şarjör", "Dipçik" };
+    /// <summary>Indexed by AttachmentSlot.</summary>
+    public static readonly string[] SlotNames = { "Namlu Ucu", "Optik", "Alt Namlu", "Şarjör", "Dipçik", "Namlu", "Lazer", "Arka Tutamak", "Mermi" };
+    /// <summary>Order the slots are shown in the gunsmith.</summary>
+    public static readonly AttachmentSlot[] SlotOrder =
+    {
+        AttachmentSlot.Muzzle, AttachmentSlot.Barrel, AttachmentSlot.Laser, AttachmentSlot.Optic, AttachmentSlot.Stock,
+        AttachmentSlot.RearGrip, AttachmentSlot.Underbarrel, AttachmentSlot.Magazine, AttachmentSlot.Ammo
+    };
+    public const int SlotCount = 9;
+    public const int MaxEquipped = 5;
+    /// <summary>Index of the camo in a saved loadout (after the 9 attachment slots).</summary>
+    public const int CamoIndex = SlotCount;
     public static readonly WeaponType[] Weapons = { WeaponType.Rifle, WeaponType.SMG, WeaponType.Shotgun, WeaponType.Sniper, WeaponType.Pistol };
     public static readonly string[] CategoryNames = { "TAARRUZ", "HAFİF MAKİNELİ", "POMPALI", "KESKİN NİŞANCI", "TABANCA" };
 
+    private static readonly WeaponType[] LongGuns = { WeaponType.Rifle, WeaponType.SMG, WeaponType.Sniper };
+    private static readonly WeaponType[] RifleSniper = { WeaponType.Rifle, WeaponType.Sniper };
+
     public static readonly List<AttachmentDef> Attachments = new List<AttachmentDef>
     {
-        // Muzzle
+        // Namlu ucu
         new AttachmentDef { id = "sup", name = "Susturucu", slot = AttachmentSlot.Muzzle, price = 250, suppressor = true, range = -10, control = 5, note = "Sessiz atış, namlu alevi yok" },
         new AttachmentDef { id = "comp", name = "Kompansatör", slot = AttachmentSlot.Muzzle, price = 200, control = 20, mobility = -3, accuracy = -3, note = "Dikey sekmeyi azaltır" },
         new AttachmentDef { id = "brake", name = "Namlu Freni", slot = AttachmentSlot.Muzzle, price = 300, control = 12, accuracy = 8, range = 5, mobility = -4 },
-        new AttachmentDef { id = "long", name = "Uzun Namlu", slot = AttachmentSlot.Muzzle, price = 350, range = 25, damage = 6, mobility = -8, note = "Uzak mesafe hasarı" },
-        // Optic
+        new AttachmentDef { id = "flash", name = "Alev Gizleyici", slot = AttachmentSlot.Muzzle, price = 200, accuracy = 6, control = 6, note = "Namlu alevini küçültür" },
+        new AttachmentDef { id = "hsup", name = "Ağır Susturucu", slot = AttachmentSlot.Muzzle, price = 450, suppressor = true, range = 8, control = 10, mobility = -8, note = "Sessiz, menzil kaybı yok" },
+        // Namlu
+        new AttachmentDef { id = "long", name = "Uzun Namlu", slot = AttachmentSlot.Barrel, price = 350, range = 25, damage = 6, mobility = -8, note = "Uzak mesafe hasarı" },
+        new AttachmentDef { id = "short", name = "Kısa Namlu", slot = AttachmentSlot.Barrel, price = 250, mobility = 10, accuracy = 6, range = -12 },
+        new AttachmentDef { id = "heavy", name = "Ağır Namlu", slot = AttachmentSlot.Barrel, price = 400, range = 15, control = 12, mobility = -12 },
+        new AttachmentDef { id = "lightb", name = "Hafif Namlu", slot = AttachmentSlot.Barrel, price = 300, mobility = 12, fireRate = 4, control = -6 },
+        new AttachmentDef { id = "sniperb", name = "Keskin Nişancı Namlusu", slot = AttachmentSlot.Barrel, price = 500, range = 35, damage = 10, mobility = -10, only = RifleSniper },
+        // Lazer
+        new AttachmentDef { id = "laser", name = "Taktik Lazer", slot = AttachmentSlot.Laser, price = 250, accuracy = 14, mobility = 4, note = "Kalçadan atış isabeti" },
+        new AttachmentDef { id = "rlaser", name = "Kırmızı Lazer", slot = AttachmentSlot.Laser, price = 200, accuracy = 8, mobility = 6, note = "Nişana daha hızlı geçiş" },
+        new AttachmentDef { id = "glaser", name = "Yeşil Lazer", slot = AttachmentSlot.Laser, price = 300, accuracy = 18, note = "En iyi kalçadan atış" },
+        // Optik
         new AttachmentDef { id = "red", name = "Kırmızı Nokta", slot = AttachmentSlot.Optic, price = 150, accuracy = 6, zoom = 0.9f },
         new AttachmentDef { id = "holo", name = "Holografik", slot = AttachmentSlot.Optic, price = 200, accuracy = 8, zoom = 0.85f },
-        new AttachmentDef { id = "x3", name = "3x Dürbün", slot = AttachmentSlot.Optic, price = 300, accuracy = 12, zoom = 0.6f, mobility = -5, only = new[] { WeaponType.Rifle, WeaponType.SMG, WeaponType.Sniper } },
-        new AttachmentDef { id = "x6", name = "6x Dürbün", slot = AttachmentSlot.Optic, price = 450, accuracy = 18, zoom = 0.38f, mobility = -8, only = new[] { WeaponType.Rifle, WeaponType.Sniper } },
-        // Underbarrel
-        new AttachmentDef { id = "vgrip", name = "Dikey Tutamak", slot = AttachmentSlot.Underbarrel, price = 200, control = 15, mobility = -3 },
-        new AttachmentDef { id = "agrip", name = "Açılı Tutamak", slot = AttachmentSlot.Underbarrel, price = 200, accuracy = 10, control = 6, mobility = -3 },
-        new AttachmentDef { id = "laser", name = "Taktik Lazer", slot = AttachmentSlot.Underbarrel, price = 250, accuracy = 14, mobility = 4, note = "Kalçadan atış isabeti" },
-        // Magazine
-        new AttachmentDef { id = "ext", name = "Uzatılmış Şarjör", slot = AttachmentSlot.Magazine, price = 250, magazine = 50, reload = -12, mobility = -2 },
-        new AttachmentDef { id = "fast", name = "Hızlı Şarjör", slot = AttachmentSlot.Magazine, price = 250, reload = 30 },
-        new AttachmentDef { id = "drum", name = "Davul Şarjör", slot = AttachmentSlot.Magazine, price = 400, magazine = 100, reload = -30, mobility = -8, only = new[] { WeaponType.Rifle, WeaponType.SMG, WeaponType.Shotgun } },
-        // Stock
+        new AttachmentDef { id = "x2", name = "2x Refleks", slot = AttachmentSlot.Optic, price = 250, accuracy = 10, zoom = 0.75f },
+        new AttachmentDef { id = "x3", name = "3x Dürbün", slot = AttachmentSlot.Optic, price = 300, accuracy = 12, zoom = 0.6f, mobility = -5, only = LongGuns },
+        new AttachmentDef { id = "x4", name = "4x Taktik", slot = AttachmentSlot.Optic, price = 380, accuracy = 14, zoom = 0.5f, mobility = -6, only = LongGuns },
+        new AttachmentDef { id = "x6", name = "6x Dürbün", slot = AttachmentSlot.Optic, price = 450, accuracy = 18, zoom = 0.38f, mobility = -8, only = RifleSniper },
+        new AttachmentDef { id = "x8", name = "8x Keskin", slot = AttachmentSlot.Optic, price = 600, accuracy = 22, zoom = 0.27f, mobility = -10, only = RifleSniper },
+        // Dipçik
         new AttachmentDef { id = "light", name = "Hafif Dipçik", slot = AttachmentSlot.Stock, price = 200, mobility = 10, control = -6 },
         new AttachmentDef { id = "tac", name = "Taktik Dipçik", slot = AttachmentSlot.Stock, price = 250, control = 12, accuracy = 4, mobility = -4 },
+        new AttachmentDef { id = "fold", name = "Katlanır Dipçik", slot = AttachmentSlot.Stock, price = 250, mobility = 14, accuracy = -4 },
+        new AttachmentDef { id = "hstock", name = "Ağır Dipçik", slot = AttachmentSlot.Stock, price = 350, control = 18, accuracy = 6, mobility = -10 },
         new AttachmentDef { id = "nostock", name = "Dipçiksiz", slot = AttachmentSlot.Stock, price = 150, mobility = 18, control = -15, accuracy = -6, only = new[] { WeaponType.SMG, WeaponType.Shotgun, WeaponType.Rifle } },
+        // Arka tutamak
+        new AttachmentDef { id = "rubber", name = "Kauçuk Kaplama", slot = AttachmentSlot.RearGrip, price = 150, control = 8, accuracy = 3 },
+        new AttachmentDef { id = "tape", name = "Bantlı Tutamak", slot = AttachmentSlot.RearGrip, price = 150, mobility = 6, accuracy = 4 },
+        new AttachmentDef { id = "granular", name = "Granüllü Tutamak", slot = AttachmentSlot.RearGrip, price = 200, control = 6, mobility = 4 },
+        // Alt namlu
+        new AttachmentDef { id = "vgrip", name = "Dikey Tutamak", slot = AttachmentSlot.Underbarrel, price = 200, control = 15, mobility = -3 },
+        new AttachmentDef { id = "agrip", name = "Açılı Tutamak", slot = AttachmentSlot.Underbarrel, price = 200, accuracy = 10, control = 6, mobility = -3 },
+        new AttachmentDef { id = "hgrip", name = "Yarım Tutamak", slot = AttachmentSlot.Underbarrel, price = 220, control = 8, accuracy = 6 },
+        new AttachmentDef { id = "tgrip", name = "Taktik Tutamak", slot = AttachmentSlot.Underbarrel, price = 280, control = 12, accuracy = 8, mobility = -5 },
+        new AttachmentDef { id = "bipod", name = "İki Ayak", slot = AttachmentSlot.Underbarrel, price = 300, control = 22, accuracy = 10, mobility = -12, only = RifleSniper },
+        // Şarjör
+        new AttachmentDef { id = "ext", name = "Uzatılmış Şarjör", slot = AttachmentSlot.Magazine, price = 250, magazine = 50, reload = -12, mobility = -2 },
+        new AttachmentDef { id = "fast", name = "Hızlı Şarjör", slot = AttachmentSlot.Magazine, price = 250, reload = 30 },
+        new AttachmentDef { id = "fastext", name = "Hızlı Uzatılmış", slot = AttachmentSlot.Magazine, price = 450, magazine = 40, reload = 15, mobility = -3 },
+        new AttachmentDef { id = "drum", name = "Davul Şarjör", slot = AttachmentSlot.Magazine, price = 400, magazine = 100, reload = -30, mobility = -8, only = new[] { WeaponType.Rifle, WeaponType.SMG, WeaponType.Shotgun } },
+        // Mermi
+        new AttachmentDef { id = "ap", name = "Zırh Delici", slot = AttachmentSlot.Ammo, price = 300, damage = 8, fireRate = -5, note = "Zırhlı hedeflere karşı" },
+        new AttachmentDef { id = "hv", name = "Yüksek Hızlı", slot = AttachmentSlot.Ammo, price = 300, range = 20, accuracy = 5, damage = -3 },
+        new AttachmentDef { id = "hammo", name = "Ağır Mermi", slot = AttachmentSlot.Ammo, price = 350, damage = 12, fireRate = -10, control = -8 },
+        new AttachmentDef { id = "lammo", name = "Hafif Mermi", slot = AttachmentSlot.Ammo, price = 250, fireRate = 10, damage = -6, control = 5 },
     };
 
     public static readonly List<CamoDef> Camos = new List<CamoDef>
@@ -122,6 +168,10 @@ public static class Gunsmith
             case AttachmentSlot.Underbarrel: return "slot_underbarrel";
             case AttachmentSlot.Magazine: return "slot_magazine";
             case AttachmentSlot.Stock: return "slot_stock";
+            case AttachmentSlot.Barrel: return "slot_barrel";
+            case AttachmentSlot.Laser: return "slot_laser";
+            case AttachmentSlot.RearGrip: return "slot_reargrip";
+            case AttachmentSlot.Ammo: return "slot_ammo";
             default: return "slot_muzzle";
         }
     }
@@ -184,34 +234,68 @@ public static class Gunsmith
         return true;
     }
 
-    /// <summary>Equipped loadout for a weapon type: 5 attachment ids + camo id.</summary>
+    /// <summary>
+    /// Equipped loadout for a weapon type: 9 attachment ids (by AttachmentSlot) + the camo id at CamoIndex.
+    /// Saved as "zm_gs2_&lt;type&gt;"; the older 5-slot save ("zm_gs_&lt;type&gt;") is moved over the first time.
+    /// </summary>
     public static string[] Loadout(WeaponType w)
     {
-        string raw = PlayerPrefs.GetString("zm_gs_" + w, ",,,,,");
+        var result = new string[SlotCount + 1];
+        for (int i = 0; i < result.Length; i++)
+            result[i] = "";
+        string raw = PlayerPrefs.GetString("zm_gs2_" + w, null);
+        if (raw == null)
+        {
+            // Old format: 5 attachments (each put in its slot now) + camo.
+            var old = PlayerPrefs.GetString("zm_gs_" + w, ",,,,,").Split(',');
+            for (int i = 0; i < 5 && i < old.Length; i++)
+            {
+                var a = FindAttachment(old[i]);
+                if (a != null)
+                    result[(int)a.slot] = a.id;
+            }
+            if (old.Length > 5)
+                result[CamoIndex] = old[5];
+            SetLoadout(w, result);
+            return result;
+        }
         var parts = raw.Split(',');
-        var result = new string[6];
-        for (int i = 0; i < 6; i++)
-            result[i] = i < parts.Length ? parts[i] : "";
+        for (int i = 0; i < result.Length && i < parts.Length; i++)
+            result[i] = parts[i];
         return result;
     }
 
     public static void SetLoadout(WeaponType w, string[] loadout)
     {
-        PlayerPrefs.SetString("zm_gs_" + w, string.Join(",", loadout));
+        PlayerPrefs.SetString("zm_gs2_" + w, string.Join(",", loadout));
         PlayerPrefs.Save();
     }
 
-    public static void Equip(WeaponType w, AttachmentSlot slot, string id)
+    public static int EquippedCount(string[] loadout)
+    {
+        int n = 0;
+        for (int i = 0; i < SlotCount; i++)
+            if (FindAttachment(loadout[i]) != null)
+                n++;
+        return n;
+    }
+
+    /// <summary>Puts an attachment in its slot (null/"" empties it). False if that would exceed 5 attachments.</summary>
+    public static bool Equip(WeaponType w, AttachmentSlot slot, string id)
     {
         var l = Loadout(w);
+        bool adding = !string.IsNullOrEmpty(id) && FindAttachment(l[(int)slot]) == null;
+        if (adding && EquippedCount(l) >= MaxEquipped)
+            return false;
         l[(int)slot] = id ?? "";
         SetLoadout(w, l);
+        return true;
     }
 
     public static void EquipCamo(WeaponType w, string camo)
     {
         var l = Loadout(w);
-        l[5] = camo ?? "";
+        l[CamoIndex] = camo ?? "";
         SetLoadout(w, l);
     }
 
@@ -223,11 +307,13 @@ public static class Gunsmith
         var l = Loadout(baseData.weaponType);
         var d = baseData.Clone();
         d.modelSkin = ModelLibrary.SelectedGunSkin(d.weaponType);
-        for (int i = 0; i < 5; i++)
+        int used = 0;
+        for (int i = 0; i < SlotCount && used < MaxEquipped; i++)
         {
             var a = FindAttachment(l[i]);
-            if (a == null || !Fits(a, d.weaponType) || !OwnsAttachment(a.id))
+            if (a == null || (int)a.slot != i || !Fits(a, d.weaponType) || !OwnsAttachment(a.id))
                 continue;
+            used++;
             d.attachments[i] = a.id;
             d.damage *= 1f + a.damage / 100f;
             d.fireRate /= Mathf.Max(0.2f, 1f + a.fireRate / 100f);
@@ -240,8 +326,8 @@ public static class Gunsmith
             d.zoomMul *= Mathf.Max(0.1f, a.zoom);
             d.suppressed |= a.suppressor;
         }
-        if (OwnsCamo(l[5]))
-            d.camo = l[5];
+        if (OwnsCamo(l[CamoIndex]))
+            d.camo = l[CamoIndex];
         return d;
     }
 

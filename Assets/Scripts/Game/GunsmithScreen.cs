@@ -15,7 +15,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
 
     private RectTransform root;
     private int weaponIndex;
-    private int slotIndex = -1;   // 0..4 attachment slot, 5 = camo, -1 nothing open
+    private int slotIndex = -1;   // index into Gunsmith.SlotOrder, SlotCount = camo, -1 nothing open
 
     // Preview
     private Camera previewCam;
@@ -38,6 +38,9 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     private readonly List<Text> slotLabels = new List<Text>();
     private readonly List<Image> dots = new List<Image>();
     private RectTransform strip;
+    private RectTransform stripContent;
+    private ScrollRect stripScroll;
+    private readonly List<Text> slotSubLabels = new List<Text>();
     private Text stripTitle;
     private Text message;
     private float messageUntil;
@@ -95,15 +98,15 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         zoomHint.color = Theme.TextDim;
 
         // Right panel: name, stats, slots
-        var panel = Theme.Box(t, "Info", new Vector2(1f, 0.5f), new Vector2(-300f, 140f), new Vector2(560f, 620f), Theme.Panel, false).transform;
-        var head = UIUtil.CreateImage(panel, "Head", new Vector2(0.5f, 1f), new Vector2(0f, -38f), new Vector2(560f, 76f), Theme.Red, false);
+        var panel = Theme.Box(t, "Info", new Vector2(1f, 0.5f), new Vector2(-300f, 150f), new Vector2(560f, 680f), Theme.Panel, false).transform;
+        var head = UIUtil.CreateImage(panel, "Head", new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(560f, 72f), Theme.Red, false);
         weaponTitle = UIUtil.CreateText(head.transform, "", new Vector2(0.5f, 0.5f), new Vector2(10f, 0f), new Vector2(520f, 70f), 30, TextAnchor.MiddleLeft);
         weaponTitle.fontStyle = FontStyle.Bold;
 
         for (int i = 0; i < 6; i++)
         {
             float x = i % 2 == 0 ? -135f : 135f;
-            float y = 200f - (i / 2) * 78f;
+            float y = 225f - (i / 2) * 72f;
             Theme.Label(panel, Gunsmith.StatNames[i], new Vector2(x - 20f, y + 14f), new Vector2(230f, 34f), 24, TextAnchor.MiddleLeft, Color.white, true);
             statValues[i] = Theme.Label(panel, "", new Vector2(x + 20f, y + 14f), new Vector2(230f, 34f), 26, TextAnchor.MiddleRight, Color.white, true);
             UIUtil.CreateImage(panel, "BarBg", new Vector2(0.5f, 0.5f), new Vector2(x, y - 14f), new Vector2(StatBarWidth, 8f), new Color(1f, 1f, 1f, 0.15f), false).raycastTarget = false;
@@ -117,26 +120,38 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
             statDelta[i] = delta;
         }
 
-        Theme.Label(panel, "APARATLAR", new Vector2(-150f, -60f), new Vector2(240f, 40f), 28, TextAnchor.MiddleLeft, Color.white, true);
-        for (int i = 0; i < 5; i++)
+        Theme.Label(panel, "APARATLAR (en fazla 5)", new Vector2(-110f, 32f), new Vector2(320f, 40f), 26, TextAnchor.MiddleLeft, Color.white, true);
+        for (int i = 0; i < Gunsmith.MaxEquipped; i++)
         {
-            var dot = UIUtil.CreateImage(panel, "Dot", new Vector2(0.5f, 0.5f), new Vector2(95f + i * 36f, -60f), new Vector2(20f, 20f), new Color(1f, 1f, 1f, 0.25f), true);
+            var dot = UIUtil.CreateImage(panel, "Dot", new Vector2(0.5f, 0.5f), new Vector2(118f + i * 32f, 32f), new Vector2(20f, 20f), new Color(1f, 1f, 1f, 0.25f), true);
             dot.raycastTarget = false;
             dots.Add(dot);
         }
 
-        string[] slotTitles = { "NAMLU", "NİŞANGAH", "ALT NAMLU", "ŞARJÖR", "DİPÇİK", "KAMUFLAJ" };
-        for (int i = 0; i < 6; i++)
+        // 9 attachment slots + camo, 5 per row.
+        for (int i = 0; i <= Gunsmith.SlotCount; i++)
         {
             int index = i;
-            float x = -180f + (i % 3) * 180f;
-            float y = -135f - (i / 3) * 112f;
+            float x = -216f + (i % 5) * 108f;
+            float y = -42f - (i / 5) * 120f;
             Text label;
-            var b = UIUtil.CreateButton(panel, slotTitles[i], new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(170f, 100f), Theme.PanelLight, false, 20, out label);
-            label.alignment = TextAnchor.MiddleCenter;
+            var b = UIUtil.CreateButton(panel, "", new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(102f, 112f), Theme.PanelLight, false, 16, out label);
             b.onClick.AddListener(() => SelectSlot(index));
+            bool camoSlot = i == Gunsmith.SlotCount;
+            if (camoSlot)
+            {
+                var sw = UIUtil.CreateImage(b.transform, "CamoIcon", new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(44f, 44f), new Color(0.55f, 0.6f, 0.4f), true);
+                sw.raycastTarget = false;
+            }
+            else
+                Icons.Create(b.transform, Gunsmith.SlotIcon(Gunsmith.SlotOrder[i]), new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(48f, 48f));
+            var name = UIUtil.CreateText(b.transform, camoSlot ? "KAMUFLAJ" : Gunsmith.SlotNames[(int)Gunsmith.SlotOrder[i]].ToUpper(), new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(100f, 24f), 15, TextAnchor.MiddleCenter);
+            name.fontStyle = FontStyle.Bold;
+            var sub = UIUtil.CreateText(b.transform, "-", new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(100f, 24f), 13, TextAnchor.MiddleCenter);
+            sub.color = Theme.TextDim;
             slotButtons.Add(b.GetComponent<Image>());
-            slotLabels.Add(label);
+            slotLabels.Add(name);
+            slotSubLabels.Add(sub);
         }
 
         // Bottom strip with options
@@ -145,6 +160,22 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         stripTitle = UIUtil.CreateText(strip, "", new Vector2(0f, 1f), new Vector2(250f, 18f), new Vector2(460f, 36f), 26, TextAnchor.MiddleLeft);
         stripTitle.color = Theme.Accent;
         stripTitle.fontStyle = FontStyle.Bold;
+
+        // Horizontally scrolling row of option cards.
+        var viewport = UIUtil.CreateStretch(strip, "Viewport");
+        viewport.offsetMin = new Vector2(16f, 6f);
+        viewport.offsetMax = new Vector2(-16f, -8f);
+        viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        stripContent = UIUtil.CreateRect(viewport, "Content", new Vector2(0f, 0.5f), Vector2.zero, new Vector2(100f, 170f));
+        stripContent.pivot = new Vector2(0f, 0.5f);
+        stripScroll = viewport.gameObject.AddComponent<ScrollRect>();
+        stripScroll.content = stripContent;
+        stripScroll.viewport = viewport;
+        stripScroll.horizontal = true;
+        stripScroll.vertical = false;
+        stripScroll.movementType = ScrollRect.MovementType.Clamped;
+        stripScroll.scrollSensitivity = 40f;
 
         message = UIUtil.CreateText(t, "", new Vector2(0.5f, 0.5f), new Vector2(-150f, -190f), new Vector2(900f, 44f), 30, TextAnchor.MiddleCenter);
         message.fontStyle = FontStyle.Bold;
@@ -319,7 +350,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         var loadout = Gunsmith.Loadout(w);
         var camo = Gunsmith.FindCamo(current.camo);
 
-        coinsText.text = "ALTIN  " + profile.coins;
+        coinsText.text = "KREDİ  " + profile.coins.ToString("N0");
         weaponTitle.text = baseData.weaponName + (string.IsNullOrEmpty(camo.id) ? "" : "  -  " + camo.name);
 
         float[] before = Gunsmith.Stats(baseData);
@@ -338,16 +369,16 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         }
 
         int equipped = 0;
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < Gunsmith.SlotCount; i++)
         {
-            var a = Gunsmith.FindAttachment(current.attachments[i]);
+            var a = Gunsmith.FindAttachment(current.attachments[(int)Gunsmith.SlotOrder[i]]);
             if (a != null)
                 equipped++;
-            slotLabels[i].text = Gunsmith.SlotNames[i].ToUpper() + "\n<size=18>" + (a != null ? a.name : "-") + "</size>";
-            slotLabels[i].supportRichText = true;
+            slotSubLabels[i].text = a != null ? a.name : "-";
+            slotSubLabels[i].color = a != null ? Theme.Accent : Theme.TextDim;
         }
-        slotLabels[5].text = "KAMUFLAJ\n<size=18>" + camo.name + "</size>";
-        slotLabels[5].supportRichText = true;
+        slotSubLabels[Gunsmith.SlotCount].text = camo.name;
+        slotSubLabels[Gunsmith.SlotCount].color = string.IsNullOrEmpty(camo.id) ? Theme.TextDim : Theme.Rarity(camo.rarity);
         for (int i = 0; i < dots.Count; i++)
             dots[i].color = i < equipped ? Theme.Accent : new Color(1f, 1f, 1f, 0.25f);
         for (int i = 0; i < slotButtons.Count; i++)
@@ -358,12 +389,8 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
 
     private void ClearStrip()
     {
-        for (int i = strip.childCount - 1; i >= 0; i--)
-        {
-            var child = strip.GetChild(i);
-            if (child.name.StartsWith("Card"))
-                Destroy(child.gameObject);
-        }
+        for (int i = stripContent.childCount - 1; i >= 0; i--)
+            Destroy(stripContent.GetChild(i).gameObject);
     }
 
     private void BuildStrip(WeaponType w, string[] loadout, ProfileData profile)
@@ -375,16 +402,16 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
             return;
         }
 
-        if (slotIndex == 5)
+        if (slotIndex == Gunsmith.SlotCount)
         {
-            stripTitle.text = "KAMUFLAJLAR";
+            stripTitle.text = "KAMUFLAJLAR  (" + Gunsmith.Camos.Count + ")";
             var camos = Gunsmith.Camos;
-            float width = Mathf.Min(220f, 1820f / camos.Count - 8f);
+            float width = 200f;
             for (int i = 0; i < camos.Count; i++)
             {
                 var c = camos[i];
                 bool owned = Gunsmith.OwnsCamo(c.id);
-                bool on = loadout[5] == c.id;
+                bool on = loadout[Gunsmith.CamoIndex] == c.id;
                 string status = on ? "KUŞANILDI" : (owned ? "KUŞAN" : c.price + " Kredi");
                 var card = Card(i, camos.Count, width, c.name, c.rarity, status, Theme.Rarity(c.rarity), on, owned || profile.coins >= c.price);
                 if (!string.IsNullOrEmpty(c.id))
@@ -395,17 +422,19 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
                 var captured = c;
                 card.GetComponent<Button>().onClick.AddListener(() => ChooseCamo(w, captured));
             }
+            FinishStrip(camos.Count, width);
             return;
         }
 
-        var slot = (AttachmentSlot)slotIndex;
-        stripTitle.text = Gunsmith.SlotNames[slotIndex].ToUpper();
+        var slot = Gunsmith.SlotOrder[slotIndex];
+        int si = (int)slot;
+        stripTitle.text = Gunsmith.SlotNames[si].ToUpper() + "   •   " + Gunsmith.EquippedCount(loadout) + "/" + Gunsmith.MaxEquipped + " takılı";
         var options = Gunsmith.Options(w, slot);
         int total = options.Count + 1;
-        float cw = Mathf.Min(300f, 1820f / total - 10f);
+        float cw = 300f;
 
         // "None" card
-        bool noneOn = string.IsNullOrEmpty(loadout[slotIndex]) || Gunsmith.FindAttachment(loadout[slotIndex]) == null;
+        bool noneOn = string.IsNullOrEmpty(loadout[si]) || Gunsmith.FindAttachment(loadout[si]) == null;
         var none = Card(0, total, cw, "Yok", "", noneOn ? "TAKILI" : "ÇIKAR", new Color(0.5f, 0.5f, 0.55f), noneOn, true);
         none.GetComponent<Button>().onClick.AddListener(() => ChooseAttachment(w, slot, null));
 
@@ -413,12 +442,22 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         {
             var a = options[i];
             bool owned = Gunsmith.OwnsAttachment(a.id);
-            bool on = loadout[slotIndex] == a.id;
+            bool on = loadout[si] == a.id;
             string status = on ? "TAKILI" : (owned ? "TAK" : a.price + " Kredi");
             var card = Card(i + 1, total, cw, a.name, Describe(a), status, Theme.Accent, on, owned || profile.coins >= a.price);
             var captured = a;
             card.GetComponent<Button>().onClick.AddListener(() => ChooseAttachment(w, slot, captured));
         }
+        FinishStrip(total, cw);
+    }
+
+    /// <summary>Sizes the scrolling row to its cards and scrolls back to the start.</summary>
+    private void FinishStrip(int count, float width)
+    {
+        stripContent.sizeDelta = new Vector2(count * (width + 10f) + 10f, 170f);
+        stripContent.anchoredPosition = Vector2.zero;
+        if (stripScroll != null)
+            stripScroll.StopMovement();
     }
 
     private static string Describe(AttachmentDef a)
@@ -446,9 +485,8 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
 
     private RectTransform Card(int index, int total, float width, string title, string sub, string status, Color accent, bool selected, bool affordable)
     {
-        float startX = -(total - 1) * (width + 10f) * 0.5f;
         Text label;
-        var b = UIUtil.CreateButton(strip, "", new Vector2(0.5f, 0.5f), new Vector2(startX + index * (width + 10f), -14f), new Vector2(width, 160f),
+        var b = UIUtil.CreateButton(stripContent, "", new Vector2(0f, 0.5f), new Vector2(10f + width * 0.5f + index * (width + 10f), -14f), new Vector2(width, 160f),
             selected ? new Color(0.25f, 0.22f, 0.08f, 1f) : Theme.PanelLight, false, 20, out label);
         b.name = "Card" + index;
         var rect = (RectTransform)b.transform;
@@ -480,7 +518,11 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
             Sfx.Play(SoundBank.Pickup, 0.6f);
             Toast(a.name + " satın alındı", Theme.Good);
         }
-        Gunsmith.Equip(w, slot, a != null ? a.id : "");
+        if (!Gunsmith.Equip(w, slot, a != null ? a.id : ""))
+        {
+            Toast("En fazla " + Gunsmith.MaxEquipped + " aparat takılabilir — önce birini çıkar", Theme.Bad);
+            return;
+        }
         Sfx.Play(SoundBank.Reload, 0.4f, 1.3f);
         RebuildPreview();
         Refresh();

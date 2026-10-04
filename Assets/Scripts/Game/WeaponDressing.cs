@@ -377,10 +377,12 @@ public static class WeaponDressing
                     Part(holder, PrimitiveType.Cube, new Vector3(0f, top + 0.045f, midZ + 0.03f), new Vector3(0.045f, 0.05f, 0.006f), Vector3.zero, new Color(0.3f, 0.9f, 1f, 0.6f), true);
                     break;
                 case "x3":
+                case "x4":
                 case "x6":
+                case "x8":
                 {
-                    float sl = a.id == "x6" ? 0.26f : 0.18f;
-                    float sr = a.id == "x6" ? 0.045f : 0.038f;
+                    float sl = a.id == "x8" ? 0.32f : a.id == "x6" ? 0.26f : a.id == "x4" ? 0.21f : 0.18f;
+                    float sr = a.id == "x8" ? 0.05f : a.id == "x6" ? 0.045f : a.id == "x4" ? 0.04f : 0.038f;
                     Part(holder, PrimitiveType.Cylinder, new Vector3(0f, top + sr + 0.01f, midZ), new Vector3(sr, sl * 0.5f, sr), new Vector3(90f, 0f, 0f), dark, false);
                     Part(holder, PrimitiveType.Cylinder, new Vector3(0f, top + sr + 0.01f, midZ + sl * 0.5f), new Vector3(sr * 1.25f, 0.015f, sr * 1.25f), new Vector3(90f, 0f, 0f), dark, false);
                     Part(holder, PrimitiveType.Sphere, new Vector3(0f, top + sr + 0.01f, midZ + sl * 0.5f + 0.012f), new Vector3(sr * 1.6f, sr * 1.6f, 0.004f), Vector3.zero, new Color(0.25f, 0.55f, 0.9f), true);
@@ -396,6 +398,58 @@ public static class WeaponDressing
                 case "laser":
                     Part(holder, PrimitiveType.Cube, new Vector3(0.03f, barrelY - 0.02f, midZ + len * 0.25f), new Vector3(0.03f, 0.03f, 0.07f), Vector3.zero, dark, false);
                     Part(holder, PrimitiveType.Sphere, new Vector3(0.03f, barrelY - 0.02f, midZ + len * 0.25f + 0.036f), new Vector3(0.012f, 0.012f, 0.004f), Vector3.zero, new Color(0.2f, 1f, 0.3f), true);
+                    break;
+                case "x2":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, top + 0.02f, midZ), new Vector3(0.05f, 0.035f, 0.09f), Vector3.zero, dark, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, top + 0.05f, midZ + 0.035f), new Vector3(0.05f, 0.045f, 0.008f), Vector3.zero, new Color(0.9f, 0.5f, 0.2f, 0.7f), true);
+                    break;
+                case "flash":
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + 0.045f), new Vector3(0.04f, 0.045f, 0.04f), new Vector3(90f, 0f, 0f), dark, false);
+                    break;
+                case "hsup":
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.13f), new Vector3(0.065f, len * 0.13f, 0.065f), new Vector3(90f, 0f, 0f), dark, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.02f), new Vector3(0.07f, 0.012f, 0.07f), new Vector3(90f, 0f, 0f), metal, false);
+                    break;
+                case "heavy":
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front - len * 0.06f), new Vector3(0.045f, len * 0.1f, 0.045f), new Vector3(90f, 0f, 0f), dark, false);
+                    break;
+                case "lightb":
+                    for (int k = 0; k < 3; k++)
+                        Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front - len * (0.04f + k * 0.05f)), new Vector3(0.04f, 0.008f, 0.04f), new Vector3(90f, 0f, 0f), metal, false);
+                    break;
+                case "sniperb":
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.12f), new Vector3(0.022f, len * 0.12f, 0.022f), new Vector3(90f, 0f, 0f), metal, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY, front + len * 0.24f), new Vector3(0.05f, 0.03f, 0.06f), Vector3.zero, dark, false);
+                    break;
+                case "rlaser":
+                case "glaser":
+                {
+                    Color beam = a.id == "rlaser" ? new Color(1f, 0.15f, 0.1f) : new Color(0.2f, 1f, 0.3f);
+                    Part(holder, PrimitiveType.Cube, new Vector3(-0.03f, barrelY - 0.015f, midZ + len * 0.28f), new Vector3(0.028f, 0.028f, 0.06f), Vector3.zero, dark, false);
+                    Part(holder, PrimitiveType.Sphere, new Vector3(-0.03f, barrelY - 0.015f, midZ + len * 0.28f + 0.032f), new Vector3(0.012f, 0.012f, 0.004f), Vector3.zero, beam, true);
+                    break;
+                }
+                case "hgrip":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, b.min.y + b.size.y * 0.35f - 0.025f, midZ + len * 0.22f), new Vector3(0.03f, 0.035f, 0.06f), Vector3.zero, dark, false);
+                    break;
+                case "tgrip":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, b.min.y + b.size.y * 0.35f - 0.05f, midZ + len * 0.22f), new Vector3(0.035f, 0.08f, 0.04f), new Vector3(-10f, 0f, 0f), dark, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, b.min.y + b.size.y * 0.35f - 0.09f, midZ + len * 0.23f), new Vector3(0.04f, 0.015f, 0.05f), Vector3.zero, metal, false);
+                    break;
+                case "bipod":
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(-0.025f, b.min.y + b.size.y * 0.35f - 0.07f, midZ + len * 0.3f), new Vector3(0.012f, 0.07f, 0.012f), new Vector3(0f, 0f, -12f), metal, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0.025f, b.min.y + b.size.y * 0.35f - 0.07f, midZ + len * 0.3f), new Vector3(0.012f, 0.07f, 0.012f), new Vector3(0f, 0f, 12f), metal, false);
+                    break;
+                case "fastext":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, b.min.y - 0.035f, midZ + len * 0.05f), new Vector3(0.035f, 0.09f, 0.05f), new Vector3(12f, 0f, 0f), new Color(0.75f, 0.55f, 0.15f), false);
+                    break;
+                case "fold":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY - 0.01f, back - 0.07f), new Vector3(0.015f, 0.015f, 0.14f), Vector3.zero, metal, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY - 0.05f, back - 0.07f), new Vector3(0.015f, 0.015f, 0.14f), Vector3.zero, metal, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY - 0.03f, back - 0.14f), new Vector3(0.02f, 0.07f, 0.015f), Vector3.zero, dark, false);
+                    break;
+                case "hstock":
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY - 0.035f, back - 0.1f), new Vector3(0.05f, 0.12f, 0.22f), Vector3.zero, dark, false);
                     break;
                 case "ext":
                     Part(holder, PrimitiveType.Cube, new Vector3(0f, b.min.y - 0.03f, midZ + len * 0.05f), new Vector3(0.035f, 0.08f, 0.05f), new Vector3(12f, 0f, 0f), dark, false);

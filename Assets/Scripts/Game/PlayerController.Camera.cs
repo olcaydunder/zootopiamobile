@@ -227,7 +227,7 @@ public partial class PlayerController
     {
         if (currentWeapon == null || currentWeapon.weaponData == null)
             return 55f;
-        return Mathf.Clamp(BaseZoomFov() * currentWeapon.weaponData.zoomMul, 10f, 65f);
+        return Mathf.Clamp(BaseZoomFov() * currentWeapon.weaponData.zoomMul, 6f, 65f);
     }
 
     private float BaseZoomFov()

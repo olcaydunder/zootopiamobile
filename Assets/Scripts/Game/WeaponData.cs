@@ -24,7 +24,7 @@ public class WeaponData
     public Color color;
 
     // Set by the gunsmith (attachments / camo). Defaults leave the gun unchanged.
-    public string[] attachments = new string[5];
+    public string[] attachments = new string[Gunsmith.SlotCount];
     public string camo = "";
     public string modelSkin = "";   // gun model variant (see ModelLibrary.GunSkins)
     public float recoilMul = 1f;
