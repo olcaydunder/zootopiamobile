@@ -76,6 +76,12 @@ public class FlashFx : MonoBehaviour
         ball = AbilityFx.Primitive(transform, PrimitiveType.Sphere, Vector3.zero, Vector3.one * 0.2f, mat);
     }
 
+    private void OnDestroy()
+    {
+        if (mat != null)
+            Destroy(mat);
+    }
+
     private void Update()
     {
         t += Time.deltaTime;
@@ -85,10 +91,7 @@ public class FlashFx : MonoBehaviour
         c.a = color.a * (1f - k);
         mat.color = c;
         if (k >= 1f)
-        {
-            Destroy(mat);
             Destroy(gameObject);
-        }
     }
 }
 
@@ -133,8 +136,14 @@ public class GhostState : MonoBehaviour
     public void Restore()
     {
         foreach (var kv in originals)
-            if (kv.Key != null)
+            if (kv.Key != null && kv.Key.sharedMaterial == ghost)   // a renderer that changed meanwhile (new gun) keeps its new material
                 kv.Key.sharedMaterials = kv.Value;
         originals.Clear();
+    }
+
+    private void OnDestroy()
+    {
+        if (ghost != null)
+            Destroy(ghost);
     }
 }

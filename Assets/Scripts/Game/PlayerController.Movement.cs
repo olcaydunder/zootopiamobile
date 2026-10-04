@@ -321,7 +321,7 @@ public partial class PlayerController
     {
         if (!isDowned || isDead)
             return;
-        reviveProgress += dt;
+        reviveProgress += dt * (Ability != null && Ability.cls == PlayerClass.Medic ? 1.5f : 1f);   // Sahra Hekimi
         if (reviveProgress >= ReviveTime)
         {
             isDowned = false;

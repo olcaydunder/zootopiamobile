@@ -63,10 +63,13 @@ public class HealZone : MonoBehaviour
             tick = 0f;
         }
         if (Time.time > until)
-        {
-            Destroy(ringMat);
             Destroy(gameObject);
-        }
+    }
+
+    private void OnDestroy()
+    {
+        if (ringMat != null)
+            Destroy(ringMat);
     }
 
     private void HealAround(float dt)

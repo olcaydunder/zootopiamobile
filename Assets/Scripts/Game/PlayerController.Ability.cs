@@ -21,7 +21,10 @@ public partial class PlayerController : IAbilityUser
     private void InitAbility()
     {
         if (Ability == null)
-            Ability = GetComponent<ClassAbility>() ?? gameObject.AddComponent<ClassAbility>();
+        {
+            ClassAbility existing;
+            Ability = TryGetComponent(out existing) ? existing : gameObject.AddComponent<ClassAbility>();
+        }
         Ability.EndStealth();
         Ability.Setup(this, ClassDefs.Selected);
         if (currentWeapon != null)
@@ -47,7 +50,7 @@ public partial class PlayerController : IAbilityUser
             return;
         if (!Ability.Use())
         {
-            if (ui != null) ui.Toast(Ability.cls == PlayerClass.Teleport ? "Önün kapalı" : "Burada kullanılamaz");
+            if (ui != null) ui.Toast(Ability.cls == PlayerClass.Teleport ? "Önün kapalı" : Ability.cls == PlayerClass.Airborne ? "Üstün kapalı, açık alana çık" : "Burada kullanılamaz");
             return;
         }
         Haptics.Tap(30);

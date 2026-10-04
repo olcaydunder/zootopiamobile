@@ -22,7 +22,7 @@ public class ShieldWall : MonoBehaviour, IDamageable, IStructure
         Vector3 dir = user.AimDirection;
         dir.y = 0f;
         dir = dir.sqrMagnitude > 0.01f ? dir.normalized : user.transform.forward;
-        Vector3 p = user.transform.position + dir * 1.6f;
+        Vector3 p = user.transform.position + dir * Turret.PlaceDistance(user, dir, 1.6f);
         RaycastHit hit;
         float ground = Physics.Raycast(p + Vector3.up * 1f, Vector3.down, out hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
             ? hit.point.y : World.GroundHeight(p.x, p.z);
@@ -74,8 +74,13 @@ public class ShieldWall : MonoBehaviour, IDamageable, IStructure
         dead = true;
         AbilityFx.Flash(transform.position + Vector3.up, new Color(0.5f, 0.75f, 1f, 0.6f), 3f, 0.3f);
         Sfx.PlayAt(SoundBank.Hit, transform.position, 1f, 0.5f);
-        Destroy(glassMat);
         Destroy(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (glassMat != null)
+            Destroy(glassMat);
     }
 
     private void Update()

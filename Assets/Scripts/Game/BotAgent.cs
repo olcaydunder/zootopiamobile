@@ -55,7 +55,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
 
     public int Team { get { return team; } }
     public bool IsDead { get { return isDead; } }
-    public bool IsAirborne { get { return air != BotAir.None && !launchGlide; } }
+    public bool IsAirborne { get { return air != BotAir.None; } }
     public string DisplayName { get { return botName; } }
     public Vector3 AimPoint { get { return transform.position + Vector3.up * 0.4f; } }
 
@@ -242,6 +242,8 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             Think(gm);
             Door.PushOpenNear(transform.position, 2f);   // walk through doorways
             AbilityThink(gm);
+            if (air != BotAir.None)
+                return;   // launched into the air
         }
 
         if (target != null && (target.IsDead || target.IsAirborne))

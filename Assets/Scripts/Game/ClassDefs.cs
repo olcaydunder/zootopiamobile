@@ -33,7 +33,7 @@ public static class ClassDefs
     {
         new ClassDef { type = PlayerClass.Medic, name = "Sahra Hekimi", icon = "class_medic", ability = "Şifa Alanı",
             abilityInfo = "6 m çapta bir şifa alanı kurar: 8 sn boyunca sen ve takımın saniyede 8 can kazanır.",
-            passive = "İlk yardım %30, takım arkadaşını kaldırma %50 daha hızlı.", level2 = "12 sn sürer ve zırhı da onarır.",
+            passive = "İlk yardım %30 fazla can verir, enerji içeceği 2 kat hızlı işler, yerden %50 hızlı kaldırılırsın.", level2 = "12 sn sürer ve zırhı da onarır.",
             cooldown = 60f, color = new Color(0.25f, 0.8f, 0.45f) },
         new ClassDef { type = PlayerClass.K9, name = "K9 Eğitmeni", icon = "class_k9", ability = "Köpeği Salıver",
             abilityInfo = "Köpek, baktığın yönde 40 m içindeki en yakın düşmana koşar, 6 sn haritada işaretler ve ısırır (20 hasar).",
@@ -53,7 +53,7 @@ public static class ClassDefs
             cooldown = 45f, color = new Color(0.3f, 0.5f, 0.95f) },
         new ClassDef { type = PlayerClass.Engineer, name = "Mühendis", icon = "class_engineer", ability = "Taret",
             abilityInfo = "15 sn boyunca 30 m içindeki düşmanlara ateş eden otomatik bir taret kurar.",
-            passive = "Araç hasarı %30 az; araca binince yavaşça onarırsın.", level2 = "25 sn çalışır.",
+            passive = "Araç kullanırken aldığın hasar %30 daha az.", level2 = "25 sn çalışır.",
             cooldown = 75f, color = new Color(0.95f, 0.5f, 0.2f) },
         new ClassDef { type = PlayerClass.Airborne, name = "Paraşütçü", icon = "class_airborne", ability = "Fırlatıcı",
             abilityInfo = "Seni 35 m havaya fırlatır, paraşütle süzülerek yer değiştirirsin.",

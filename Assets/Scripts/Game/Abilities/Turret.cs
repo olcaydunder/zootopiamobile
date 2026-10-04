@@ -30,7 +30,7 @@ public class Turret : MonoBehaviour, IDamageable, IStructure
         Vector3 dir = user.AimDirection;
         dir.y = 0f;
         dir = dir.sqrMagnitude > 0.01f ? dir.normalized : user.transform.forward;
-        Vector3 p = user.transform.position + dir * 1.4f;
+        Vector3 p = user.transform.position + dir * PlaceDistance(user, dir, 1.4f);
         RaycastHit hit;
         float ground = Physics.Raycast(p + Vector3.up * 1f, Vector3.down, out hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
             ? hit.point.y : World.GroundHeight(p.x, p.z);
@@ -113,6 +113,15 @@ public class Turret : MonoBehaviour, IDamageable, IStructure
         }
     }
 
+    /// <summary>How far ahead something can be placed before a wall (min 0.6 m).</summary>
+    public static float PlaceDistance(IAbilityUser user, Vector3 dir, float wanted)
+    {
+        RaycastHit hit;
+        if (Physics.SphereCast(user.AbilityOrigin, 0.3f, dir, out hit, wanted + 0.5f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            return Mathf.Max(0.6f, hit.distance - 0.5f);
+        return wanted;
+    }
+
     private IDamageable FindTarget()
     {
         var gm = GameManager.Instance;
@@ -136,7 +145,9 @@ public class Turret : MonoBehaviour, IDamageable, IStructure
     private bool Visible(IDamageable d)
     {
         RaycastHit hit;
-        if (Physics.Linecast(muzzle.position, d.AimPoint, out hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        // From above the turret's own box, and with every layer (the player is on Ignore Raycast).
+        Vector3 eye = transform.position + Vector3.up * 1.35f;
+        if (Physics.Linecast(eye, d.AimPoint, out hit, ~0, QueryTriggerInteraction.Ignore))
             return hit.collider.GetComponentInParent<IDamageable>() == d;
         return true;
     }
@@ -146,7 +157,7 @@ public class Turret : MonoBehaviour, IDamageable, IStructure
         Vector3 dir = (to.normalized + Random.insideUnitSphere * 0.03f).normalized;
         Vector3 end = muzzle.position + dir * Range;
         RaycastHit hit;
-        if (Physics.Raycast(muzzle.position, dir, out hit, Range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        if (Physics.Raycast(muzzle.position, dir, out hit, Range, ~0, QueryTriggerInteraction.Ignore))
         {
             end = hit.point;
             var d = hit.collider.GetComponentInParent<IDamageable>();

@@ -160,7 +160,11 @@ public partial class PlayerController
         bool door = tc != null && tc.ConsumeDoor();
         bool ability = tc != null && tc.ConsumeAbility();
         if (ability)
+        {
             TryUseAbility();
+            if (state != PlayerState.Ground)
+                return;   // launched into the air
+        }
 
         if (door)
         {

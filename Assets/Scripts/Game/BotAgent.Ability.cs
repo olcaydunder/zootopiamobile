@@ -29,7 +29,8 @@ public partial class BotAgent : IAbilityUser
 
     private void InitAbility()
     {
-        Ability = GetComponent<ClassAbility>() ?? gameObject.AddComponent<ClassAbility>();
+        ClassAbility existing;
+        Ability = TryGetComponent(out existing) ? existing : gameObject.AddComponent<ClassAbility>();
         Ability.Setup(this, (PlayerClass)Random.Range(0, ClassDefs.All.Length));
         weapon.owner = Ability;
     }
@@ -70,7 +71,7 @@ public partial class BotAgent : IAbilityUser
                 use = fighting && dist < Turret.Range;
                 break;
             case PlayerClass.Airborne:
-                use = (gm.safeZone != null && gm.safeZone.active && gm.safeZone.IsOutside(transform.position)) || (fighting && health < 35f);
+                use = gm.safeZone != null && gm.safeZone.active && gm.safeZone.IsOutside(transform.position) && !fighting;
                 break;
             case PlayerClass.Shadow:
                 use = fighting && health < 60f;

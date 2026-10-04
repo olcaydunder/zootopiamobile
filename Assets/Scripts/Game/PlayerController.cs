@@ -72,8 +72,8 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
     public int Team { get { return 0; } }
     public bool IsDead { get { return isDead; } }
-    /// <summary>In the drop (plane, skydive, parachute). A Paraşütçü launch glide does not count: you can be shot.</summary>
-    public bool IsAirborne { get { return (state == PlayerState.Plane || state == PlayerState.Freefall || state == PlayerState.Parachute) && !launchGlide; } }
+    /// <summary>In the air: plane, skydive, parachute (also the Paraşütçü launch glide). Not targeted, not hit.</summary>
+    public bool IsAirborne { get { return state == PlayerState.Plane || state == PlayerState.Freefall || state == PlayerState.Parachute; } }
     public string DisplayName { get { return GameManager.Instance != null ? GameManager.Instance.profile.playerName : "Oyuncu"; } }
     public Vector3 AimPoint { get { return transform.position + controller.center + Vector3.up * (controller.height * 0.5f - 0.5f); } }
 
@@ -191,6 +191,8 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             default:
                 if (!isSwimming)
                     HandleActions(gm, tc);   // no shooting or items while swimming
+                if (state != PlayerState.Ground)
+                    break;                   // an ability changed state (launch)
                 HandleMovement(tc);
                 if (gm.lootSystem != null)
                     gm.lootSystem.TryCollectLoot(this);

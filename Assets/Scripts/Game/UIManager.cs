@@ -79,6 +79,7 @@ public class UIManager : MonoBehaviour
     private readonly List<Image> footArrows = new List<Image>();
     private readonly Dictionary<BotAgent, Vector3> botLastPos = new Dictionary<BotAgent, Vector3>();
     private Text upgradeText;
+    private static readonly List<BotAgent> noBots = new List<BotAgent>();
 
     // Overlays: settings, shop, pause
     private GameObject settingsPanel;
@@ -806,6 +807,7 @@ public class UIManager : MonoBehaviour
         toastText.text = "";
         damageAlpha = 0f;
         touchControls.ResetState();
+        botLastPos.Clear();
         if (crossH != null)
         {
             crossH.color = GameSettings.CrosshairColors[GameSettings.CrosshairColor];
@@ -1168,7 +1170,7 @@ public class UIManager : MonoBehaviour
         // K9 Eğitmeni passive: arrows toward enemies moving within 25 m.
         int arrow = 0;
         bool k9 = player.Ability != null && player.Ability.cls == PlayerClass.K9 && player.state == PlayerState.Ground && cam != null;
-        foreach (var bot in gm.bots)
+        foreach (var bot in k9 ? gm.bots : noBots)
         {
             if (bot == null)
                 continue;

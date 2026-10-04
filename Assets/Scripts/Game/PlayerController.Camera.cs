@@ -147,6 +147,8 @@ public partial class PlayerController
         {
             if (c == null || c.IsDead || c.IsAirborne || c.Team == Team)
                 continue;
+            if (ClassAbility.IsStealthed(c) && Vector3.Distance(c.transform.position, transform.position) > 7f)
+                continue;
             Vector3 to = c.AimPoint - cam.position;
             if (to.magnitude > range)
                 continue;
@@ -181,7 +183,7 @@ public partial class PlayerController
         if (!Physics.Raycast(cam.position + cam.forward * camToPivot, cam.forward, out hit, currentWeapon.weaponData.range, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             return false;
         var d = hit.collider.GetComponentInParent<IDamageable>();
-        return d != null && !d.IsDead && d.Team != Team;
+        return d != null && !d.IsDead && d.Team != Team && !(ClassAbility.IsStealthed(d) && hit.distance > 7f);
     }
 
     // ----- Aiming, knock-down, skins -----

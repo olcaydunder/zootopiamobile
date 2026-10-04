@@ -51,6 +51,7 @@ public class TouchControls : MonoBehaviour
     private Text abilityTimer, abilityCharges, abilityName;
     private GameObject abilityLevel;
     private string abilityIconShown;
+    private int abilitySecsShown = -1, abilityChargesShown = -2;
     private Text doorLabel;
     private GameObject airButton;
 
@@ -266,10 +267,20 @@ public class TouchControls : MonoBehaviour
         }
         float ready = a.Readiness;
         abilityShade.fillAmount = 1f - ready;
-        abilityTimer.text = a.Charges > 0 ? "" : Mathf.CeilToInt(a.SecondsLeft).ToString();
+        int secs = a.Charges > 0 ? 0 : Mathf.CeilToInt(a.SecondsLeft);
+        if (secs != abilitySecsShown)
+        {
+            abilitySecsShown = secs;
+            abilityTimer.text = secs > 0 ? secs.ToString() : "";
+        }
         if (abilityLevel.activeSelf != a.IsLevel2)
             abilityLevel.SetActive(a.IsLevel2);
-        abilityCharges.text = a.MaxCharges > 1 ? "x" + a.Charges : "";
+        int ch = a.MaxCharges > 1 ? a.Charges : -1;
+        if (ch != abilityChargesShown)
+        {
+            abilityChargesShown = ch;
+            abilityCharges.text = ch >= 0 ? "x" + ch : "";
+        }
         abilityImage.rectTransform.localScale = Vector3.one * (a.StealthActive ? 0.92f + 0.08f * Mathf.Sin(Time.time * 8f) : 1f);
     }
 

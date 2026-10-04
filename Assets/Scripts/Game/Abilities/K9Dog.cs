@@ -156,7 +156,7 @@ public class K9Dog : MonoBehaviour
         done = true;
         doneAt = Time.time;
         var gm = GameManager.Instance;
-        if (target != null && !target.IsDead)
+        if (target != null && !target.IsDead && !target.IsAirborne && Vector3.Distance(target.transform.position, transform.position) < 2.5f)
         {
             Marks.Add(target, team, markSeconds);
             var hitPlayer = target as PlayerController;

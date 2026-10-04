@@ -89,7 +89,7 @@ public class ClassAbility : MonoBehaviour
             case PlayerClass.Scout: ok = ScoutEagle.Spawn(user, level) != null; break;
             case PlayerClass.Shield: ok = ShieldWall.Spawn(user, level) != null; break;
             case PlayerClass.Engineer: ok = Turret.Spawn(user, level) != null; break;
-            case PlayerClass.Airborne: user.LaunchUp(level >= 2 ? 50f : 35f); ok = true; break;
+            case PlayerClass.Airborne: ok = Launch(level >= 2 ? 50f : 35f); break;
             case PlayerClass.Shadow: StartStealth(level >= 2 ? 9f : 6f); ok = true; break;
             default: ok = false; break;
         }
@@ -133,6 +133,17 @@ public class ClassAbility : MonoBehaviour
         AbilityFx.Flash(feet + Vector3.up * 1f, new Color(0.3f, 0.9f, 1f, 0.6f), 2.6f, 0.45f);
         Sfx.PlayAt(SoundBank.Whoosh, feet, 0.7f, 1.6f);
         user.SpeedBoost(1.2f, 3f);   // passive
+        return true;
+    }
+
+    // ----- Paraşütçü -----
+
+    private bool Launch(float height)
+    {
+        // Needs open sky (not indoors or under a roof).
+        if (Physics.SphereCast(user.AbilityOrigin, 0.3f, Vector3.up, out RaycastHit _, height, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            return false;
+        user.LaunchUp(height);
         return true;
     }
 
