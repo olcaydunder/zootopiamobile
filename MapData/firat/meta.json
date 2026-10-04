@@ -1,0 +1,140 @@
+{
+ "id": "firat",
+ "query": "F\u0131rat \u00dcniversitesi, Elaz\u0131\u011f",
+ "places": [
+  {
+   "query": "F\u0131rat \u00dcniversitesi Rekt\u00f6rl\u00fc\u011f\u00fc, Elaz\u0131\u011f",
+   "results": []
+  },
+  {
+   "query": "F\u0131rat \u00dcniversitesi, Elaz\u0131\u011f",
+   "results": [
+    {
+     "place_id": 208480573,
+     "licence": "Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+     "osm_type": "way",
+     "osm_id": 438269427,
+     "lat": "38.6837830",
+     "lon": "39.1875235",
+     "class": "amenity",
+     "type": "university",
+     "place_rank": 30,
+     "importance": 0.4320505958492865,
+     "addresstype": "amenity",
+     "name": "F\u0131rat \u00dcniversitesi",
+     "display_name": "F\u0131rat \u00dcniversitesi, Gazi Caddesi, \u00dcniversite Mahallesi, El\u00e2z\u0131\u011f Merkez, El\u00e2z\u0131\u011f, Do\u011fu Anadolu B\u00f6lgesi, 23119, T\u00fcrkiye",
+     "boundingbox": [
+      "38.6718926",
+      "38.6957688",
+      "39.1737925",
+      "39.2073082"
+     ]
+    }
+   ]
+  },
+  {
+   "query": "\u00dcniversite Mahallesi, Elaz\u0131\u011f",
+   "results": [
+    {
+     "place_id": 207648842,
+     "licence": "Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+     "osm_type": "relation",
+     "osm_id": 13149423,
+     "lat": "38.6797602",
+     "lon": "39.2071115",
+     "class": "boundary",
+     "type": "administrative",
+     "place_rank": 16,
+     "importance": 0.18672514457923242,
+     "addresstype": "suburb",
+     "name": "\u00dcniversite Mahallesi",
+     "display_name": "\u00dcniversite Mahallesi, El\u00e2z\u0131\u011f Merkez, El\u00e2z\u0131\u011f, Do\u011fu Anadolu B\u00f6lgesi, 23119, T\u00fcrkiye",
+     "boundingbox": [
+      "38.6694535",
+      "38.6914724",
+      "39.1799851",
+      "39.2134559"
+     ]
+    }
+   ]
+  }
+ ],
+ "center": [
+  38.683783,
+  39.1875235
+ ],
+ "bbox": [
+  38.66941002120014,
+  39.169110940989526,
+  38.69815597879985,
+  39.20593605901047
+ ],
+ "half_km": 1.6,
+ "zoom": 15,
+ "tiles": [
+  [
+   19949,
+   12558
+  ],
+  [
+   19949,
+   12559
+  ],
+  [
+   19949,
+   12560
+  ],
+  [
+   19949,
+   12561
+  ],
+  [
+   19950,
+   12558
+  ],
+  [
+   19950,
+   12559
+  ],
+  [
+   19950,
+   12560
+  ],
+  [
+   19950,
+   12561
+  ],
+  [
+   19951,
+   12558
+  ],
+  [
+   19951,
+   12559
+  ],
+  [
+   19951,
+   12560
+  ],
+  [
+   19951,
+   12561
+  ],
+  [
+   19952,
+   12558
+  ],
+  [
+   19952,
+   12559
+  ],
+  [
+   19952,
+   12560
+  ],
+  [
+   19952,
+   12561
+  ]
+ ]
+}
