@@ -299,9 +299,12 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         {
             health = 0f;
             isDead = true;
-            currentWeapon.gameObject.SetActive(false);
             if (state == PlayerState.Driving)
                 ExitVehicle();
+            if (state == PlayerState.Freefall || state == PlayerState.Parachute)
+                Land(new Vector3(transform.position.x, World.GroundHeight(transform.position.x, transform.position.z) + 0.95f, transform.position.z));
+            wind.Stop();
+            currentWeapon.gameObject.SetActive(false);
             rig.pose = RigPose.Dead;
             Haptics.Long();
             if (gm != null)
@@ -323,6 +326,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         state = PlayerState.Ground;
         isVaulting = false;
         isSwimming = false;
+        rig.SetVisible(true);   // hidden while driving a truck, helicopter or tank
         InitAbility();
         controller.enabled = false;
         transform.position = spawnPosition;

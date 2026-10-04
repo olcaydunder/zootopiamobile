@@ -84,6 +84,10 @@ public partial class PlayerController : IAbilityUser
     /// <summary>Dirilme Jetonu: back in the match, parachuting into the safe zone with a pistol.</summary>
     public void RespawnFromToken(Vector3 groundPoint)
     {
+        bool wasLevel2 = Ability != null && Ability.IsLevel2;
+        EndVault();
+        StopSwim();
+        ClearScope();
         isDead = false;
         isDowned = false;
         reviveProgress = 0f;
@@ -102,6 +106,8 @@ public partial class PlayerController : IAbilityUser
         LoadSlot(0);
         rig.ResetPose();
         InitAbility();
+        if (wasLevel2)
+            Ability.Upgrade();   // keep what an upgrade station or Güçlendirme Jetonu gave
 
         controller.enabled = false;
         transform.position = groundPoint + Vector3.up * 90f;

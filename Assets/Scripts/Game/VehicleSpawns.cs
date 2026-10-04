@@ -119,6 +119,7 @@ public class TankDrop : MonoBehaviour
     private Vector3 ground;
     private Transform model;
     private float nextSmoke;
+    private float yaw;
     private const float FallSpeed = 8f;
 
     public Vector3 Target { get { return ground; } }
@@ -131,6 +132,8 @@ public class TankDrop : MonoBehaviour
         d.model = new GameObject("FallingTank").transform;
         d.model.SetParent(go.transform, false);
         d.model.position = groundPoint + Vector3.up * 140f;
+        d.yaw = Random.Range(0f, 360f);
+        d.model.rotation = Quaternion.Euler(0f, d.yaw, 0f);
         var m = ModelLibrary.Spawn("Models/Vehicles/Tank", d.model);
         if (m != null)
             ModelLibrary.ShareMaterials(m, false);
@@ -165,7 +168,7 @@ public class TankDrop : MonoBehaviour
             return;
         var gm = GameManager.Instance;
         if (gm != null)
-            gm.vehicles.Add(Vehicle.Spawn(VehicleKind.Tank, ground, Random.Range(0f, 360f)));
+            gm.vehicles.Add(Vehicle.Spawn(VehicleKind.Tank, ground, yaw));
         Effects.Dust(ground, 24);
         Sfx.PlayAt(SoundBank.Explosion, ground, 0.7f, 0.5f);
         Destroy(gameObject);

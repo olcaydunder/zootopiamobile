@@ -77,9 +77,12 @@ public class LootSystem : MonoBehaviour
     {
         var crate = new GameObject("Loot_Supply");
         crate.transform.SetParent(transform, false);
-        crate.transform.position = ground;
-        AirdropCall.BuildSupplyModel(crate.transform);
-        var beacon = AbilityFx.Primitive(crate.transform, PrimitiveType.Cylinder, new Vector3(0f, 6f, 0f), new Vector3(0.25f, 5f, 0.25f), AbilityFx.Glass(new Color(1f, 0.5f, 0.15f, 0.3f)));
+        crate.transform.position = ground + Vector3.up * 0.65f;   // the crates bob around basePos
+        var model = new GameObject("Model").transform;
+        model.SetParent(crate.transform, false);
+        model.localPosition = new Vector3(0f, -0.65f, 0f);
+        AirdropCall.BuildSupplyModel(model);
+        var beacon = AbilityFx.Primitive(model, PrimitiveType.Cylinder, new Vector3(0f, 6f, 0f), new Vector3(0.25f, 5f, 0.25f), AbilityFx.Glass(new Color(1f, 0.5f, 0.15f, 0.3f)));
         beacon.name = "Beacon";
         // basePos is ~0.65 m above the ground for the pick-up height check, like the other crates.
         crates.Add(new Crate { obj = crate, type = LootType.Supply, basePos = ground + Vector3.up * 0.65f });

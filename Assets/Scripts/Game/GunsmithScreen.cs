@@ -452,12 +452,20 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     }
 
     /// <summary>Sizes the scrolling row to its cards and scrolls back to the start.</summary>
+    private int stripShownFor = -2;
+
     private void FinishStrip(int count, float width)
     {
         stripContent.sizeDelta = new Vector2(count * (width + 10f) + 10f, 170f);
-        stripContent.anchoredPosition = Vector2.zero;
-        if (stripScroll != null)
-            stripScroll.StopMovement();
+        int key = weaponIndex * 100 + slotIndex;
+        if (key != stripShownFor)
+        {
+            // Back to the start only when a different slot opens (not after equipping something).
+            stripShownFor = key;
+            stripContent.anchoredPosition = Vector2.zero;
+            if (stripScroll != null)
+                stripScroll.StopMovement();
+        }
     }
 
     private static string Describe(AttachmentDef a)
@@ -508,6 +516,12 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     private void ChooseAttachment(WeaponType w, AttachmentSlot slot, AttachmentDef a)
     {
         var profile = GameManager.Instance.profile;
+        var current = Gunsmith.Loadout(w);
+        if (a != null && Gunsmith.FindAttachment(current[(int)slot]) == null && Gunsmith.EquippedCount(current) >= Gunsmith.MaxEquipped)
+        {
+            Toast("En fazla " + Gunsmith.MaxEquipped + " aparat takılabilir — önce birini çıkar", Theme.Bad);
+            return;
+        }
         if (a != null && !Gunsmith.OwnsAttachment(a.id))
         {
             if (!Gunsmith.Buy(profile, a.id, a.price, false))

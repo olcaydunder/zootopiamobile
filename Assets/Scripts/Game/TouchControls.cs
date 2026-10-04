@@ -264,7 +264,7 @@ public class TouchControls : MonoBehaviour
     /// <summary>Called by the UI every frame to show only the buttons that make sense right now.</summary>
     public void UpdateContext(PlayerController player, bool vehicleNearby)
     {
-        bool onFoot = player.state == PlayerState.Ground && !player.isDowned && !player.IsSwimming;
+        bool onFoot = player.state == PlayerState.Ground && !player.isDowned && !player.IsSwimming && !player.isDead;
         if (combatGroup.activeSelf != onFoot)
             combatGroup.SetActive(onFoot);
 

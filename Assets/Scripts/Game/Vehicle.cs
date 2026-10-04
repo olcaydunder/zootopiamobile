@@ -14,6 +14,7 @@ public class Vehicle : MonoBehaviour, IDamageable
     public VehicleDef def;
 
     private CharacterController cc;
+    private BoxCollider hitBox;
     private Transform body;          // tilts with the ground / leans / banks
     private readonly List<Transform> wheels = new List<Transform>();
     private Transform handlebar, rotor, tailRotor, turret, gun, muzzle;
@@ -58,11 +59,11 @@ public class Vehicle : MonoBehaviour, IDamageable
         var d = VehicleDefs.Get(kind);
         var go = new GameObject(d.model);
         go.transform.position = groundPos + Vector3.up * 0.05f;
-        go.transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
         var v = go.AddComponent<Vehicle>();
         v.def = d;
+        v.Build();   // with no rotation, so the hit box is sized along the vehicle's own axes
         v.yaw = yawDeg;
-        v.Build();
+        go.transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
         return v;
     }
 
@@ -93,7 +94,11 @@ public class Vehicle : MonoBehaviour, IDamageable
             Bounds b = ModelLibrary.RenderBounds(model);
             var hit = new GameObject("HitBox");
             hit.transform.SetParent(transform, false);
+            var rb = hit.AddComponent<Rigidbody>();
+            rb.isKinematic = true;     // a moving collider should have a (kinematic) body
+            rb.useGravity = false;
             var box = hit.AddComponent<BoxCollider>();
+            hitBox = box;
             Vector3 local = transform.InverseTransformPoint(b.center);
             box.center = local;
             box.size = new Vector3(b.size.x * 0.9f, b.size.y * 0.85f, b.size.z * 0.92f);
@@ -209,11 +214,22 @@ public class Vehicle : MonoBehaviour, IDamageable
         float dt = Time.deltaTime;
         if (destroyed)
             return;
-        if (driver == null)
+        var gm = GameManager.Instance;
+        bool live = gm != null && gm.currentState == GameState.InGame;
+        if (driver == null || !live)
         {
             speed = Mathf.MoveTowards(speed, 0f, 10f * dt);
             steer = 0f;
             altitudeInput = 0f;
+            // Parked and settled: nothing to update.
+            bool parked = (speed == 0f && !def.flying && !def.water && cc.isGrounded && verticalVelocity <= -1.9f)
+                       || (def.flying && rotorSpeed <= 0f && HeightAboveGround < 0.3f && driver == null);
+            if (parked)
+            {
+                if (engine.isPlaying)
+                    engine.Stop();
+                return;
+            }
         }
         transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
@@ -268,7 +284,7 @@ public class Vehicle : MonoBehaviour, IDamageable
             Vector3 p = World.RandomOpenPoint(transform.position * 0.8f, 6f);
             cc.enabled = false;
             transform.position = p;
-            cc.enabled = true;
+            EnableController();
             speed = 0f;
         }
     }
@@ -287,14 +303,26 @@ public class Vehicle : MonoBehaviour, IDamageable
         cc.enabled = false;
         var p = transform.position;
         transform.position = new Vector3(p.x, PlayerController.WaterY - 0.05f, p.z);
+        EnableController();
+    }
+
+    /// <summary>Turns the controller back on; the ignore with its own hit box is lost when it was off.</summary>
+    private void EnableController()
+    {
         cc.enabled = true;
+        if (hitBox != null)
+            Physics.IgnoreCollision(cc, hitBox);
     }
 
     private void UpdateBoat(float dt)
     {
         // Only where it is deep enough: stop at the beach.
-        Vector3 ahead = transform.position + transform.forward * Mathf.Sign(speed) * 3.2f;
+        float look = Mathf.Max(3.2f, speed * speed / 60f + 2f);   // stopping distance
+        Vector3 ahead = transform.position + transform.forward * Mathf.Sign(speed) * look;
         if (Mathf.Abs(speed) > 0.05f && PlayerController.WaterDepthAt(ahead) < 0.7f)
+            speed = Mathf.MoveTowards(speed, 0f, 30f * dt);
+        float lim = World.MapSize * 0.5f - 10f;
+        if (Mathf.Abs(ahead.x) > lim || Mathf.Abs(ahead.z) > lim)
             speed = Mathf.MoveTowards(speed, 0f, 30f * dt);
         Vector3 move = transform.forward * speed * dt;
         float bob = Mathf.Sin(Time.time * 1.6f + transform.position.x * 0.1f) * 0.06f;
@@ -311,11 +339,13 @@ public class Vehicle : MonoBehaviour, IDamageable
     private void UpdateFlying(float dt)
     {
         rotorSpeed = Mathf.MoveTowards(rotorSpeed, driver != null ? 1f : 0f, dt * 0.5f);
-        float ground = GroundBelow();
+        float ground = Mathf.Max(GroundBelow(), PlayerController.WaterY);   // never into the sea
         HeightAboveGround = transform.position.y - ground;
         bool lifted = rotorSpeed > 0.75f;
 
-        Vector3 want = transform.forward * (lifted ? speed : 0f);
+        // Barely off the ground: it should take off, not race along the grass.
+        float groundFactor = Mathf.Clamp01((HeightAboveGround - 0.5f) / 2.5f);
+        Vector3 want = transform.forward * (lifted ? speed * Mathf.Lerp(0.15f, 1f, groundFactor) : 0f);
         float climb;
         if (driver == null)
             climb = HeightAboveGround > 0.2f ? -4f : 0f;              // settles down when abandoned
@@ -325,6 +355,8 @@ public class Vehicle : MonoBehaviour, IDamageable
             climb = altitudeInput * 9f + (altitudeInput == 0f ? 0f : 0f);
         if (HeightAboveGround > 160f && climb > 0f)
             climb = 0f;                                                // ceiling
+        if (HeightAboveGround < 0.4f && climb < 0f && transform.position.y <= PlayerController.WaterY + 0.5f)
+            climb = 0f;                                                // resting on the water surface
         want.y = climb;
         flyVelocity = Vector3.Lerp(flyVelocity, want, dt * 1.8f);
 
@@ -515,7 +547,7 @@ public class Vehicle : MonoBehaviour, IDamageable
         // A destroyed helicopter falls to the ground.
         if (destroyed && def.flying)
         {
-            float ground = GroundBelow();
+            float ground = Mathf.Max(GroundBelow(), PlayerController.WaterY);
             if (transform.position.y > ground + 0.1f)
                 cc.Move(Vector3.down * 12f * Time.deltaTime);
         }

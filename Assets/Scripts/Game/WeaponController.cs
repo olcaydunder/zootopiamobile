@@ -134,7 +134,7 @@ public class WeaponController : MonoBehaviour
             {
                 end = hit.point;
                 IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
-                bool body = target != null && !target.IsDead && !(target is IStructure);
+                bool body = target != null && !target.IsDead && !(target is IStructure) && !(target is Vehicle);
                 if (target != null && !target.IsDead && target.Team != shooterTeam)
                 {
                     bool head = body && hit.point.y - target.transform.position.y > 0.55f;

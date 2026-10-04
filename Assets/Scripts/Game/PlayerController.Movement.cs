@@ -310,6 +310,8 @@ public partial class PlayerController
 
     private void GoDown()
     {
+        if (state == PlayerState.Driving)
+            ExitVehicle();   // may leave you skydiving from a helicopter: landed just below
         EndVault();
         StopSwim();
         if (Ability != null)

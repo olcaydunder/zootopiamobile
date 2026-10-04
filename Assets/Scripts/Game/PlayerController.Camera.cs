@@ -104,7 +104,8 @@ public partial class PlayerController
         if (state == PlayerState.Driving)
         {
             lookYaw += look.x;
-            if (Mathf.Abs(look.x) < 0.01f)
+            bool turret = vehicle != null && vehicle.def.cannon;   // the tank aims where you look
+            if (Mathf.Abs(look.x) < 0.01f && !turret)
                 lookYaw = Mathf.MoveTowardsAngle(lookYaw, 0f, 40f * Time.deltaTime);
             cameraPivot.localRotation = Quaternion.Euler(pitch, lookYaw, 0f);
         }

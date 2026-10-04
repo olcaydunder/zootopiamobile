@@ -77,6 +77,8 @@ public class UIManager : MonoBehaviour
     private readonly List<Image> stationDots = new List<Image>();
     private readonly List<Image> airdropDots = new List<Image>();
     private readonly List<Image> vehicleDots = new List<Image>();
+    private readonly int[] vehicleDotKind = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+    private int driveHudKey = int.MinValue;
     private readonly List<Vector3> supplyScratch = new List<Vector3>();
     private readonly List<Image> markedIcons = new List<Image>();
     private readonly List<Image> footArrows = new List<Image>();
@@ -1006,12 +1008,21 @@ public class UIManager : MonoBehaviour
         else if (player.state == PlayerState.Driving && player.vehicle != null)
         {
             var veh = player.vehicle;
-            altitudeText.text = Mathf.RoundToInt(Mathf.Abs(veh.speed) * 3.6f) + " km/s" +
-                (veh.def.flying ? "   •   " + Mathf.RoundToInt(veh.HeightAboveGround) + " m" : "") +
-                "   •   Araç %" + Mathf.CeilToInt(veh.Health01 * 100f);
+            int kmh = Mathf.RoundToInt(Mathf.Abs(veh.speed) * 3.6f);
+            int alt = veh.def.flying ? Mathf.RoundToInt(veh.HeightAboveGround) : 0;
+            int hpPct = Mathf.CeilToInt(veh.Health01 * 100f);
+            int key = (kmh * 1000 + alt) * 101 + hpPct;
+            if (key != driveHudKey)
+            {
+                driveHudKey = key;
+                altitudeText.text = kmh + " km/s" + (veh.def.flying ? "   •   " + alt + " m" : "") + "   •   Araç %" + hpPct;
+            }
         }
         else
+        {
             altitudeText.text = "";
+            driveHudKey = int.MinValue;
+        }
 
         aliveText.text = "Kalan: " + gm.AliveCount();
         killsText.text = "Öldürme: " + player.kills;
@@ -1154,9 +1165,13 @@ public class UIManager : MonoBehaviour
                 break;
             if (v == null || v.Destroyed || v.driver != null)
                 continue;
-            var img = vehicleDots[vd++];
-            if (img.sprite == null || img.sprite.name != v.def.icon)
+            int slot = vd++;
+            var img = vehicleDots[slot];
+            if (vehicleDotKind[slot] != (int)v.def.kind)
+            {
+                vehicleDotKind[slot] = (int)v.def.kind;
                 Icons.Set(img, v.def.icon);
+            }
             img.color = v.def.cannon || v.def.flying ? new Color(1f, 0.8f, 0.3f, 1f) : new Color(1f, 1f, 1f, 0.85f);
             Place(img, v.transform.position);
         }
@@ -1164,9 +1179,13 @@ public class UIManager : MonoBehaviour
         {
             if (drop == null || vd >= vehicleDots.Count)
                 continue;
-            var img = vehicleDots[vd++];
-            if (img.sprite == null || img.sprite.name != "veh_tank")
+            int slot = vd++;
+            var img = vehicleDots[slot];
+            if (vehicleDotKind[slot] != (int)VehicleKind.Tank)
+            {
+                vehicleDotKind[slot] = (int)VehicleKind.Tank;
                 Icons.Set(img, "veh_tank");
+            }
             img.color = new Color(1f, 0.5f, 0.2f, 0.6f + 0.4f * Mathf.Sin(Time.time * 6f));
             Place(img, drop.Target);
         }

@@ -296,7 +296,7 @@ public static class WeaponDressing
         go.transform.localScale = scale;
         go.transform.localRotation = Quaternion.Euler(euler);
         var r = go.GetComponent<Renderer>();
-        r.sharedMaterial = unlit ? UIUtil.UnlitMaterial(color) : MaterialCache.Lit(color);
+        r.sharedMaterial = unlit ? AbilityFx.Glass(color) : MaterialCache.Lit(color);   // cached, no leak per rebuild
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return go.transform;
     }
@@ -350,6 +350,10 @@ public static class WeaponDressing
         Color dark = new Color(0.1f, 0.1f, 0.11f);
         Color metal = new Color(0.32f, 0.33f, 0.35f);
 
+        // Muzzle devices go on the end of a longer barrel, if one is fitted.
+        string barrel = data.attachments.Length > (int)AttachmentSlot.Barrel ? data.attachments[(int)AttachmentSlot.Barrel] : null;
+        float muzzleFront = front + (barrel == "long" ? len * 0.16f : barrel == "sniperb" ? len * 0.24f + 0.03f : 0f);
+
         foreach (var id in data.attachments)
         {
             var a = Gunsmith.FindAttachment(id);
@@ -358,12 +362,12 @@ public static class WeaponDressing
             switch (a.id)
             {
                 case "sup":
-                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.1f), new Vector3(0.05f, len * 0.1f, 0.05f), new Vector3(90f, 0f, 0f), dark, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, muzzleFront + len * 0.1f), new Vector3(0.05f, len * 0.1f, 0.05f), new Vector3(90f, 0f, 0f), dark, false);
                     break;
                 case "comp":
                 case "brake":
-                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + 0.035f), new Vector3(0.045f, 0.035f, 0.045f), new Vector3(90f, 0f, 0f), metal, false);
-                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY + 0.02f, front + 0.035f), new Vector3(0.012f, 0.015f, 0.05f), Vector3.zero, dark, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, muzzleFront + 0.035f), new Vector3(0.045f, 0.035f, 0.045f), new Vector3(90f, 0f, 0f), metal, false);
+                    Part(holder, PrimitiveType.Cube, new Vector3(0f, barrelY + 0.02f, muzzleFront + 0.035f), new Vector3(0.012f, 0.015f, 0.05f), Vector3.zero, dark, false);
                     break;
                 case "long":
                     Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.08f), new Vector3(0.025f, len * 0.08f, 0.025f), new Vector3(90f, 0f, 0f), metal, false);
@@ -404,11 +408,11 @@ public static class WeaponDressing
                     Part(holder, PrimitiveType.Cube, new Vector3(0f, top + 0.05f, midZ + 0.035f), new Vector3(0.05f, 0.045f, 0.008f), Vector3.zero, new Color(0.9f, 0.5f, 0.2f, 0.7f), true);
                     break;
                 case "flash":
-                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + 0.045f), new Vector3(0.04f, 0.045f, 0.04f), new Vector3(90f, 0f, 0f), dark, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, muzzleFront + 0.045f), new Vector3(0.04f, 0.045f, 0.04f), new Vector3(90f, 0f, 0f), dark, false);
                     break;
                 case "hsup":
-                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.13f), new Vector3(0.065f, len * 0.13f, 0.065f), new Vector3(90f, 0f, 0f), dark, false);
-                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front + len * 0.02f), new Vector3(0.07f, 0.012f, 0.07f), new Vector3(90f, 0f, 0f), metal, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, muzzleFront + len * 0.13f), new Vector3(0.065f, len * 0.13f, 0.065f), new Vector3(90f, 0f, 0f), dark, false);
+                    Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, muzzleFront + len * 0.02f), new Vector3(0.07f, 0.012f, 0.07f), new Vector3(90f, 0f, 0f), metal, false);
                     break;
                 case "heavy":
                     Part(holder, PrimitiveType.Cylinder, new Vector3(0f, barrelY, front - len * 0.06f), new Vector3(0.045f, len * 0.1f, 0.045f), new Vector3(90f, 0f, 0f), dark, false);

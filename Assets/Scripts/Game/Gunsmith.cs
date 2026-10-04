@@ -243,8 +243,7 @@ public static class Gunsmith
         var result = new string[SlotCount + 1];
         for (int i = 0; i < result.Length; i++)
             result[i] = "";
-        string raw = PlayerPrefs.GetString("zm_gs2_" + w, null);
-        if (raw == null)
+        if (!PlayerPrefs.HasKey("zm_gs2_" + w))
         {
             // Old format: 5 attachments (each put in its slot now) + camo.
             var old = PlayerPrefs.GetString("zm_gs_" + w, ",,,,,").Split(',');
@@ -259,7 +258,7 @@ public static class Gunsmith
             SetLoadout(w, result);
             return result;
         }
-        var parts = raw.Split(',');
+        var parts = PlayerPrefs.GetString("zm_gs2_" + w, "").Split(',');
         for (int i = 0; i < result.Length && i < parts.Length; i++)
             result[i] = parts[i];
         return result;
