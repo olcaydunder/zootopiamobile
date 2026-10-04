@@ -102,7 +102,7 @@ public class NetLobbyScreen : MonoBehaviour
         // Voice in a private room's waiting room, and inviting friends.
         voiceGroup = UIUtil.CreateRect(sg, "Voice", new Vector2(0f, 0f), new Vector2(330f, 110f), new Vector2(560f, 110f)).gameObject;
         var mic = UIUtil.CreateButton(voiceGroup.transform, "MİK", new Vector2(0f, 0.5f), new Vector2(70f, 0f), new Vector2(130f, 100f), Theme.Panel, false, 24, out micLabel);
-        mic.onClick.AddListener(() => VoiceChat.MicOn = !VoiceChat.MicOn);
+        mic.onClick.AddListener(VoiceChat.ToggleMic);
         var spk = UIUtil.CreateButton(voiceGroup.transform, "SES", new Vector2(0f, 0.5f), new Vector2(210f, 0f), new Vector2(130f, 100f), Theme.Panel, false, 24, out speakerLabel);
         spk.onClick.AddListener(() => VoiceChat.SpeakerOn = !VoiceChat.SpeakerOn);
         talkingText = UIUtil.CreateText(voiceGroup.transform, "", new Vector2(0f, 0.5f), new Vector2(430f, 0f), new Vector2(260f, 60f), 24, TextAnchor.MiddleLeft);

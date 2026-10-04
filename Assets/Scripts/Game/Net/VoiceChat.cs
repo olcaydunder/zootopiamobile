@@ -48,7 +48,8 @@ public class VoiceChat : MonoBehaviour
     private float[] micRead = new float[4096];
     private readonly List<float> pending = new List<float>(4096);
     private float resampleAcc;
-    private int resampleCount;
+    private float resampleCount;
+    private float[] micPiece = new float[2048];
     private float noiseFloor = 0.004f;
     private float lastVoiceTime = -10f;
     private byte seq;
@@ -142,7 +143,15 @@ public class VoiceChat : MonoBehaviour
         micPos = 0;
         pending.Clear();
         resampleAcc = 0f;
-        resampleCount = 0;
+        resampleCount = 0f;
+    }
+
+    /// <summary>The player tapped MİK: turn it on/off; asks for the microphone permission again if needed.</summary>
+    public static void ToggleMic()
+    {
+        MicOn = !MicOn;
+        if (MicOn && Instance != null)
+            Instance.permissionAsked = false;
     }
 
     private void StopMic()
@@ -174,17 +183,20 @@ public class VoiceChat : MonoBehaviour
             ReadMic(0, available - first, first);
         micPos = pos;
 
-        // 16 kHz (or whatever the device gives) -> 8 kHz by averaging.
+        // 16 kHz (or whatever the device gives, e.g. 44.1 / 48 kHz) -> 8 kHz: box average with a
+        // fractional step, so the pitch stays right for any input rate.
         float ratio = micRate / (float)NetRate;
         for (int i = 0; i < available; i++)
         {
-            resampleAcc += micRead[i];
-            resampleCount++;
-            if (resampleCount >= ratio)
+            float take = Mathf.Min(1f, ratio - resampleCount);
+            resampleAcc += micRead[i] * take;
+            resampleCount += take;
+            if (resampleCount >= ratio - 0.0001f)
             {
-                pending.Add(resampleAcc / resampleCount);
-                resampleAcc = 0f;
-                resampleCount = 0;
+                pending.Add(resampleAcc / ratio);
+                float rest = 1f - take;   // the part of this sample that belongs to the next output sample
+                resampleAcc = micRead[i] * rest;
+                resampleCount = rest;
             }
         }
 
@@ -199,9 +211,10 @@ public class VoiceChat : MonoBehaviour
     {
         if (count <= 0)
             return;
-        var tmp = new float[count];
-        micClip.GetData(tmp, offset);
-        System.Array.Copy(tmp, 0, micRead, into, count);
+        if (micPiece.Length != count)
+            micPiece = new float[count];   // GetData fills the whole array: it must be exactly this long
+        micClip.GetData(micPiece, offset);
+        System.Array.Copy(micPiece, 0, micRead, into, count);
     }
 
     private void SendFrame(NetClient net)
@@ -308,7 +321,6 @@ public class VoiceOut : MonoBehaviour
         src.clip = clip;
         src.loop = true;
         src.spatialBlend = 0f;
-        src.bypassEffects = true;
         src.priority = 0;
         src.volume = 1f;
         src.Play();

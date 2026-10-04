@@ -74,7 +74,8 @@ public class OnlineService : MonoBehaviour
     }
 
     private static OnlineService runner, socialRunner;
-    private static readonly List<UnityWebRequest> active = new List<UnityWebRequest>();
+    /// <summary>This runner's requests in flight (matchmaking ones can be cancelled, social ones are not touched).</summary>
+    private readonly List<UnityWebRequest> active = new List<UnityWebRequest>();
     private static string host = "";
     private static int apiPort = 8080;
     private static float endpointTime = -1000f;
@@ -136,13 +137,14 @@ public class OnlineService : MonoBehaviour
     /// <summary>Stops matchmaking requests (the friends list keeps working).</summary>
     public static void CancelAll()
     {
-        if (runner != null)
-            runner.StopAllCoroutines();
-        foreach (var r in active)
+        if (runner == null)
+            return;
+        runner.StopAllCoroutines();
+        foreach (var r in runner.active)
         {
             try { r.Abort(); r.Dispose(); } catch (System.Exception) { }
         }
-        active.Clear();
+        runner.active.Clear();
     }
 
     private IEnumerator Match(string method, string path, System.Action<MatchInfo> done)
@@ -219,7 +221,7 @@ public class OnlineService : MonoBehaviour
             view = new SocialView { ok = false, error = error ?? ("Sunucu yanıt vermedi (" + status + ")") };
         if (view.banned)
             BanMessage = view.error;
-        if (view.ok && view.me != null && view.friends != null)
+        if (view.ok && view.me != null && !string.IsNullOrEmpty(view.me.id) && view.friends != null)
         {
             Social = view;
             SocialTime = Time.realtimeSinceStartup;
@@ -336,7 +338,11 @@ public class OnlineService : MonoBehaviour
         {
             if (!HasAccount)
             {
-                yield return Register();
+                // Registration runs on the social runner, which is never cancelled (no half-done sign-up).
+                if (!registering)
+                    SocialRunner.StartCoroutine(SocialRunner.Register());
+                while (registering)
+                    yield return null;
                 if (!HasAccount)
                 {
                     done(0, null, "Hesap oluşturulamadı. İnternet bağlantını kontrol et.");
@@ -373,11 +379,7 @@ public class OnlineService : MonoBehaviour
     private IEnumerator Register()
     {
         if (registering)
-        {
-            while (registering)
-                yield return null;
             yield break;
-        }
         registering = true;
         var gm = GameManager.Instance;
         string name = gm != null ? gm.profile.playerName : "Oyuncu";
@@ -390,13 +392,13 @@ public class OnlineService : MonoBehaviour
                 try { answer = JsonUtility.FromJson<RegisterAnswer>(r.downloadHandler.text); } catch (System.Exception) { }
             }
         });
+        registering = false;
         if (answer != null && answer.ok && answer.id.Length > 0 && answer.secret.Length > 0)
         {
             PlayerPrefs.SetString("zm_acc_id", answer.id);
             PlayerPrefs.SetString("zm_acc_secret", answer.secret);
             PlayerPrefs.Save();
         }
-        registering = false;
     }
 
     /// <summary>Sends the current player name to the server (after renaming).</summary>

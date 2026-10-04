@@ -366,6 +366,10 @@ def is_online(acc, now=None):
 
 def too_many(ip, kind, limit, window=60):
     now = time.time()
+    if len(api_tries) > 20000:   # forget old entries now and then
+        api_tries.clear()
+        login_tries.clear()
+        create_times.clear()
     key = (ip, kind)
     times = [t for t in api_tries.get(key, []) if now - t < window]
     api_tries[key] = times
@@ -467,6 +471,7 @@ def log_tail(path, lines=150):
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "Zootopia/2"
+    timeout = 15   # a slow or silent client can't hold a thread for ever
 
     def log_message(self, fmt, *args):
         pass
@@ -523,7 +528,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(body or b"{}")
             return data if isinstance(data, dict) else {}
-        except ValueError:
+        except Exception:
             return {}
 
     def friends_view(self, me):
@@ -553,7 +558,7 @@ class Handler(BaseHTTPRequestHandler):
     def handle_account_post(self, path, q, body):
         ip = self.ip()
         if path == "/account/register":
-            if too_many(ip, "register", 5):
+            if too_many(ip, "register", 30):
                 self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
                 return
             data = self.body_json(body)
@@ -569,7 +574,7 @@ class Handler(BaseHTTPRequestHandler):
         if not me:
             return
         data = self.body_json(body)
-        other = (q.get("id") or data.get("id") or "").upper().replace("-", "").strip()
+        other = str(q.get("id") or data.get("id") or "").upper().replace("-", "").strip()[:12]
         if path == "/account/hello":
             q_run("UPDATE accounts SET name=?, version=?, device=? WHERE id=?",
                   (clean_name(data.get("name")), str(data.get("version", ""))[:40], str(data.get("device", ""))[:80], me["id"]))
@@ -590,6 +595,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if q_one("SELECT 1 FROM blocks WHERE owner=? AND target=?", (me["id"], target["id"])):
                 q_run("DELETE FROM blocks WHERE owner=? AND target=?", (me["id"], target["id"]))
+            if q_one("SELECT 1 FROM friends WHERE state='accepted' AND ((a=? AND b=?) OR (a=? AND b=?))", (me["id"], target["id"], target["id"], me["id"])):
+                self.reply(200, {"ok": True, "message": target["name"] + " zaten arkadaşın"})
+                return
             back = q_one("SELECT state FROM friends WHERE a=? AND b=?", (target["id"], me["id"]))
             if back:   # they asked first: accept
                 q_run("UPDATE friends SET state='accepted' WHERE a=? AND b=?", (target["id"], me["id"]))
@@ -610,6 +618,7 @@ class Handler(BaseHTTPRequestHandler):
             if not friend or not re.fullmatch(r"\d{6}", room):
                 self.reply(400, {"ok": False, "error": "Davet gönderilemedi"})
                 return
+            q_run("DELETE FROM invites WHERE created < ?", (time.time() - 3600,))
             q_run("INSERT OR REPLACE INTO invites VALUES (?,?,?,?,?)", (me["id"], other, room, str(data.get("mode", ""))[:8], time.time()))
             self.reply(200, {"ok": True})
         elif path == "/friends/dismiss":
@@ -722,10 +731,15 @@ class Handler(BaseHTTPRequestHandler):
                          (q.get("status", "open"),))
             self.reply(200, {"ok": True, "bugs": rows})
         elif path == "/admin/api/bug":
-            self.reply(200, {"ok": True, "bug": q_one("SELECT * FROM bugs WHERE id=?", (int(q.get("id", "0") or 0),))})
+            bid = q.get("id", "0")
+            self.reply(200, {"ok": True, "bug": q_one("SELECT * FROM bugs WHERE id=?", (int(bid) if bid.isdigit() else 0,))})
         elif path == "/admin/api/close":
             table = "reports" if data.get("kind") == "report" else "bugs"
-            q_run("UPDATE %s SET status=? WHERE id=?" % table, ("done" if data.get("done", True) else "open", int(data.get("id", 0))))
+            try:
+                item = int(data.get("id", 0))
+            except (TypeError, ValueError):
+                item = 0
+            q_run("UPDATE %s SET status=? WHERE id=?" % table, ("done" if data.get("done", True) else "open", item))
             self.reply(200, {"ok": True})
         elif path == "/admin/api/server":
             self.reply(200, {"ok": True, "recent": list(recent),
@@ -733,6 +747,9 @@ class Handler(BaseHTTPRequestHandler):
                              "log": log_tail(os.path.join(LOGS, "orchestrator.log"))})
         elif path == "/admin/api/password":
             new = str(data.get("password", ""))
+            if not admin_check(str(data.get("current", ""))):
+                self.reply(403, {"ok": False, "error": "Şu anki şifre yanlış"})
+                return
             if len(new) < 8:
                 self.reply(400, {"ok": False, "error": "En az 8 karakter"})
                 return
@@ -753,18 +770,41 @@ class Handler(BaseHTTPRequestHandler):
     # --- routing ---
 
     def do_GET(self):
+        try:
+            self.route_get()
+        except Exception as e:
+            log("GET failed", self.path[:80], repr(e))
+            try:
+                self.reply(500, {"ok": False, "error": "Sunucu hatası"})
+            except Exception:
+                pass
+
+    def do_POST(self):
+        try:
+            self.route_post()
+        except Exception as e:
+            log("POST failed", self.path[:80], repr(e))
+            try:
+                self.reply(500, {"ok": False, "error": "Sunucu hatası"})
+            except Exception:
+                pass
+
+    def route_get(self):
         path, q = self.params()
         if path == "/status":
             with lock:
+                shown = [dict(public_view(m), code=m["code"] if m["kind"] == "quick" else "******") for m in matches.values()]
                 self.reply(200, {"ok": True, "version": current_build.get("version"), "maxMatches": MAX_MATCHES,
-                                 "matches": [public_view(m) for m in matches.values()],
-                                 "recent": list(recent)})
+                                 "matches": shown, "recent": [dict(r, code="******") for r in recent]})
             return
         if path == "/admin" or path.startswith("/admin/"):
             self.handle_admin("GET", path, q, b"")
             return
         mm = re.fullmatch(r"/room/(\d{6})", path)
         if mm:
+            if too_many(self.ip(), "room", 20):
+                self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
+                return
             if not self.check_version(q):
                 return
             if self.headers.get("X-ZM-Id") and not self.account():
@@ -780,10 +820,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.reply(404, {"ok": False, "error": "not found"})
 
-    def do_POST(self):
+    def route_post(self):
         path, q = self.params()
-        limit = 65536 if path in ("/bug",) else 8192
-        length = min(int(self.headers.get("Content-Length") or 0), limit)
+        limit = 131072 if path in ("/bug",) else 8192
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > limit:
+            self.reply(413, {"ok": False, "error": "İstek çok büyük"})
+            return
         body = self.rfile.read(length) if length else b""
         ip = self.ip()
 
@@ -814,8 +860,13 @@ class Handler(BaseHTTPRequestHandler):
             accounts = [str(a).upper() for a in data.get("accounts", []) if isinstance(a, str)][:16]
             if accounts and data.get("state") in ("playing", "starting", "waiting"):
                 now = time.time()
+                in_room = m is not None and m["kind"] == "private" and data.get("state") == "waiting"
                 for a in accounts:
-                    q_run("UPDATE accounts SET status='match', room=?, status_time=?, last_seen=? WHERE id=?", (str(data.get("code", "")), now, now, a))
+                    if in_room:   # friends can see the code and join the waiting room
+                        q_run("UPDATE accounts SET status='room', room=?, room_mode=?, status_time=?, last_seen=? WHERE id=?",
+                              (m["code"], m["mode"], now, now, a))
+                    else:
+                        q_run("UPDATE accounts SET status='match', room=?, status_time=?, last_seen=? WHERE id=?", (str(data.get("code", "")), now, now, a))
                     if count_now:
                         q_run("UPDATE accounts SET matches=matches+1 WHERE id=?", (a,))
             self.reply(200, {"ok": True})
@@ -956,6 +1007,7 @@ async function login() {
 }
 $("#pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 $("#nav").addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.t); });
+$("#main").addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if (!b) return; if (b.dataset.act === "ban") ban(b.dataset.id, b.dataset.name); else if (b.dataset.act === "unban") unban(b.dataset.id); });
 function show(t) { tab = t; document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t)); render(); clearInterval(timer); if (t === "genel" || t === "sunucu") timer = setInterval(render, 10000); }
 async function render() { try { await ({genel, oyuncular, sikayetler, hatalar, sunucu, ayarlar})[tab](); } catch (e) { if (e.message !== "login") $("#main").innerHTML = '<div class="empty">Yüklenemedi: '+esc(e.message)+'</div>'; } }
 
@@ -994,7 +1046,7 @@ async function oyuncular(term) {
     <span class="name">${esc(p.name)}</span><span class="id">${p.id}</span>
     ${p.banned ? '<span class="pill bad">yasaklı</span>' : ""}${p.reports ? `<span class="pill acc">${p.reports} şikayet</span>` : ""}
     <span class="grow dim">son görülme ${ago(p.last_seen)} · ${p.matches} maç · ${esc(p.device||"")}${p.banned && p.ban_reason ? " · sebep: " + esc(p.ban_reason) : ""}</span>
-    ${p.banned ? `<button class="b green" onclick="unban('${p.id}')">Yasağı kaldır</button>` : `<button class="b red" onclick="ban('${p.id}','${esc(p.name)}')">Yasakla</button>`}
+    ${p.banned ? `<button class="b green" data-act="unban" data-id="${esc(p.id)}">Yasağı kaldır</button>` : `<button class="b red" data-act="ban" data-id="${esc(p.id)}" data-name="${esc(p.name)}">Yasakla</button>`}
   </div>`).join("") : '<div class="empty">Oyuncu yok</div>'}</div>`;
   const q = $("#q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
   q.oninput = () => { clearTimeout(q._t); q._t = setTimeout(() => oyuncular(q.value), 350); };
@@ -1017,7 +1069,7 @@ async function sikayetler() {
     ${r.target_banned ? '<span class="pill bad">yasaklı</span>' : ""}<span class="pill">${r.target_reports} şikayet</span>
     <span class="grow dim">${esc(r.reporter_name || "?")} şikayet etti · ${ago(r.created)}${r.match ? " · maç " + esc(r.match) : ""}</span>
     ${r.text ? `<div class="text">${esc(r.text)}</div>` : ""}
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${r.target_banned ? "" : `<button class="b red" onclick="ban('${esc(r.target)}','${esc(r.target_name||"")}')">Yasakla</button>`}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${r.target_banned ? "" : `<button class="b red" data-act="ban" data-id="${esc(r.target)}" data-name="${esc(r.target_name||"")}">Yasakla</button>`}
     <button class="b" onclick="closeItem('report',${r.id},${repStatus==="open"})">${repStatus==="open" ? "Kapat" : "Yeniden aç"}</button></div>
   </div>`).join("") : '<div class="empty">Şikayet yok</div>'}</div>`;
 }
@@ -1049,12 +1101,13 @@ async function sunucu() {
 }
 async function ayarlar() {
   $("#main").innerHTML = `<div class="card" style="max-width:420px"><h2 style="margin-top:0">Şifre değiştir</h2>
+  <input id="cp" type="password" placeholder="Şu anki şifre" autocomplete="current-password"><div style="height:10px"></div>
   <input id="np" type="password" placeholder="Yeni şifre (en az 8 karakter)" autocomplete="new-password"><div style="height:10px"></div>
   <button class="b primary" onclick="changePw()">Değiştir</button><div class="err" id="pwErr"></div>
   <p class="dim">Şifreyi değiştirince sunucudaki ilk şifre dosyası silinir ve herkesin oturumu kapanır.</p></div>
   <div style="height:12px"></div><button class="b" onclick="logout()">Çıkış yap</button>`;
 }
-async function changePw() { const j = await api("api/password", {password:$("#np").value}); if (!j.ok) { $("#pwErr").textContent = j.error; return; } toast(j.message); showLogin(); }
+async function changePw() { const j = await api("api/password", {current:$("#cp").value, password:$("#np").value}); if (!j.ok) { $("#pwErr").textContent = j.error; return; } toast(j.message); showLogin(); }
 async function logout() { await api("logout", {}); showLogin(); }
 
 (async () => { const r = await fetch("/admin/api/overview"); if (r.status === 401) showLogin(); else { $("#app").style.display = "block"; show("genel"); } })();

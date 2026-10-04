@@ -23,7 +23,7 @@ public class SocialScreen : MonoBehaviour
     private InputField bugField;
     private Toggle bugLogs;
     private GameObject reportPanel;
-    private Text reportTitle;
+    private Text reportTitle, reportHint;
     private InputField reportField;
     private readonly List<Image> reasonButtons = new List<Image>();
     private string reportTarget = "", reportMatch = "", reportReason = "";
@@ -164,8 +164,8 @@ public class SocialScreen : MonoBehaviour
         var box = UIUtil.CreateImage(dim, "Box", c, Vector2.zero, new Vector2(1100f, 820f), new Color(0.07f, 0.1f, 0.15f, 0.98f), false).transform;
         reportTitle = UIUtil.CreateText(box, "", c, new Vector2(0f, 340f), new Vector2(1000f, 60f), 40, TextAnchor.MiddleCenter);
         reportTitle.fontStyle = FontStyle.Bold;
-        var why = UIUtil.CreateText(box, "Sebep", c, new Vector2(0f, 270f), new Vector2(1000f, 40f), 26, TextAnchor.MiddleCenter);
-        why.color = Theme.TextDim;
+        reportHint = UIUtil.CreateText(box, "Sebep seç", c, new Vector2(0f, 270f), new Vector2(1000f, 40f), 26, TextAnchor.MiddleCenter);
+        reportHint.color = Theme.TextDim;
         for (int i = 0; i < ReasonIds.Length; i++)
         {
             int index = i;
@@ -244,7 +244,9 @@ public class SocialScreen : MonoBehaviour
         busy = true;
         var net = NetClient.Instance;
         bool room = net != null && net.State == NetClient.Phase.Lobby && net.PrivateRoom;
-        OnlineService.RefreshSocial(room ? "room" : "lobby", room ? net.RoomCode : "", net != null ? net.Mode : MatchMode.Solo, view =>
+        // During a match the game server reports "in a match": send no status then.
+        string status = InMatch ? "" : room ? "room" : "lobby";
+        OnlineService.RefreshSocial(status, room ? net.RoomCode : "", net != null ? net.Mode : MatchMode.Solo, view =>
         {
             busy = false;
             if (!view.ok && gameObject.activeSelf)
@@ -287,7 +289,7 @@ public class SocialScreen : MonoBehaviour
             }
             else
             {
-                if (social.invites.Length > 0)
+                if (social.invites.Length > 0 && !InMatch)
                 {
                     Section("ODA DAVETLERİ");
                     foreach (var inv in social.invites)
@@ -317,7 +319,7 @@ public class SocialScreen : MonoBehaviour
                     var p = f;
                     string state = !p.online ? "çevrimdışı" : p.status == "match" ? "maçta" : p.status == "room" ? "odada (" + p.room + ")" : "lobide";
                     var buttons = new List<RowButton>();
-                    if (p.online && p.status == "room" && p.room.Length == 6 && !(inRoom && net.RoomCode == p.room))
+                    if (!InMatch && p.online && p.status == "room" && p.room.Length == 6 && !(inRoom && net.RoomCode == p.room))
                         buttons.Add(Btn("KATIL", Theme.Accent, () => JoinRoom(p.room)));
                     if (p.online && inRoom)
                         buttons.Add(Btn("DAVET ET", new Color(0.16f, 0.45f, 0.95f, 0.95f), () => OnlineService.Invite(p.id, net.RoomCode, net.Mode, v => SetStatus(v.ok ? p.name + " davet edildi" : v.error))));
@@ -382,6 +384,16 @@ public class SocialScreen : MonoBehaviour
             }
         }
         content.sizeDelta = new Vector2(1500f, y + 20f);
+    }
+
+    /// <summary>Playing a match (online or with bots): joining another room from here is not allowed.</summary>
+    private static bool InMatch
+    {
+        get
+        {
+            var gm = GameManager.Instance;
+            return gm != null && gm.currentState != GameState.Lobby;
+        }
     }
 
     private static bool IsFriend(string account)
@@ -489,6 +501,8 @@ public class SocialScreen : MonoBehaviour
     private void SelectReason(int index)
     {
         reportReason = index >= 0 ? ReasonIds[index] : "";
+        reportHint.text = "Sebep seç";
+        reportHint.color = Theme.TextDim;
         for (int i = 0; i < reasonButtons.Count; i++)
             reasonButtons[i].color = i == index ? new Color(0.75f, 0.45f, 0.1f, 0.95f) : Theme.Panel;
     }
@@ -497,7 +511,8 @@ public class SocialScreen : MonoBehaviour
     {
         if (reportReason.Length == 0)
         {
-            SetStatus("Bir sebep seç");
+            reportHint.text = "Önce bir sebep seç";
+            reportHint.color = Theme.Bad;
             return;
         }
         reportPanel.SetActive(false);

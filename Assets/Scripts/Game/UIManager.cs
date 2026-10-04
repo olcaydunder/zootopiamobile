@@ -534,7 +534,7 @@ public class UIManager : MonoBehaviour
 
         // Voice chat (online, with teammates): microphone and speaker toggles + who is talking.
         var mic = UIUtil.CreateButton(t, "MİK", new Vector2(0f, 1f), new Vector2(185f, -60f), new Vector2(120f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 24, out micLabel);
-        mic.onClick.AddListener(() => VoiceChat.MicOn = !VoiceChat.MicOn);
+        mic.onClick.AddListener(VoiceChat.ToggleMic);
         micButton = mic.gameObject;
         var spk = UIUtil.CreateButton(t, "SES", new Vector2(0f, 1f), new Vector2(315f, -60f), new Vector2(120f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 24, out speakerLabel);
         spk.onClick.AddListener(() => VoiceChat.SpeakerOn = !VoiceChat.SpeakerOn);
@@ -622,9 +622,9 @@ public class UIManager : MonoBehaviour
                 string key = inv.id + inv.room;
                 if (seenInvites.Contains(key))
                     continue;
-                seenInvites.Add(key);
                 if (lobbyPanel.activeSelf && !(net != null && net.State != NetClient.Phase.Idle))
                 {
+                    seenInvites.Add(key);   // shown once; still listed in ARKADAŞLAR until it expires
                     inviteRoom = inv.room;
                     inviteFrom = inv.id;
                     inviteText.text = inv.name + " seni " + (inv.mode ?? "").ToUpper() + " odasına çağırıyor";

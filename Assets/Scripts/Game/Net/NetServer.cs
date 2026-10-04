@@ -55,7 +55,7 @@ public sealed class NetServer : MonoBehaviour
     private const float PrivateCountdown = 4f;
     private const double EmptyQuitAfter = 180.0;
     private const double MaxMatchLength = 40 * 60;
-    private const int EntitiesPerMessage = 8;   // worst case ~110 bytes each: stays under NetConnection.MaxMessage
+    private const int EntitiesPerMessage = 7;   // worst case ~110 bytes each: stays under NetConnection.MaxMessage
     private const int CratesPerMessage = 90;
 
     private NetGame.ServerArgs args;
@@ -139,7 +139,7 @@ public sealed class NetServer : MonoBehaviour
             peers[i].conn.Flush(now, peers[i].output);
 
         if (now >= nextReport)
-            Report(phase == Phase.Playing || phase == Phase.Countdown);   // keeps friends' "in a match" status fresh
+            Report(peers.Count > 0 && phase != Phase.Ended);   // keeps friends' "in a room / match" status fresh
         if (quitAt > 0 && now >= quitAt)
             Quit();
     }
@@ -189,6 +189,12 @@ public sealed class NetServer : MonoBehaviour
         {
             int proto = reader.Byte();
             uint nonce = reader.UInt();
+            if (proto != NetProtocol.Version)
+            {
+                // Older / newer game: its hello may be laid out differently, so answer before reading the rest.
+                SendReject(from, nonce, "Sürüm uyuşmuyor: oyunu güncelle");
+                return;
+            }
             string ver = reader.String();
             string code = reader.String();
             string name = CleanName(reader.String());
@@ -1000,7 +1006,7 @@ public sealed class NetServer : MonoBehaviour
         bool lobby = phase == Phase.Waiting || phase == Phase.Countdown;
         if (lobby && !args.privateRoom)
             return;
-        if (!lobby && (p.entity == null || p.entity.human == null || phase != Phase.Playing))
+        if (!lobby && (p.entity == null || p.entity.human == null || p.entity.human.dead || phase != Phase.Playing))
             return;
         w.Reset();
         w.Byte(NetProtocol.S_Voice);

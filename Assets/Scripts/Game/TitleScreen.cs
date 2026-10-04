@@ -173,6 +173,7 @@ public class TitleScreen : MonoBehaviour
 
         fade = UIUtil.CreateImage(title.transform, "Fade", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(5000f, 3000f), Color.black, false);
         fade.raycastTarget = false;
+        fade.transform.SetSiblingIndex(0);   // only the city fades between shots, not the logo and buttons
         title.SetActive(false);
     }
 
