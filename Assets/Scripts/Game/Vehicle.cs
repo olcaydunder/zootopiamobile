@@ -20,6 +20,24 @@ public class Vehicle : MonoBehaviour, IDamageable
     private float verticalVelocity;
     private AudioSource engine;
     private readonly Dictionary<IDamageable, float> lastHit = new Dictionary<IDamageable, float>();
+    private readonly List<Renderer> paintParts = new List<Renderer>();
+    private readonly List<Material> paintOriginal = new List<Material>();
+    private string camoShown = "";
+
+    /// <summary>Paints the body with a vehicle camo (Cosmetics.VehicleCamos); "" restores the factory paint.</summary>
+    public void SetCamo(string id)
+    {
+        id = id ?? "";
+        if (id == camoShown)
+            return;
+        if (paintOriginal.Count == 0)
+            foreach (var r in paintParts)
+                paintOriginal.Add(r.sharedMaterial);
+        var mat = WeaponDressing.CamoMaterial(Cosmetics.FindVehicleCamo(id), 1.73f, 1.2f);
+        for (int i = 0; i < paintParts.Count; i++)
+            paintParts[i].sharedMaterial = mat != null ? mat : paintOriginal[i];
+        camoShown = id;
+    }
 
     public int Team { get { return driver != null ? driver.Team : -99; } }
     public bool IsDead { get { return driver == null; } }   // empty jeeps don't count as targets
@@ -64,11 +82,11 @@ public class Vehicle : MonoBehaviour, IDamageable
         body.SetParent(transform, false);
 
         Color dark = new Color(0.15f, 0.15f, 0.15f);
-        Part(body, PrimitiveType.Cube, new Vector3(0f, 0.75f, 0f), new Vector3(1.9f, 0.6f, 3.9f), paint);
-        Part(body, PrimitiveType.Cube, new Vector3(0f, 1.1f, 1.35f), new Vector3(1.85f, 0.2f, 1.1f), paint * 0.9f);
+        paintParts.Add(Part(body, PrimitiveType.Cube, new Vector3(0f, 0.75f, 0f), new Vector3(1.9f, 0.6f, 3.9f), paint).GetComponent<Renderer>());
+        paintParts.Add(Part(body, PrimitiveType.Cube, new Vector3(0f, 1.1f, 1.35f), new Vector3(1.85f, 0.2f, 1.1f), paint * 0.9f).GetComponent<Renderer>());
         Part(body, PrimitiveType.Cube, new Vector3(0f, 1.45f, 0.65f), new Vector3(1.7f, 0.55f, 0.06f), new Color(0.4f, 0.55f, 0.65f));
         Part(body, PrimitiveType.Cube, new Vector3(0f, 1.15f, -0.5f), new Vector3(0.6f, 0.6f, 0.15f), dark);
-        Part(body, PrimitiveType.Cube, new Vector3(0f, 1.0f, -1.6f), new Vector3(1.8f, 0.35f, 0.6f), paint * 0.85f);
+        paintParts.Add(Part(body, PrimitiveType.Cube, new Vector3(0f, 1.0f, -1.6f), new Vector3(1.8f, 0.35f, 0.6f), paint * 0.85f).GetComponent<Renderer>());
         Part(body, PrimitiveType.Cube, new Vector3(0f, 0.7f, 1.98f), new Vector3(1.7f, 0.3f, 0.08f), dark);
         Part(body, PrimitiveType.Sphere, new Vector3(-0.6f, 0.8f, 1.98f), new Vector3(0.22f, 0.22f, 0.1f), new Color(1f, 0.95f, 0.7f));
         Part(body, PrimitiveType.Sphere, new Vector3(0.6f, 0.8f, 1.98f), new Vector3(0.22f, 0.22f, 0.1f), new Color(1f, 0.95f, 0.7f));
@@ -216,7 +234,10 @@ public class Vehicle : MonoBehaviour, IDamageable
     {
         driver = p;
         if (p != null)
+        {
             yaw = transform.eulerAngles.y;
+            SetCamo(Cosmetics.EquippedVehicleCamo);   // your vehicle skin shows on whatever you drive
+        }
     }
 
     public Vector3 ExitPosition()

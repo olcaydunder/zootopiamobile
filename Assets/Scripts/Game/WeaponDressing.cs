@@ -239,19 +239,9 @@ public static class WeaponDressing
         {
             var mf = r.GetComponent<MeshFilter>();
             float extent = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.size.magnitude : 1f;
-            string key = camo.id + "_" + Mathf.RoundToInt(extent * 100f);
-            Material mat;
-            if (!camoMaterials.TryGetValue(key, out mat) || mat == null)
-            {
-                mat = new Material(camoBase);
-                mat.SetTexture("_PatternTex", Pattern(camo));
-                mat.SetFloat("_Scale", 2.2f / Mathf.Max(0.001f, extent));   // ~2 repeats along the gun, whatever the units
-                mat.SetColor("_GlowColor", camo.glow);
-                mat.SetFloat("_Shininess", Mathf.Lerp(0.15f, 0.9f, camo.gloss));
-                mat.SetFloat("_Gloss", camo.gloss);
-                mat.SetFloat("_Flow", camo.pattern == 5 ? 0.02f : 0f);
-                camoMaterials[key] = mat;
-            }
+            var mat = CamoMaterial(camo, extent, 2.2f);
+            if (mat == null)
+                return;
 
             var mats = r.sharedMaterials;
             for (int i = 0; i < mats.Length; i++)
@@ -264,6 +254,35 @@ public static class WeaponDressing
             }
             r.sharedMaterials = mats;
         }
+    }
+
+    /// <summary>
+    /// Shared camo material for a mesh of the given size (object-space bounds diagonal):
+    /// about <paramref name="repeats"/> pattern repeats across it, whatever the model's units.
+    /// Used for guns, vehicles and parachutes. Null if the camo shader is missing.
+    /// </summary>
+    public static Material CamoMaterial(CamoDef camo, float extent, float repeats)
+    {
+        if (camo == null || string.IsNullOrEmpty(camo.id))
+            return null;
+        if (camoBase == null)
+            camoBase = Resources.Load<Material>("ZootopiaCamo");
+        if (camoBase == null)
+            return null;
+        string key = camo.id + "_" + Mathf.RoundToInt(extent * 100f) + "_" + Mathf.RoundToInt(repeats * 10f);
+        Material mat;
+        if (!camoMaterials.TryGetValue(key, out mat) || mat == null)
+        {
+            mat = new Material(camoBase);
+            mat.SetTexture("_PatternTex", Pattern(camo));
+            mat.SetFloat("_Scale", repeats / Mathf.Max(0.001f, extent));
+            mat.SetColor("_GlowColor", camo.glow);
+            mat.SetFloat("_Shininess", Mathf.Lerp(0.15f, 0.9f, camo.gloss));
+            mat.SetFloat("_Gloss", camo.gloss);
+            mat.SetFloat("_Flow", camo.pattern == 5 ? 0.02f : 0f);
+            camoMaterials[key] = mat;
+        }
+        return mat;
     }
 
     private static Transform Part(Transform parent, PrimitiveType type, Vector3 pos, Vector3 scale, Vector3 euler, Color color, bool unlit)

@@ -156,6 +156,9 @@ public class BotAgent : MonoBehaviour, IDamageable
         airVelocity = forward * 10f;
         rig.SetVisible(true);
         rig.pose = RigPose.Freefall;
+        // Bots show off a random parachute from the catalogue.
+        var list = Cosmetics.ParachuteCamos;
+        rig.parachuteCamo = list[Random.Range(0, list.Count)].id;
     }
 
     private void UpdateAir()

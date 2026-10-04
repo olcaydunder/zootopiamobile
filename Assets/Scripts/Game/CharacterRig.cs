@@ -31,6 +31,12 @@ public class CharacterRig : MonoBehaviour
     private Transform head;
     private Transform armL, armR, legL, legR;
     private GameObject canopy;
+    private Renderer canopyCloth;
+    private Material canopyDefault;
+    private string canopyCamoShown = "";
+
+    /// <summary>Parachute camo id (Cosmetics.ParachuteCamos); applied when the canopy opens.</summary>
+    public string parachuteCamo = "";
     private Vector3 lastPos;
     private float speed;
     private float phase;
@@ -141,7 +147,10 @@ public class CharacterRig : MonoBehaviour
         cloth.transform.SetParent(canopy.transform, false);
         cloth.transform.localPosition = new Vector3(0f, 3.2f, 0f);
         cloth.transform.localScale = new Vector3(3.4f, 0.9f, 2.6f);
-        cloth.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(helmet * 0.6f + new Color(0.4f, 0.35f, 0.3f));
+        canopyCloth = cloth.GetComponent<Renderer>();
+        canopyDefault = MaterialCache.Lit(helmet * 0.6f + new Color(0.4f, 0.35f, 0.3f));
+        canopyCloth.sharedMaterial = canopyDefault;
+        canopyCamoShown = "";
         for (int i = 0; i < 4; i++)
         {
             float sx = i % 2 == 0 ? -1f : 1f;
@@ -157,6 +166,15 @@ public class CharacterRig : MonoBehaviour
             line.GetComponent<Renderer>().sharedMaterial = MaterialCache.Lit(new Color(0.85f, 0.85f, 0.8f));
         }
         canopy.SetActive(false);
+    }
+
+    private void ApplyCanopyCamo()
+    {
+        canopyCamoShown = parachuteCamo ?? "";
+        if (canopyCloth == null)
+            return;
+        var mat = WeaponDressing.CamoMaterial(Cosmetics.FindParachuteCamo(canopyCamoShown), 1.73f, 1.6f);
+        canopyCloth.sharedMaterial = mat != null ? mat : canopyDefault;
     }
 
     public void SetVisible(bool visible)
@@ -201,6 +219,8 @@ public class CharacterRig : MonoBehaviour
         speed = Mathf.Lerp(speed, delta.magnitude / dt, dt * 10f);
 
         canopy.SetActive(pose == RigPose.Parachute);
+        if (pose == RigPose.Parachute && canopyCamoShown != (parachuteCamo ?? ""))
+            ApplyCanopyCamo();
 
         if (model != null)
         {

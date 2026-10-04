@@ -70,6 +70,7 @@ public partial class PlayerController
         state = PlayerState.Plane;
         controller.enabled = false;
         rig.SetVisible(false);
+        rig.parachuteCamo = Cosmetics.EquippedParachuteCamo;
         currentWeapon.gameObject.SetActive(false);
         camTarget = 22f;
         camDistance = 22f;

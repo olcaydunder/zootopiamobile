@@ -131,6 +131,7 @@ public class UIManager : MonoBehaviour
         if (gunsmith != null) gunsmith.Hide();
         if (matchPrep != null) matchPrep.Hide();
         if (career != null) career.Hide();
+        if (loadout != null) loadout.Hide();
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -182,6 +183,16 @@ public class UIManager : MonoBehaviour
             .onClick.AddListener(() => OpenSettings(false));
 
         // Left tiles
+        var loadTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, 335f), new Vector2(440f, 130f), Theme.Panel, false, 20, out unused);
+        loadTile.onClick.AddListener(OpenLoadout);
+        var lt = loadTile.transform;
+        UIUtil.CreateImage(lt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 130f), new Color(0.3f, 0.85f, 0.5f), false).raycastTarget = false;
+        var lTitle = UIUtil.CreateText(lt, "TEÇHİZAT", new Vector2(0f, 1f), new Vector2(240f, -38f), new Vector2(300f, 50f), 32, TextAnchor.MiddleLeft);
+        lTitle.fontStyle = FontStyle.Bold;
+        lobbyClassIcon = Icons.Create(lt, "class_medic", new Vector2(0f, 0.5f), new Vector2(56f, 0f), new Vector2(84f, 84f));
+        lobbyClassText = UIUtil.CreateText(lt, "", new Vector2(0f, 0f), new Vector2(240f, 36f), new Vector2(300f, 40f), 22, TextAnchor.MiddleLeft);
+        lobbyClassText.color = Theme.TextDim;
+
         var gunsmithTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, 150f), new Vector2(440f, 170f), Theme.Panel, false, 20, out unused);
         gunsmithTile.onClick.AddListener(OpenGunsmith);
         var gt = gunsmithTile.transform;
@@ -252,6 +263,7 @@ public class UIManager : MonoBehaviour
         gunsmith = GunsmithScreen.Create(canvas.transform);
         matchPrep = MatchPrepScreen.Create(canvas.transform);
         career = CareerScreen.Create(canvas.transform);
+        loadout = LoadoutScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -272,6 +284,12 @@ public class UIManager : MonoBehaviour
         }
         if (lobbyStartLabel != null)
             lobbyStartLabel.text = "BAŞLAT  •  " + selectedMode.ToString().ToUpper();
+    }
+
+    private void OpenLoadout()
+    {
+        HideAll();
+        loadout.Open(ShowLobby);
     }
 
     private void OpenCareer()
@@ -544,6 +562,9 @@ public class UIManager : MonoBehaviour
     private Image crossH, crossV;
     private MatchPrepScreen matchPrep;
     private CareerScreen career;
+    private LoadoutScreen loadout;
+    private Image lobbyClassIcon;
+    private Text lobbyClassText;
     private Image lobbyRankIcon;
     private RectTransform resultRewards;
     private Text resultLevel;
@@ -715,6 +736,9 @@ public class UIManager : MonoBehaviour
         lobbyLevelText.text = p.RankName.ToUpper() + "  •  SV " + p.level + (p.IsMaxLevel ? "" : "   •   " + p.xp + " / " + p.XpForNextLevel + " XP");
         lobbyXpFill.sizeDelta = new Vector2(360f * (p.IsMaxLevel ? 1f : Mathf.Clamp01((float)p.xp / Mathf.Max(1, p.XpForNextLevel))), 8f);
         Icons.Set(lobbyRankIcon, Icons.Rank(p.RankIndex));
+        var cls = ClassDefs.Get(ClassDefs.Selected);
+        Icons.Set(lobbyClassIcon, cls.icon);
+        lobbyClassText.text = "Sınıf: " + cls.name + "  •  jeton ve kamuflaj";
         lobbyCoinsText.text = p.coins.ToString("N0");
         float winRate = p.matches > 0 ? 100f * p.wins / p.matches : 0f;
         lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nToplam öldürme " + p.totalKills;
