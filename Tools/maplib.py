@@ -3,7 +3,8 @@ import json, math
 import numpy as np
 from PIL import Image
 
-ROOT = "MapData"
+import os
+ROOT = "MapData/" + os.environ.get("MAP_ID", "eksioglu")
 meta = json.load(open(f"{ROOT}/meta.json"))
 LAT0, LON0 = meta["center"]
 Z = meta["zoom"]

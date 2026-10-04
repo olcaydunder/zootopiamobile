@@ -1,10 +1,14 @@
-"""Downloads real-world data for the game map (runs on GitHub Actions, which has internet).
-Elevation: AWS Terrain Tiles (terrarium PNG). Map features: OpenStreetMap via Overpass."""
+"""Downloads real-world data for a game map (runs on GitHub Actions, which has internet).
+Elevation: AWS Terrain Tiles (terrarium PNG). Map features: OpenStreetMap via Overpass.
+
+Environment: MAP_ID (folder under MapData/), QUERIES (place names to geocode, separated by "|")
+or LAT + LON, HALF_KM (half size of the downloaded square)."""
 import json, math, os, sys, time, urllib.parse, urllib.request
 
 UA = {"User-Agent": "ZootopiaMobile-mapfetch/1.0 (github.com/olcaydunder/zootopiamobile)"}
-OUT = "MapData"
-HALF_KM = float(os.environ.get("HALF_KM", "1.3"))
+MAP_ID = os.environ.get("MAP_ID", "eksioglu").strip() or "eksioglu"
+OUT = "MapData/" + MAP_ID
+HALF_KM = float(os.environ.get("HALF_KM", "1.3") or "1.3")
 os.makedirs(OUT, exist_ok=True)
 
 def get(url, data=None, tries=4):
@@ -17,15 +21,20 @@ def get(url, data=None, tries=4):
             print("retry", url[:90], e); time.sleep(5 * (i + 1))
     raise SystemExit("failed: " + url)
 
-# 1) Geocode the clinic (fallbacks: street, neighbourhood)
+# 1) Centre: given coordinates, or geocode the place names in order (fallbacks).
 center = None
-for q in ["Turgut Özal Caddesi 179, Ekşioğlu, Çekmeköy, İstanbul",
-          "Turgut Özal Caddesi, Ekşioğlu, Çekmeköy, İstanbul",
-          "Ekşioğlu Mahallesi, Çekmeköy, İstanbul"]:
-    res = json.loads(get("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + urllib.parse.quote(q)))
-    print(q, "->", res[:1])
-    if res:
-        center = (float(res[0]["lat"]), float(res[0]["lon"])); query = q; break
+query = ""
+if os.environ.get("LAT") and os.environ.get("LON"):
+    center = (float(os.environ["LAT"]), float(os.environ["LON"])); query = "coordinates"
+queries = [q.strip() for q in os.environ.get("QUERIES", "Turgut Özal Caddesi 179, Ekşioğlu, Çekmeköy, İstanbul|"
+           "Turgut Özal Caddesi, Ekşioğlu, Çekmeköy, İstanbul|Ekşioğlu Mahallesi, Çekmeköy, İstanbul").split("|") if q.strip()]
+places = []
+for q in queries:
+    res = json.loads(get("https://nominatim.openstreetmap.org/search?format=json&limit=3&q=" + urllib.parse.quote(q)))
+    print(q, "->", res[:3])
+    places.append({"query": q, "results": res[:3]})
+    if res and center is None:
+        center = (float(res[0]["lat"]), float(res[0]["lon"])); query = q
     time.sleep(1.5)
 if center is None:
     raise SystemExit("geocode failed")
@@ -69,6 +78,10 @@ q = f"""[out:json][timeout:170];
   way["waterway"]({b});
   way["barrier"]({b});
   way["railway"]({b});
+  way["water"]({b});
+  relation["water"]({b});
+  way["place"]({b});
+  node["place"]({b});
   node["name"]({b});
 );
 out body geom;"""
@@ -83,5 +96,5 @@ if osm is None:
 open(f"{OUT}/osm.json", "wb").write(osm)
 print("osm bytes", len(osm), "elements", len(json.loads(osm)["elements"]))
 
-json.dump({"query": query, "center": [lat, lon], "bbox": bbox, "half_km": HALF_KM, "zoom": Z, "tiles": tiles},
+json.dump({"id": MAP_ID, "query": query, "places": places, "center": [lat, lon], "bbox": bbox, "half_km": HALF_KM, "zoom": Z, "tiles": tiles},
           open(f"{OUT}/meta.json", "w"), indent=1)

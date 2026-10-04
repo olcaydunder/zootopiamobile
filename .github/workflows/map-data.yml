@@ -1,10 +1,38 @@
 name: Harita verisi indir
 
+# Gerçek bir yerin yükseklik verisini ve OpenStreetMap verisini MapData/<harita>/ içine indirir.
+# Elle başlatılır: Actions > "Harita verisi indir" > Run workflow (harita kimliği + yer adı ya da koordinat).
+
 on:
   workflow_dispatch:
+    inputs:
+      map_id:
+        description: 'Harita kimliği (klasör adı), örn. senir'
+        required: true
+        default: 'eksioglu'
+      queries:
+        description: 'Yer adları (| ile ayrılmış, ilk bulunan merkez olur)'
+        required: false
+        default: ''
+      lat:
+        description: 'Merkez enlem (boşsa yer adından bulunur)'
+        required: false
+        default: ''
+      lon:
+        description: 'Merkez boylam'
+        required: false
+        default: ''
+      half_km:
+        description: 'İndirilecek karenin yarı genişliği (km)'
+        required: false
+        default: '1.3'
 
 permissions:
   contents: write
+
+concurrency:
+  group: map-data
+  cancel-in-progress: false
 
 jobs:
   fetch:
@@ -15,11 +43,19 @@ jobs:
         with:
           python-version: "3.12"
       - name: Download elevation + OpenStreetMap
+        env:
+          MAP_ID: ${{ inputs.map_id }}
+          QUERIES: ${{ inputs.queries }}
+          LAT: ${{ inputs.lat }}
+          LON: ${{ inputs.lon }}
+          HALF_KM: ${{ inputs.half_km }}
         run: python Tools/fetch_map.py
       - name: Commit MapData
+        env:
+          MAP_ID: ${{ inputs.map_id }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add MapData
-          git commit -m "Map data: elevation + OpenStreetMap around the clinic [skip ci]" || echo "no changes"
-          git push
+          git commit -m "Map data: $MAP_ID (elevation + OpenStreetMap) [skip ci]" || echo "no changes"
+          for i in 1 2 3; do git pull --rebase origin main && git push && break; sleep 5; done
