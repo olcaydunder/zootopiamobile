@@ -8,7 +8,11 @@
 ## Özellikler
 
 - **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
-- **Gerçek harita: Çekmeköy / Ekşioğlu.** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar (şeritli asfalt, kaldırımlar, sokak lambaları), parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir (ganimet içeride); klinik tabelasıyla lobinin arka planında. Haritanın etrafı deniz
+- **Üç gerçek harita, lobiden seçilir (HARİTA düğmesi):**
+  - **Ekşioğlu (Çekmeköy, İstanbul):** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar, parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir; klinik tabelasıyla lobinin arka planında. Haritanın etrafı deniz.
+  - **Senir Kasabası (Keçiborlu, Isparta):** Burdur Gölü kıyısından kasabanın arkasındaki ormanlık dağa kadar bütün kasaba (1,1×1,1 km oyun alanı). 3,4 km uzunluğundaki kasaba haritaya sığsın diye uzunlamasına sıkıştırıldı, evler gerçek boyutunda; sokaklar OpenStreetMap'ten, ~400 bahçeli ev sokaklara göre yerleştirildi (OSM'de Senir'in evleri çizili değil). Tarlalar, meyve bahçeleri, gölde yüzme ve tekne, "SENİR — KASABAMIZA HOŞ GELDİNİZ" tabelası.
+  - **Fırat Üniversitesi (Rektörlük Kampüsü, Elazığ):** gerçek ölçekli 1×1 km kampüs: fakülteler, rektörlük binası (tabelalı), kampüs yolları, çevre mahalleler; çevresi tepelerle kapalı.
+  - Haritalar `Tools/build_map.py <harita>` ile `MapData/<harita>/` verisinden üretilir (veri: Actions → "Harita verisi indir").
 - **Yakınlaşan mini harita:** Yerdeyken oyuncunun çevresini yakın gösterir, uçakta tüm haritayı
 - **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar; kum torbası, bariyer, konteyner, varil gibi 3D siper modelleri
 - **Karakterler:** Animasyonlu 3D karakter modelleri (asker, işçi, kovboy, ninja, doktor); bekleme, koşma, ateş etme, darbe alma ve ölme animasyonları

@@ -70,21 +70,27 @@ Used by the terrain (5-layer splat), building façades (`Zootopia/Facade`), road
 | bark | [Bark Brown 01](https://polyhaven.com/a/bark_brown_01) | Rob Tuytel |
 | metal | [Corrugated Iron](https://polyhaven.com/a/corrugated_iron) | Jenelle van Heerden, Dimitrios Savva |
 
-`Assets/Resources/UI/KeyArt.jpg` (loading screen) was rendered in Blender from the game's own map data and the Kasap Leydi model.
+`Assets/Resources/UI/Logo.png` (loading and title screens) is drawn by `Tools/make_logo.py` (own design: the first O of
+ZOOTOPIA is a sight with a paw print) using [Russo One](https://fonts.google.com/specimen/Russo+One) by Jovanny Lemonad and
+[Teko](https://fonts.google.com/specimen/Teko) by Indian Type Foundry – SIL Open Font License 1.1 (`Tools/fonts/`, license texts alongside).
 
 ## Font
 
 [Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) SemiBold by Jeremy Tribby – SIL Open Font License 1.1
 (`Assets/Resources/Fonts/`, license text alongside).
 
-## Map data (Çekmeköy, Ekşioğlu)
+## Map data
 
-The battle map is the real neighbourhood around Zootopia Veteriner Kliniği (Turgut Özal Cd., Ekşioğlu, Çekmeköy/İstanbul).
+Three real places: the neighbourhood around Zootopia Veteriner Kliniği (Turgut Özal Cd., Ekşioğlu, Çekmeköy/İstanbul),
+the town of Senir (Keçiborlu/Isparta) between Lake Burdur and the mountain behind it, and the rectorate campus of
+Fırat Üniversitesi (Üniversite Mahallesi, Elazığ).
 
 | Data | Source | License |
 | --- | --- | --- |
-| Buildings, streets, parks, woods | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors | ODbL 1.0 (attribution shown in the game lobby) |
+| Buildings, streets, parks, woods | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors | ODbL 1.0 (attribution shown in the game lobby and the map selection) |
 | Terrain heights | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen; SRTM and other public sources) | see the registry page |
 
-`.github/workflows/map-data.yml` downloads the raw data into `MapData/`; `Tools/build_map.py` bakes it into
-`Assets/Resources/Map/{height,ground,features}.bytes`, which `MapData.cs` / `CityBuilder.cs` turn into the 3D town at runtime.
+`.github/workflows/map-data.yml` downloads the raw data into `MapData/<map>/`; `Tools/build_map.py <map>` bakes it into
+`Assets/Resources/Map/<map>/{height,ground,features}.bytes` (+ `preview.png`), which `MapData.cs` / `CityBuilder.cs` turn
+into the 3D place at runtime. Where OpenStreetMap has streets but no buildings (most of Senir, parts of the campus), houses and
+faculty blocks are placed along the streets by the script.

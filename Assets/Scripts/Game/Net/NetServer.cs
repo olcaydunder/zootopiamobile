@@ -116,7 +116,7 @@ public sealed class NetServer : MonoBehaviour
         }
         lastPeerSeen = Now;
         Debug.Log("[Sunucu] hazır: port " + args.port + ", kod " + args.code + ", " + NetProtocol.ModeName(args.mode) +
-                  (args.privateRoom ? " özel oda" : " hızlı maç") + ", sürüm " + NetGame.BuildVersion);
+                  (args.privateRoom ? " özel oda" : " hızlı maç") + ", harita " + MapCatalog.Current + ", sürüm " + NetGame.BuildVersion);
         Report(true);
     }
 
@@ -202,6 +202,7 @@ public sealed class NetServer : MonoBehaviour
             string para = reader.String();
             string account = reader.String().ToUpperInvariant();
             string secret = reader.String();
+            string map = reader.String();
 
             Peer existing;
             if (byNonce.TryGetValue(nonce, out existing) && !existing.gone)
@@ -216,6 +217,8 @@ public sealed class NetServer : MonoBehaviour
                 why = "Sürüm uyuşmuyor: oyunu güncelle";
             else if (code != args.code)
                 why = "Oda bulunamadı";
+            else if (map != MapCatalog.Current)
+                why = "Bu oda başka bir haritada: " + MapCatalog.CurrentInfo.name;
             else if (phase == Phase.Playing || phase == Phase.Ended)
                 why = "Bu maç başladı";
             else if (peers.Count >= NetProtocol.MaxHumans)

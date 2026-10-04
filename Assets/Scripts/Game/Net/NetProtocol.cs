@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 2;
+    public const int Version = 3;   // 3: the hello carries the map
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game

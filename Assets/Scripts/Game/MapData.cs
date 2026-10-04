@@ -3,9 +3,9 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// Real-world map around the clinic (Ekşioğlu, Çekmeköy), baked by Tools/build_map.py from
-/// elevation data and OpenStreetMap: height grid, ground types, buildings, roads and trees.
-/// Frame: metres, +x east, +z north, origin at the clinic.
+/// The real-world map the match is played on (MapCatalog.Current: Ekşioğlu, Senir, Fırat Üniversitesi), baked
+/// by Tools/build_map.py from elevation data and OpenStreetMap: height grid, ground types, buildings, roads, trees.
+/// Frame: metres, +x east, +z north, origin at the middle of the play area.
 /// </summary>
 public static class MapData
 {
@@ -41,6 +41,8 @@ public static class MapData
     public static bool Loaded { get; private set; }
     public static float MapSize, PlayHalf, Coast;
     public static Vector2 LobbyPoint;
+    /// <summary>Highest terrain point inside the play area (0 when no map is loaded).</summary>
+    public static float MaxHeight { get; private set; }
     public static float LobbyYaw;
     public static readonly List<Building> Buildings = new List<Building>();
     public static readonly List<Road> Roads = new List<Road>();
@@ -60,9 +62,10 @@ public static class MapData
         tried = true;
         try
         {
-            var feat = Resources.Load<TextAsset>("Map/features");
-            var h = Resources.Load<TextAsset>("Map/height");
-            var g = Resources.Load<TextAsset>("Map/ground");
+            string dir = "Map/" + MapCatalog.Current + "/";
+            var feat = Resources.Load<TextAsset>(dir + "features");
+            var h = Resources.Load<TextAsset>(dir + "height");
+            var g = Resources.Load<TextAsset>(dir + "ground");
             if (feat == null || h == null || g == null)
             {
                 Debug.LogWarning("ZM harita: Map dosyaları bulunamadı, yedek ada kullanılıyor");
@@ -134,8 +137,16 @@ public static class MapData
             if (hb.Length != heightRes * heightRes * 2)
                 throw new IOException("height size " + hb.Length);
             heights = new float[heightRes * heightRes];
+            float max = 0f;
+            float cellSize = MapSize / (heightRes - 1);
             for (int i = 0; i < heights.Length; i++)
+            {
                 heights[i] = (hb[i * 2] | (hb[i * 2 + 1] << 8)) * 0.01f - 10f;
+                float gx = (i % heightRes) * cellSize - MapSize * 0.5f, gz = (i / heightRes) * cellSize - MapSize * 0.5f;
+                if (Mathf.Abs(gx) <= PlayHalf && Mathf.Abs(gz) <= PlayHalf)
+                    max = Mathf.Max(max, heights[i]);
+            }
+            MaxHeight = max;
 
             ground = g.bytes;
             if (ground.Length != groundRes * groundRes)
@@ -152,6 +163,21 @@ public static class MapData
             Loaded = false;
         }
         return Loaded;
+    }
+
+    /// <summary>Forgets the loaded map (before the world is rebuilt for another one).</summary>
+    public static void Unload()
+    {
+        tried = false;
+        Loaded = false;
+        Buildings.Clear();
+        Roads.Clear();
+        Trees.Clear();
+        heights = null;
+        ground = null;
+        heightRes = 0;
+        groundRes = 0;
+        MaxHeight = 0f;
     }
 
     public static int HeightRes { get { return heightRes; } }

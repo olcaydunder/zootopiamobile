@@ -11,6 +11,7 @@ git ls-files -z -- \
   Assets/Scripts/Game/World.cs \
   Assets/Scripts/Game/CityBuilder.cs \
   Assets/Scripts/Game/MapData.cs \
+  Assets/Scripts/Game/MapCatalog.cs \
   Assets/Scripts/Game/Door.cs \
   Assets/Scripts/Game/LootSystem.cs \
   Assets/Scripts/Game/WeaponData.cs \

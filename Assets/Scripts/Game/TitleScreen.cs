@@ -3,8 +3,9 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Start-up: a loading screen with a progress bar and tips while the city is built, then a title
-/// screen ("DOKUNARAK BAŞLA") over a slow aerial flight around the clinic, then the lobby.
+/// Start-up: a loading screen (the game logo over the chosen map, a progress bar and tips) while the
+/// map is built, then a title screen ("DOKUNARAK BAŞLA") over a slow aerial flight around the map's
+/// landmark, then the lobby. After a map change the title is skipped (<see cref="Dismiss"/>).
 /// </summary>
 public class TitleScreen : MonoBehaviour
 {
@@ -15,7 +16,9 @@ public class TitleScreen : MonoBehaviour
         "İpucu: Girilebilen dükkanlarda daha iyi silahlar bulunur.",
         "İpucu: Mavi duvarın dışında kalma, her aşamada daha çok can yakar.",
         "İpucu: Silah Atölyesi'nde aparatlarla silahını güçlendir.",
-        "İpucu: Kliniğin içinde ilk yardım çantası bulabilirsin."
+        "İpucu: Kliniğin içinde ilk yardım çantası bulabilirsin.",
+        "İpucu: Lobideki HARİTA düğmesiyle Ekşioğlu, Senir Kasabası ve Fırat Üniversitesi arasında geçiş yap.",
+        "İpucu: Senir'de Burdur Gölü'ne girersen yüzerek kıyıya çıkabilirsin."
     };
 
     private CanvasGroup group;
@@ -65,38 +68,55 @@ public class TitleScreen : MonoBehaviour
         return tex;
     }
 
-    private void Logo(Transform parent, Vector2 pos, float scale)
+    /// <summary>The game logo (Resources/UI/Logo.png, drawn by Tools/make_logo.py); text if it is missing.</summary>
+    private void Logo(Transform parent, Vector2 pos, float width)
     {
+        var tex = Resources.Load<Texture2D>("UI/Logo");
+        if (tex != null)
+        {
+            var r = UIUtil.CreateRect(parent, "LogoImage", new Vector2(0.5f, 0.5f), pos, new Vector2(width, width * tex.height / tex.width));
+            var img = r.gameObject.AddComponent<RawImage>();
+            img.texture = tex;
+            img.raycastTarget = false;
+            return;
+        }
+        float scale = width / 1100f;
         var t1 = UIUtil.CreateText(parent, "ZOOTOPIA", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, 40f * scale), new Vector2(1400f, 200f), Mathf.RoundToInt(170 * scale), TextAnchor.MiddleCenter);
         t1.fontStyle = FontStyle.Bold;
         var t2 = UIUtil.CreateText(parent, "M O B I L E", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, -85f * scale), new Vector2(1200f, 90f), Mathf.RoundToInt(64 * scale), TextAnchor.MiddleCenter);
         t2.fontStyle = FontStyle.Bold;
         t2.color = Theme.Accent;
-        UIUtil.CreateImage(parent, "LineL", new Vector2(0.5f, 0.5f), pos + new Vector2(-330f * scale, -85f * scale), new Vector2(220f * scale, 4f), Theme.Accent, false).raycastTarget = false;
-        UIUtil.CreateImage(parent, "LineR", new Vector2(0.5f, 0.5f), pos + new Vector2(330f * scale, -85f * scale), new Vector2(220f * scale, 4f), Theme.Accent, false).raycastTarget = false;
     }
 
     private void Build(Transform t)
     {
-        // ---- Loading
+        // ---- Loading: the chosen map from above (dimmed, slowly zooming), the logo, the map's name.
         loading = UIUtil.CreateStretch(t, "Loading").gameObject;
         var bg = loading.AddComponent<RawImage>();
         bg.texture = Gradient(new Color(0.09f, 0.12f, 0.17f, 1f), new Color(0.02f, 0.03f, 0.05f, 1f), true);
-        // Key art (the clinic street + Kasap Leydi), filling the screen without stretching.
-        var art = Resources.Load<Texture2D>("UI/KeyArt");
-        Vector2 logoPos = new Vector2(0f, 120f);
-        if (art != null)
+        var map = MapCatalog.CurrentInfo;
+        var preview = MapCatalog.Preview(map.id);
+        if (preview != null)
         {
-            var artRect = UIUtil.CreateRect(loading.transform, "KeyArt", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f));
-            artRect.gameObject.AddComponent<RawImage>().texture = art;
-            var fit = artRect.gameObject.AddComponent<AspectRatioFitter>();
+            var mapRect = UIUtil.CreateRect(loading.transform, "MapPicture", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f));
+            var mapImg = mapRect.gameObject.AddComponent<RawImage>();
+            mapImg.texture = preview;
+            mapImg.color = new Color(1f, 1f, 1f, 0.32f);
+            mapImg.raycastTarget = false;
+            var fit = mapRect.gameObject.AddComponent<AspectRatioFitter>();
             fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            fit.aspectRatio = (float)art.width / art.height;
-            artRect.gameObject.AddComponent<KenBurns>();
-            logoPos = new Vector2(-380f, 170f);
+            fit.aspectRatio = 1f;
+            mapRect.localRotation = Quaternion.Euler(0f, 0f, -8f);
+            mapRect.gameObject.AddComponent<KenBurns>();
+            var shade = UIUtil.CreateStretch(loading.transform, "Shade").gameObject.AddComponent<RawImage>();
+            shade.texture = Vignette();
+            shade.raycastTarget = false;
         }
-        Logo(loading.transform, logoPos, art != null ? 0.85f : 1f);
-        var sub = UIUtil.CreateText(loading.transform, "ÇEKMEKÖY SAVAŞ ALANI", new Vector2(0.5f, 0.5f), logoPos + new Vector2(0f, -150f), new Vector2(900f, 50f), 34, TextAnchor.MiddleCenter);
+        Logo(loading.transform, new Vector2(0f, 150f), 1150f);
+        var mapName = UIUtil.CreateText(loading.transform, map.name, new Vector2(0.5f, 0.5f), new Vector2(0f, -55f), new Vector2(1200f, 64f), 48, TextAnchor.MiddleCenter);
+        mapName.fontStyle = FontStyle.Bold;
+        mapName.color = Theme.Accent;
+        var sub = UIUtil.CreateText(loading.transform, map.place.ToUpper() + "  •  SAVAŞ ALANI", new Vector2(0.5f, 0.5f), new Vector2(0f, -110f), new Vector2(1200f, 44f), 30, TextAnchor.MiddleCenter);
         sub.color = Theme.TextDim;
 
         UIUtil.CreateImage(loading.transform, "BarBack", new Vector2(0.5f, 0f), new Vector2(0f, 190f), new Vector2(BarWidth + 8f, 18f), new Color(1f, 1f, 1f, 0.12f), false);
@@ -134,17 +154,8 @@ public class TitleScreen : MonoBehaviour
 
         logoRoot = UIUtil.CreateRect(title.transform, "Logo", new Vector2(0.5f, 0.5f), new Vector2(0f, 200f), new Vector2(1600f, 400f));
         logoGroup = logoRoot.gameObject.AddComponent<CanvasGroup>();
-        var glow = UIUtil.CreateText(logoRoot, "ZOOTOPIA", new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(1500f, 220f), 176, TextAnchor.MiddleCenter);
-        glow.fontStyle = FontStyle.Bold;
-        glow.color = new Color(1f, 0.7f, 0.15f, 0.25f);
-        var gs = glow.GetComponent<Shadow>();
-        gs.effectColor = new Color(1f, 0.6f, 0.1f, 0.35f);
-        gs.effectDistance = new Vector2(0f, 0f);
-        glow.gameObject.AddComponent<Outline>().effectColor = new Color(1f, 0.6f, 0.1f, 0.18f);
-        var o2 = glow.gameObject.GetComponent<Outline>();
-        o2.effectDistance = new Vector2(10f, 10f);
-        Logo(logoRoot, Vector2.zero, 1f);
-        var tagline = UIUtil.CreateText(logoRoot, "B A T T L E   R O Y A L E", new Vector2(0.5f, 0.5f), new Vector2(0f, -160f), new Vector2(1200f, 50f), 30, TextAnchor.MiddleCenter);
+        Logo(logoRoot, new Vector2(0f, 30f), 1100f);
+        var tagline = UIUtil.CreateText(logoRoot, "B A T T L E   R O Y A L E", new Vector2(0.5f, 0.5f), new Vector2(0f, -140f), new Vector2(1200f, 50f), 30, TextAnchor.MiddleCenter);
         tagline.color = new Color(1f, 1f, 1f, 0.7f);
         sweep = UIUtil.CreateImage(logoRoot, "Sweep", new Vector2(0.5f, 0.5f), new Vector2(-900f, 30f), new Vector2(90f, 420f), new Color(1f, 1f, 1f, 0.12f), false).rectTransform;
         sweep.localRotation = Quaternion.Euler(0f, 0f, -18f);
@@ -158,7 +169,7 @@ public class TitleScreen : MonoBehaviour
         pillFrame.effectDistance = new Vector2(2f, -2f);
         tapText = UIUtil.CreateText(pill.transform, "DOKUNARAK BAŞLA", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 92f), 40, TextAnchor.MiddleCenter);
         tapText.fontStyle = FontStyle.Bold;
-        var info = UIUtil.CreateText(title.transform, "Ekşioğlu, Çekmeköy  •  Çevrimiçi ve botlarla Battle Royale", new Vector2(0.5f, 0f), new Vector2(0f, 135f), new Vector2(1200f, 40f), 26, TextAnchor.MiddleCenter);
+        var info = UIUtil.CreateText(title.transform, map.name + ", " + map.place + "  •  Çevrimiçi ve botlarla Battle Royale", new Vector2(0.5f, 0f), new Vector2(0f, 135f), new Vector2(1400f, 40f), 26, TextAnchor.MiddleCenter);
         info.color = Theme.TextDim;
 
         // Player card (bottom-left) and version / credit (bottom-right).
@@ -244,6 +255,13 @@ public class TitleScreen : MonoBehaviour
         }
     }
 
+    /// <summary>Back from a map change: no title, the loading screen just fades into the lobby.</summary>
+    public void Dismiss(PlayerController p)
+    {
+        player = p;
+        Leave();
+    }
+
     private void Leave()
     {
         if (leaving)
@@ -306,7 +324,7 @@ public class TitleScreen : MonoBehaviour
             e.img.color = new Color(1f, 0.72f, 0.3f, e.alpha * life * Mathf.Clamp01(titleTime));
         }
 
-        // Camera: a few slow shots around the clinic and over the city, with fades between them.
+        // Camera: a few slow shots around the landmark and over the map, with fades between them.
         var cam = Camera.main;
         if (cam != null && !leaving)
             CameraShots(cam, dt);
@@ -334,7 +352,7 @@ public class TitleScreen : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, fwd);
         switch (shot)
         {
-            case 0:   // slow orbit around the clinic
+            case 0:   // slow orbit around the landmark
             {
                 orbit += dt * 0.05f;
                 float a = orbit + 0.6f;
@@ -365,7 +383,7 @@ public class TitleScreen : MonoBehaviour
     }
 }
 
-/// <summary>Slow zoom on the loading art so the screen feels alive.</summary>
+/// <summary>Slow zoom on the loading picture so the screen feels alive.</summary>
 public class KenBurns : MonoBehaviour
 {
     private float t;

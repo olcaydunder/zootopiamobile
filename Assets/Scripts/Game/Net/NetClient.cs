@@ -160,6 +160,7 @@ public sealed class NetClient : MonoBehaviour
         w.String(Cosmetics.EquippedParachuteCamo ?? "", 32);
         w.String(OnlineService.AccountId, 12);
         w.String(OnlineService.SecretForHello, 64);
+        w.String(MapCatalog.Current, 16);
         socket.Send(w.Buffer, w.Length, server);
     }
 

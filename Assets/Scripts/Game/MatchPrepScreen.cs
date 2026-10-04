@@ -172,7 +172,7 @@ public class MatchPrepScreen : MonoBehaviour
     public void Open(MatchMode matchMode)
     {
         mode = matchMode;
-        modeText.text = "BATTLE ROYALE  •  " + matchMode.ToString().ToUpper() + "  •  " + (MapData.Loaded ? "ÇEKMEKÖY" : "ZOOTOPIA ADASI");
+        modeText.text = "BATTLE ROYALE  •  " + matchMode.ToString().ToUpper() + "  •  " + (MapData.Loaded ? MapCatalog.CurrentInfo.name : "ZOOTOPIA ADASI");
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         var p = GameManager.Instance.profile;

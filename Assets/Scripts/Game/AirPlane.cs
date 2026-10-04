@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>Drop plane that crosses the island at the start of a match.</summary>
 public class AirPlane : MonoBehaviour
 {
-    public const float Altitude = 170f;
+    /// <summary>Flight height: 170 m, more over maps with a mountain (Senir) so the jump is never too short.</summary>
+    public static float Altitude { get { return 170f + Mathf.Max(0f, MapData.MaxHeight - 40f); } }
     public const float Speed = 22f;
 
     public Vector3 start;

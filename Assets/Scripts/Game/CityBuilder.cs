@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Builds the real Çekmeköy streets from MapData: apartment blocks with window façades, flat or tiled
+/// Builds the chosen map's real streets from MapData: apartment blocks with window façades, flat or tiled
 /// roofs, enterable ground floors (loot), the mosque, the clinic with its sign, asphalt roads with
 /// markings, street lights and trees. Everything static is merged into a few big meshes per map chunk
 /// and material, with one mesh collider per chunk, so it stays cheap on phones.
@@ -517,26 +517,46 @@ public static class CityBuilder
         return MakeTexture(w, h, px, true);
     }
 
-    // 5x7 pixel glyphs for the clinic sign.
+    // 5x7 pixel glyphs for the landmark signs. Turkish letters with marks are drawn as their base
+    // letter plus the dot / breve / umlaut / cedilla.
     private static readonly Dictionary<char, string[]> Glyphs = new Dictionary<char, string[]>
     {
-        { 'Z', new[] { "11111", "00001", "00010", "00100", "01000", "10000", "11111" } },
-        { 'O', new[] { "01110", "10001", "10001", "10001", "10001", "10001", "01110" } },
-        { 'T', new[] { "11111", "00100", "00100", "00100", "00100", "00100", "00100" } },
-        { 'P', new[] { "11110", "10001", "10001", "11110", "10000", "10000", "10000" } },
-        { 'I', new[] { "01110", "00100", "00100", "00100", "00100", "00100", "01110" } },
         { 'A', new[] { "01110", "10001", "10001", "11111", "10001", "10001", "10001" } },
-        { 'V', new[] { "10001", "10001", "10001", "10001", "10001", "01010", "00100" } },
+        { 'B', new[] { "11110", "10001", "10001", "11110", "10001", "10001", "11110" } },
+        { 'C', new[] { "01110", "10001", "10000", "10000", "10000", "10001", "01110" } },
+        { 'D', new[] { "11110", "10001", "10001", "10001", "10001", "10001", "11110" } },
         { 'E', new[] { "11111", "10000", "10000", "11110", "10000", "10000", "11111" } },
-        { 'R', new[] { "11110", "10001", "10001", "11110", "10100", "10010", "10001" } },
-        { 'N', new[] { "10001", "11001", "10101", "10011", "10001", "10001", "10001" } },
+        { 'F', new[] { "11111", "10000", "10000", "11110", "10000", "10000", "10000" } },
+        { 'G', new[] { "01110", "10001", "10000", "10111", "10001", "10001", "01110" } },
+        { 'H', new[] { "10001", "10001", "10001", "11111", "10001", "10001", "10001" } },
+        { 'I', new[] { "01110", "00100", "00100", "00100", "00100", "00100", "01110" } },
+        { 'J', new[] { "00111", "00010", "00010", "00010", "00010", "10010", "01100" } },
         { 'K', new[] { "10001", "10010", "10100", "11000", "10100", "10010", "10001" } },
         { 'L', new[] { "10000", "10000", "10000", "10000", "10000", "10000", "11111" } },
-        { 'G', new[] { "01110", "10001", "10000", "10111", "10001", "10001", "01110" } },
-        { '7', new[] { "11111", "00001", "00010", "00100", "01000", "01000", "01000" } },
+        { 'M', new[] { "10001", "11011", "10101", "10101", "10001", "10001", "10001" } },
+        { 'N', new[] { "10001", "11001", "10101", "10011", "10001", "10001", "10001" } },
+        { 'O', new[] { "01110", "10001", "10001", "10001", "10001", "10001", "01110" } },
+        { 'P', new[] { "11110", "10001", "10001", "11110", "10000", "10000", "10000" } },
+        { 'R', new[] { "11110", "10001", "10001", "11110", "10100", "10010", "10001" } },
+        { 'S', new[] { "01111", "10000", "10000", "01110", "00001", "00001", "11110" } },
+        { 'T', new[] { "11111", "00100", "00100", "00100", "00100", "00100", "00100" } },
+        { 'U', new[] { "10001", "10001", "10001", "10001", "10001", "10001", "01110" } },
+        { 'V', new[] { "10001", "10001", "10001", "10001", "10001", "01010", "00100" } },
+        { 'Y', new[] { "10001", "10001", "01010", "00100", "00100", "00100", "00100" } },
+        { 'Z', new[] { "11111", "00001", "00010", "00100", "01000", "10000", "11111" } },
+        { '0', new[] { "01110", "10001", "10011", "10101", "11001", "10001", "01110" } },
+        { '1', new[] { "00100", "01100", "00100", "00100", "00100", "00100", "01110" } },
         { '2', new[] { "01110", "10001", "00001", "00010", "00100", "01000", "11111" } },
+        { '3', new[] { "11110", "00001", "00001", "01110", "00001", "00001", "11110" } },
         { '4', new[] { "00010", "00110", "01010", "10010", "11111", "00010", "00010" } },
+        { '5', new[] { "11111", "10000", "11110", "00001", "00001", "10001", "01110" } },
+        { '6', new[] { "00110", "01000", "10000", "11110", "10001", "10001", "01110" } },
+        { '7', new[] { "11111", "00001", "00010", "00100", "01000", "01000", "01000" } },
+        { '8', new[] { "01110", "10001", "10001", "01110", "10001", "10001", "01110" } },
+        { '9', new[] { "01110", "10001", "10001", "01111", "00001", "00010", "01100" } },
         { '/', new[] { "00001", "00010", "00010", "00100", "01000", "01000", "10000" } },
+        { '-', new[] { "00000", "00000", "00000", "11111", "00000", "00000", "00000" } },
+        { '.', new[] { "00000", "00000", "00000", "00000", "00000", "01100", "01100" } },
         { ' ', new[] { "00000", "00000", "00000", "00000", "00000", "00000", "00000" } },
     };
 
@@ -546,9 +566,16 @@ public static class CityBuilder
         foreach (char raw in text)
         {
             char ch = raw;
-            bool dotAbove = false, breve = false;
-            if (ch == 'İ') { ch = 'I'; dotAbove = true; }
-            if (ch == 'Ğ') { ch = 'G'; breve = true; }
+            bool dotAbove = false, breve = false, umlaut = false, cedilla = false;
+            switch (ch)
+            {
+                case 'İ': ch = 'I'; dotAbove = true; break;
+                case 'Ğ': ch = 'G'; breve = true; break;
+                case 'Ö': ch = 'O'; umlaut = true; break;
+                case 'Ü': ch = 'U'; umlaut = true; break;
+                case 'Ş': ch = 'S'; cedilla = true; break;
+                case 'Ç': ch = 'C'; cedilla = true; break;
+            }
             string[] g;
             if (!Glyphs.TryGetValue(ch, out g))
                 g = Glyphs[' '];
@@ -560,6 +587,13 @@ public static class CityBuilder
                 FillRect(px, texW, texH, x + 2 * scale, y0 + 8 * scale, scale, scale, color);
             if (breve)
                 FillRect(px, texW, texH, x + scale, y0 + 8 * scale, scale * 3, scale, color);
+            if (umlaut)
+            {
+                FillRect(px, texW, texH, x + scale, y0 + 8 * scale, scale, scale, color);
+                FillRect(px, texW, texH, x + 3 * scale, y0 + 8 * scale, scale, scale, color);
+            }
+            if (cedilla)
+                FillRect(px, texW, texH, x + 2 * scale, y0 - 2 * scale, scale, scale * 2, color);
             x += 6 * scale;
         }
     }
@@ -577,24 +611,33 @@ public static class CityBuilder
                     px[y * w + x] = c;
     }
 
-    /// <summary>"ZOOTOPIA / VETERİNER KLİNİĞİ 7/24" on green, with a white medical cross.</summary>
+    /// <summary>The landmark's sign: "ZOOTOPIA / VETERİNER KLİNİĞİ 7/24" on green with a white medical cross in
+    /// Ekşioğlu, the town's welcome sign in Senir, the rectorate's sign at Fırat Üniversitesi.</summary>
     private static Texture2D SignTexture()
     {
         const int w = 512, h = 128;
+        var info = MapCatalog.CurrentInfo;
         var px = new Color32[w * h];
-        Color32 bg = new Color32(22, 110, 60, 255);
+        Color32 bg = info.signColor;
         Color32 white = new Color32(250, 250, 245, 255);
         for (int i = 0; i < px.Length; i++)
             px[i] = bg;
         FillRect(px, w, h, 4, 4, w - 8, 3, white);
         FillRect(px, w, h, 4, h - 7, w - 8, 3, white);
-        // cross
-        FillRect(px, w, h, 30, 52, 60, 24, white);
-        FillRect(px, w, h, 48, 34, 24, 60, white);
-        string l1 = "ZOOTOPIA";
-        string l2 = "VETERİNER KLİNİĞİ 7/24";
-        DrawText(px, w, h, l1, 110 + (390 - TextWidth(l1, 7)) / 2, 62, 7, white);
-        DrawText(px, w, h, l2, 110 + (390 - TextWidth(l2, 3)) / 2, 18, 3, white);
+        int x0 = 20, width = w - 40;
+        if (info.signCross)
+        {
+            FillRect(px, w, h, 30, 52, 60, 24, white);
+            FillRect(px, w, h, 48, 34, 24, 60, white);
+            x0 = 110;
+            width = 390;
+        }
+        string l1 = info.signTop;
+        string l2 = info.signBottom;
+        int s1 = Mathf.Clamp((width + 1) / (6 * Mathf.Max(1, l1.Length)), 2, 7);
+        int s2 = Mathf.Clamp((width + 1) / (6 * Mathf.Max(1, l2.Length)), 1, 3);
+        DrawText(px, w, h, l1, x0 + (width - TextWidth(l1, s1)) / 2, 56 + (7 - s1) * 3, s1, white);
+        DrawText(px, w, h, l2, x0 + (width - TextWidth(l2, s2)) / 2, 18, s2, white);
         return MakeTexture(w, h, px, false);
     }
 

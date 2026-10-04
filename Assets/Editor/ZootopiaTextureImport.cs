@@ -2,11 +2,12 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>Import settings for the photo textures in Resources/Textures: normal maps as normal maps,
-/// 1K max, mipmaps, trilinear, repeat, compressed (ETC2/ASTC on Android).</summary>
+/// 1K max, mipmaps, trilinear, repeat, compressed (ETC2/ASTC on Android). UI icons, the logo and the
+/// map pictures get UI settings.</summary>
 public class ZootopiaTextureImport : AssetPostprocessor
 {
     /// <summary>Bump when these rules change so Unity re-imports the affected assets.</summary>
-    public override uint GetVersion() { return 3; }
+    public override uint GetVersion() { return 4; }
 
     private void OnPreprocessTexture()
     {
@@ -23,6 +24,19 @@ public class ZootopiaTextureImport : AssetPostprocessor
             ui.filterMode = FilterMode.Bilinear;
             ui.maxTextureSize = 256;
             ui.textureCompression = TextureImporterCompression.CompressedHQ;
+            return;
+        }
+        if (path.Contains("Resources/UI/") || (path.Contains("Resources/Map/") && path.EndsWith("preview.png")))
+        {
+            // Logo and map pictures: shown as UI, smooth alpha edges, no mipmaps, clamped.
+            var pic = (TextureImporter)assetImporter;
+            pic.textureType = TextureImporterType.Default;
+            pic.alphaIsTransparency = true;
+            pic.mipmapEnabled = false;
+            pic.wrapMode = TextureWrapMode.Clamp;
+            pic.filterMode = FilterMode.Bilinear;
+            pic.maxTextureSize = 1024;
+            pic.textureCompression = TextureImporterCompression.CompressedHQ;
             return;
         }
         if (!path.Contains("Resources/Textures/"))

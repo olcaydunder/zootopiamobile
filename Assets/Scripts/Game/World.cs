@@ -3,15 +3,17 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Builds the whole map from code. The map is the real neighbourhood around the clinic
-/// (Ekşioğlu, Çekmeköy) from MapData: real terrain heights, streets and buildings, surrounded by sea.
+/// Builds the whole map from code: the chosen real place from MapData (Ekşioğlu, Senir, Fırat Üniversitesi):
+/// real terrain heights, streets and buildings, with sea, a lake or hills round the play area.
 /// If the baked map files are missing it falls back to a procedural island.
 /// Also exposes height queries, loot/vehicle spots and a minimap texture for the rest of the game.
 /// </summary>
 public static class World
 {
-    public const float IslandRadius = 340f;    // playable radius from the centre (the clinic)
-    public const float MapSize = 880f;         // terrain mesh width (water beyond)
+    /// <summary>Playable radius from the centre (the play square's half size minus a margin).</summary>
+    public static float IslandRadius { get { return MapData.Loaded ? MapData.PlayHalf - 10f : 340f; } }
+    /// <summary>Terrain mesh width (water beyond); each map has its own.</summary>
+    public static float MapSize { get { return MapData.Loaded ? MapData.MapSize : 880f; } }
     private const float SeedX = 31.7f;
     private const float SeedZ = 87.3f;
     private const int GridRes = 512;           // foam / fallback sampling grid
@@ -147,6 +149,23 @@ public static class World
 
     // ----- Building -----
 
+    /// <summary>Drops what the last world left in static fields (before the scene is rebuilt for another map).</summary>
+    public static void Release()
+    {
+        Root = null;
+        MinimapTexture = null;
+        TerrainMaterial = null;
+        probe = null;
+        sun = null;
+        heights = null;
+        groundColors = null;
+        LootSpots.Clear();
+        VehicleSpots.Clear();
+        VehicleYaws.Clear();
+        HouseCenters.Clear();
+        houseFootprints.Clear();
+    }
+
     public static void Build()
     {
         Root = new GameObject("World").transform;
@@ -157,8 +176,8 @@ public static class World
         houseFootprints.Clear();
 
         bool city = MapData.Load();
-        if (city && (Mathf.Abs(MapData.MapSize - MapSize) > 0.01f || MapData.HeightRes != MeshRes + 1))
-            Debug.LogError("ZM harita: boyut uyuşmuyor (" + MapData.MapSize + " m, " + MapData.HeightRes + " nokta) — World.MapSize/MeshRes ile aynı olmalı");
+        if (city && MapData.HeightRes != MeshRes + 1)
+            Debug.LogError("ZM harita: yükseklik ızgarası " + MapData.HeightRes + " nokta — World.MeshRes + 1 olmalı");
         ComputeHeightGrid();
         SetupAtmosphere();
         BuildTerrain();
@@ -708,7 +727,7 @@ public static class World
         var water = new GameObject("Sea");
         water.transform.SetParent(Root, false);
         water.transform.position = new Vector3(0f, -0.15f, 0f);
-        water.AddComponent<MeshFilter>().sharedMesh = MeshUtil.Grid(2400f, 160);
+        water.AddComponent<MeshFilter>().sharedMesh = MeshUtil.Grid(Mathf.Max(2400f, MapSize * 2.6f), 160);
         var mr = water.AddComponent<MeshRenderer>();
         var mat = CloneResource("ZootopiaWater");
         mat.SetFloat("_ShoreRadius", MapData.Loaded ? MapData.PlayHalf + 15f : IslandRadius);

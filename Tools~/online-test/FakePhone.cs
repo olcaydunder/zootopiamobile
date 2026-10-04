@@ -23,9 +23,10 @@ public class Phone
     static double T0 = Environment.TickCount / 1000.0; public static double Now { get { return Environment.TickCount / 1000.0 - T0; } }
 
     public Phone(string n, int port) { name = n; server = new IPEndPoint(IPAddress.Loopback, port); sock.Open(0); nonce = (uint)new Random(Environment.TickCount + (count++) * 7919).Next(1, int.MaxValue); }
+    public static string MapId = Environment.GetEnvironmentVariable("ZM_MAP") ?? "eksioglu";
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(2); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret");
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(3); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
@@ -101,6 +102,11 @@ public static class FakePhoneTest
         var wrong = new Phone("Yanlis", port); double wAt = 0;
         RunUntil(60, new[] { wrong }, () => { if (Phone.Now > wAt) { wAt = Phone.Now + 0.5; wrong.Hello("net-xxxxx", "123456"); } return wrong.reject != null || wrong.conn != null; });
         Check(wrong.reject != null && wrong.reject.Contains("Sürüm"), "wrong version rejected: " + wrong.reject);
+        var other = new Phone("Harita", port); double oAt = 0; string realMap = Phone.MapId;
+        Phone.MapId = realMap == "senir" ? "firat" : "senir";
+        RunUntil(60, new[] { other }, () => { if (Phone.Now > oAt) { oAt = Phone.Now + 0.5; other.Hello(version, "123456"); } return other.reject != null || other.conn != null; });
+        Phone.MapId = realMap;
+        Check(other.reject != null && other.reject.Contains("harita"), "other map rejected: " + other.reject);
         double helloAt = 0;
         bool ok = RunUntil(60, ps, () => { if (Phone.Now > helloAt) { helloAt = Phone.Now + 0.5; foreach (var p in ps) if (p.conn == null) p.Hello(version, "123456"); } return A.conn != null && B.conn != null; });
         Check(ok, "both welcomed: ids " + A.id + ", " + B.id);

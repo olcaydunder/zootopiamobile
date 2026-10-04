@@ -284,7 +284,7 @@ public class SettingsScreen : MonoBehaviour
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");
         Note("Zemin, cephe, asfalt, kiremit, beton dokuları: Poly Haven (CC0) – Rob Tuytel, Amal Kumar, Stephan Seeliger, Dimitrios Savva, Rico Cilliers, Jenelle van Heerden");
         Note("Yazı tipi: Barlow Condensed (SIL Open Font License)");
-        Note("Harita: Ekşioğlu, Çekmeköy – © OpenStreetMap katkıcıları (ODbL)");
+        Note("Haritalar: Ekşioğlu (Çekmeköy), Senir Kasabası (Keçiborlu), Fırat Üniversitesi (Elazığ) – © OpenStreetMap katkıcıları (ODbL)");
         Note("Arazi yükseltisi: AWS Terrain Tiles (Mapzen, SRTM)");
     }
 

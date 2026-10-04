@@ -29,6 +29,7 @@ public class OnlineService : MonoBehaviour
         public string code = "";
         public string mode = "";
         public string kind = "";
+        public string map = "";
         public string state = "";
         public int players;
         public string version = "";
@@ -121,12 +122,12 @@ public class OnlineService : MonoBehaviour
 
     public static void Quick(MatchMode mode, System.Action<MatchInfo> done)
     {
-        Runner.StartCoroutine(Runner.Match("POST", "/quick?mode=" + NetProtocol.ModeName(mode), done));
+        Runner.StartCoroutine(Runner.Match("POST", "/quick?mode=" + NetProtocol.ModeName(mode) + "&map=" + MapCatalog.Current, done));
     }
 
     public static void CreateRoom(MatchMode mode, System.Action<MatchInfo> done)
     {
-        Runner.StartCoroutine(Runner.Match("POST", "/room/create?mode=" + NetProtocol.ModeName(mode), done));
+        Runner.StartCoroutine(Runner.Match("POST", "/room/create?mode=" + NetProtocol.ModeName(mode) + "&map=" + MapCatalog.Current, done));
     }
 
     public static void FindRoom(string code, System.Action<MatchInfo> done)

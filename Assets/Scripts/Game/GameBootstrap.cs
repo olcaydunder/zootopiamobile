@@ -1,13 +1,20 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Entry point. Created automatically when any scene loads, so the game needs no editor setup:
-/// builds the island, managers, UI, player, then opens the lobby.
+/// builds the map, managers, UI, player, then opens the lobby. Changing the map reloads the scene
+/// and builds everything again for the new one (<see cref="SwitchMap"/>).
 /// </summary>
 public class GameBootstrap : MonoBehaviour
 {
     public static GameBootstrap Instance;
+
+    /// <summary>A map change is under way (the scene is reloading).</summary>
+    public static bool Switching { get; private set; }
+    private static bool skipTitle;
+    private static System.Action afterSwitch;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoCreate()
@@ -55,12 +62,13 @@ public class GameBootstrap : MonoBehaviour
             yield return ServerStart();
             yield break;
         }
+        MapCatalog.Current = MapCatalog.Selected;
         var titleScreen = TitleScreen.Create();
         titleScreen.SetProgress(0.05f, "Harita verisi yükleniyor...");
         yield return null;
         yield return null;
         Step(() => MapData.Load());
-        titleScreen.SetProgress(0.3f, "Çekmeköy kuruluyor...");
+        titleScreen.SetProgress(0.3f, MapCatalog.CurrentInfo.name + " kuruluyor...");
         yield return null;
         Step(World.Build);
         titleScreen.SetProgress(0.75f, "Oyuncular hazırlanıyor...");
@@ -82,7 +90,64 @@ public class GameBootstrap : MonoBehaviour
         Step(() => { if (manager != null) manager.JoinLobby(); });
         titleScreen.SetProgress(1f, "Hazır");
         yield return new WaitForSecondsRealtime(0.4f);
-        titleScreen.ShowTitle(player);
+        if (skipTitle)
+        {
+            // Back from a map change: straight to the lobby, then whatever asked for the change (joining a room).
+            skipTitle = false;
+            titleScreen.Dismiss(player);
+            Switching = false;
+            var then = afterSwitch;
+            afterSwitch = null;
+            yield return null;
+            if (then != null)
+                Step(then);
+        }
+        else
+            titleScreen.ShowTitle(player);
+    }
+
+    /// <summary>
+    /// Plays on another map from now on: saves the choice and rebuilds the whole world for it (the scene is
+    /// reloaded behind the loading screen). <paramref name="then"/> runs in the lobby once the new map is ready.
+    /// Only from the lobby, never during a match.
+    /// </summary>
+    public static void SwitchMap(string id, System.Action then = null)
+    {
+        if (Switching || !MapCatalog.IsValid(id))
+            return;
+        MapCatalog.Select(id);
+        if (id == MapCatalog.Current && MapData.Loaded)
+        {
+            if (then != null)
+                then();
+            return;
+        }
+        Switching = true;
+        skipTitle = true;
+        afterSwitch = then;
+        OnlineService.CancelAll();
+        if (NetClient.Instance != null)
+            NetClient.Instance.Leave();
+        SceneManager.sceneLoaded += OnReloaded;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    private static void OnReloaded(Scene scene, LoadSceneMode mode)
+    {
+        SceneManager.sceneLoaded -= OnReloaded;
+        // The old world is gone: forget everything static that pointed into it.
+        Step(MapData.Unload);
+        Step(World.Release);
+        Step(Door.All.Clear);
+        Step(UpgradeStation.ClearAll);
+        Step(AbilityFx.ClearAll);
+        Step(VehicleSpawns.ClearPads);
+        Step(Marks.Clear);
+        Step(TankDrop.Active.Clear);
+        Step(AirdropCall.Active.Clear);
+        MapCatalog.Current = MapCatalog.Selected;
+        Resources.UnloadUnusedAssets();
+        new GameObject("GameBootstrap").AddComponent<GameBootstrap>();
     }
 
     /// <summary>Game server: the same world as the phones, the game systems, then the network.</summary>

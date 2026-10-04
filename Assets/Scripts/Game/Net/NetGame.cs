@@ -55,9 +55,10 @@ public static class NetGame
         public MatchMode mode = MatchMode.Solo;
         public bool privateRoom;
         public string api = "";
+        public string map = MapCatalog.DefaultId;
     }
 
-    /// <summary>Reads "-server -port 7777 -code 123456 -mode solo -matchType quick -api http://..." (null when not a server).</summary>
+    /// <summary>Reads "-server -port 7777 -code 123456 -mode solo -matchType quick -map senir -api http://..." (null when not a server).</summary>
     public static ServerArgs ParseServerArgs()
     {
         string[] raw = System.Environment.GetCommandLineArgs();
@@ -75,11 +76,13 @@ public static class NetGame
                 case "-mode": a.mode = NetProtocol.ParseMode(value); break;
                 case "-matchType": a.privateRoom = value == "private"; break;
                 case "-api": a.api = value; break;
+                case "-map": a.map = MapCatalog.IsValid(value) ? value : MapCatalog.DefaultId; break;
             }
         }
         if (!server)
             return null;
         IsServer = true;
+        MapCatalog.Current = a.map;
         return a;
     }
 

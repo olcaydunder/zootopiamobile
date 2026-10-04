@@ -148,6 +148,7 @@ public class UIManager : MonoBehaviour
         if (loadout != null) loadout.Hide();
         if (netLobby != null) netLobby.Hide();
         if (social != null) social.Hide();
+        if (mapSelect != null) mapSelect.gameObject.SetActive(false);
         if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -282,8 +283,22 @@ public class UIManager : MonoBehaviour
             modeTitles.Add(mt);
             modeSubs.Add(ms);
         }
-        var mapLabel = UIUtil.CreateText(t, MapData.Loaded ? "BATTLE ROYALE  •  Çekmeköy  •  25 oyuncu" : "BATTLE ROYALE  •  Zootopia Adası  •  25 oyuncu", new Vector2(1f, 0.5f), new Vector2(-280f, 290f), new Vector2(480f, 40f), 22, TextAnchor.MiddleLeft);
-        mapLabel.color = Theme.Accent;
+        // Right, above the modes: the map (picture, name) — opens the map selection.
+        var info = MapCatalog.CurrentInfo;
+        var mapTile = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 300f), new Vector2(480f, 84f), Theme.Panel, false, 20, out unused);
+        mapTile.onClick.AddListener(() => { HideAll(); mapSelect.Open(ShowLobby); });
+        var mtt = mapTile.transform;
+        var thumb = UIUtil.CreateRect(mtt, "Thumb", new Vector2(0f, 0.5f), new Vector2(46f, 0f), new Vector2(76f, 76f));
+        var thumbImg = thumb.gameObject.AddComponent<RawImage>();
+        thumbImg.texture = MapCatalog.Preview(info.id);
+        thumbImg.raycastTarget = false;
+        var mapCaption = UIUtil.CreateText(mtt, "HARİTA  •  BATTLE ROYALE  •  25 OYUNCU", new Vector2(0f, 0.5f), new Vector2(286f, 20f), new Vector2(380f, 30f), 18, TextAnchor.MiddleLeft);
+        mapCaption.color = Theme.TextDim;
+        var mapName = UIUtil.CreateText(mtt, info.name, new Vector2(0f, 0.5f), new Vector2(286f, -14f), new Vector2(380f, 40f), 30, TextAnchor.MiddleLeft);
+        mapName.fontStyle = FontStyle.Bold;
+        mapName.color = Theme.Accent;
+        var change = UIUtil.CreateText(mtt, "DEĞİŞTİR ›", new Vector2(1f, 0.5f), new Vector2(-70f, -14f), new Vector2(130f, 30f), 20, TextAnchor.MiddleRight);
+        change.color = Color.white;
 
         var startButton = UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel);
         startButton.onClick.AddListener(() => { HideAll(); matchPrep.Open(selectedMode); });
@@ -314,7 +329,7 @@ public class UIManager : MonoBehaviour
         credit.color = Theme.TextDim;
         if (MapData.Loaded)
         {
-            var osm = UIUtil.CreateText(t, "Harita: Ekşioğlu, Çekmeköy  •  © OpenStreetMap katkıcıları", new Vector2(0f, 0f), new Vector2(330f, 40f), new Vector2(600f, 30f), 18, TextAnchor.MiddleLeft);
+            var osm = UIUtil.CreateText(t, "Harita: " + info.name + ", " + info.place + "  •  © OpenStreetMap katkıcıları", new Vector2(0f, 0f), new Vector2(330f, 40f), new Vector2(600f, 30f), 18, TextAnchor.MiddleLeft);
             osm.color = Theme.TextDim;
         }
 
@@ -324,6 +339,7 @@ public class UIManager : MonoBehaviour
         loadout = LoadoutScreen.Create(canvas.transform);
         netLobby = NetLobbyScreen.Create(canvas.transform);
         social = SocialScreen.Create(canvas.transform);
+        mapSelect = MapSelectScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -775,6 +791,7 @@ public class UIManager : MonoBehaviour
     private Image lobbyRankIcon;
     private NetLobbyScreen netLobby;
     private SocialScreen social;
+    private MapSelectScreen mapSelect;
     private GameObject friendsBadge, inviteBanner;
     private Text friendsBadgeText, inviteText;
     private string inviteRoom = "", inviteFrom = "";

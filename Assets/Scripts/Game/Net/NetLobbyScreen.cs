@@ -184,7 +184,7 @@ public class NetLobbyScreen : MonoBehaviour
         onClose = closed;
         mode = matchMode;
         EnsureName();
-        Show(Page.Status, "ÇEVRİMİÇİ  •  " + ModeLabel(matchMode));
+        Show(Page.Status, "ÇEVRİMİÇİ  •  " + ModeLabel(matchMode) + "  •  " + MapCatalog.CurrentInfo.name);
         ShowBusy("Maç aranıyor...");
         OnlineService.Quick(matchMode, info => OnMatchInfo(info, matchMode, false));
     }
@@ -194,7 +194,7 @@ public class NetLobbyScreen : MonoBehaviour
         onClose = closed;
         mode = matchMode;
         EnsureName();
-        Show(Page.Status, "ÖZEL ODA  •  " + ModeLabel(matchMode));
+        Show(Page.Status, "ÖZEL ODA  •  " + ModeLabel(matchMode) + "  •  " + MapCatalog.CurrentInfo.name);
         ShowBusy("Oda kuruluyor...");
         OnlineService.CreateRoom(matchMode, info => OnMatchInfo(info, matchMode, true));
     }
@@ -216,7 +216,7 @@ public class NetLobbyScreen : MonoBehaviour
         EnsureName();
         Show(Page.Status, "ÖZEL ODA  •  " + joinCode);
         ShowBusy("Oda aranıyor...");
-        OnlineService.FindRoom(joinCode, info => OnMatchInfo(info, NetProtocol.ParseMode(info.mode), true));
+        OnlineService.FindRoom(joinCode, info => OnMatchInfo(info, NetProtocol.ParseMode(info.mode), true, joinCode));
     }
 
     public void OpenRename(System.Action closed)
@@ -292,7 +292,7 @@ public class NetLobbyScreen : MonoBehaviour
             string joinCode = code;
             Show(Page.Status, "ÖZEL ODA  •  " + joinCode);
             ShowBusy("Oda aranıyor...");
-            OnlineService.FindRoom(joinCode, info => OnMatchInfo(info, NetProtocol.ParseMode(info.mode), true));
+            OnlineService.FindRoom(joinCode, info => OnMatchInfo(info, NetProtocol.ParseMode(info.mode), true, joinCode));
             return;
         }
         else if (code.Length < 6)
@@ -317,7 +317,7 @@ public class NetLobbyScreen : MonoBehaviour
 
     // ----- Matchmaker answer -----
 
-    private void OnMatchInfo(OnlineService.MatchInfo info, MatchMode matchMode, bool privateRoom)
+    private void OnMatchInfo(OnlineService.MatchInfo info, MatchMode matchMode, bool privateRoom, string joinCode = null)
     {
         waitingHttp = false;
         if (!gameObject.activeSelf || page != Page.Status)
@@ -327,8 +327,28 @@ public class NetLobbyScreen : MonoBehaviour
             ShowError(info.error);
             return;
         }
+        string roomMap = MapCatalog.IsValid(info.map) ? info.map : MapCatalog.DefaultId;
+        if (roomMap != MapCatalog.Current)
+        {
+            if (joinCode == null)
+            {
+                ShowError("Sunucu bu haritayı henüz açamıyor, biraz sonra tekrar dene");
+                return;
+            }
+            // A friend's room on another map: load that map, then join the room again from the lobby.
+            ShowBusy(MapCatalog.Get(roomMap).name + " haritası yükleniyor...");
+            waitingHttp = false;
+            string again = joinCode;
+            GameBootstrap.SwitchMap(roomMap, () =>
+            {
+                var gm = GameManager.Instance;
+                if (gm != null && gm.uiManager != null)
+                    gm.uiManager.JoinRoomByCode(again);
+            });
+            return;
+        }
         mode = matchMode;
-        title.text = (privateRoom ? "ÖZEL ODA  •  " : "ÇEVRİMİÇİ  •  ") + ModeLabel(matchMode);
+        title.text = (privateRoom ? "ÖZEL ODA  •  " : "ÇEVRİMİÇİ  •  ") + ModeLabel(matchMode) + "  •  " + MapCatalog.CurrentInfo.name;
         NetClient.Ensure().Connect(info.host, info.port, info.code, matchMode, privateRoom);
         shownRevision = -1;
     }

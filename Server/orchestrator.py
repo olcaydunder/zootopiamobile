@@ -5,9 +5,10 @@ Zootopia Mobile match orchestrator (runs on the game server as the "zootopia" se
 - Keeps the newest dedicated-server build: polls the public GitHub release "son-server" and unpacks
   ZootopiaServer.tar.gz into builds/<asset id>/ (running matches keep using their own copy).
 - Starts one Unity server process per match on its own UDP port and hands clients that port:
-    POST /quick?mode=solo|duo|squad&version=V   -> join (or open) a public match
-    POST /room/create?mode=...&version=V        -> open a private match, returns a 6-digit code
-    GET  /room/<code>?version=V                 -> where that private match is
+    POST /quick?mode=solo|duo|squad&map=M&version=V   -> join (or open) a public match on that map
+    POST /room/create?mode=...&map=M&version=V        -> open a private match, returns a 6-digit code
+    GET  /room/<code>?version=V                       -> where that private match is (and its map)
+  Maps: eksioglu (Ekşioğlu), senir (Senir Kasabası), firat (Fırat Üniversitesi).
     POST /report   (from match processes, localhost only) {code, state, players}
     GET  /status                                -> health / what is running
 - Player accounts (SQLite, zootopia.db): friend codes, friends and invites, blocking, reports, bug reports, bans.
@@ -202,7 +203,14 @@ def new_code():
             return code
 
 
-def start_match(mode, kind):
+MAPS = ("eksioglu", "senir", "firat")
+
+
+def clean_map(value):
+    return value if value in MAPS else "eksioglu"
+
+
+def start_match(mode, kind, map_id="eksioglu"):
     """Starts a server process. Caller holds the lock. Returns the match or an error string."""
     if not current_build.get("exe"):
         return "Sunucu sürümü henüz hazır değil, birkaç dakika sonra tekrar dene"
@@ -215,14 +223,14 @@ def start_match(mode, kind):
     code = new_code()
     logfile = os.path.join(LOGS, "match-%s.log" % code)
     args = [current_build["exe"], "-batchmode", "-nographics", "-server",
-            "-port", str(port), "-code", code, "-mode", mode, "-matchType", kind,
+            "-port", str(port), "-code", code, "-mode", mode, "-matchType", kind, "-map", map_id,
             "-api", "http://127.0.0.1:%d" % API_PORT, "-logFile", logfile]
     proc = subprocess.Popen(args, cwd=os.path.dirname(current_build["exe"]),
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    m = {"code": code, "port": port, "mode": mode, "kind": kind, "state": "waiting", "players": 0,
+    m = {"code": code, "port": port, "mode": mode, "kind": kind, "map": map_id, "state": "waiting", "players": 0,
          "created": time.time(), "proc": proc, "build": current_build["dir"], "version": current_build["version"]}
     matches[code] = m
-    log("started match", code, kind, mode, "port", port, "pid", proc.pid)
+    log("started match", code, kind, mode, map_id, "port", port, "pid", proc.pid)
     return m
 
 
@@ -273,7 +281,7 @@ def reap_loop():
 
 def public_view(m):
     return {"ok": True, "port": m["port"], "code": m["code"], "mode": m["mode"], "kind": m["kind"],
-            "state": m["state"], "players": m["players"], "version": m["version"]}
+            "map": m.get("map", "eksioglu"), "state": m["state"], "players": m["players"], "version": m["version"]}
 
 
 def rate_limited(ip):
@@ -878,6 +886,7 @@ class Handler(BaseHTTPRequestHandler):
         mode = q.get("mode", "solo")
         if mode not in MAX_HUMANS:
             mode = "solo"
+        map_id = clean_map(q.get("map", "eksioglu"))
         if path in ("/quick", "/room/create"):
             if not self.check_version(q):
                 return
@@ -886,14 +895,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/quick":
             with lock:
                 for m in sorted(matches.values(), key=lambda m: -m["players"]):
-                    if m["kind"] == "quick" and m["mode"] == mode and m["state"] == "waiting" \
+                    if m["kind"] == "quick" and m["mode"] == mode and m.get("map", "eksioglu") == map_id \
+                            and m["state"] == "waiting" \
                             and m["players"] < MAX_HUMANS[mode] and m["version"] == current_build.get("version"):
                         self.reply(200, public_view(m))
                         return
                 if rate_limited(ip):
                     self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
                     return
-                m = start_match(mode, "quick")
+                m = start_match(mode, "quick", map_id)
             self.reply(200, public_view(m)) if isinstance(m, dict) else self.reply(503, {"ok": False, "error": m})
             return
         if path == "/room/create":
@@ -901,7 +911,7 @@ class Handler(BaseHTTPRequestHandler):
                 if rate_limited(ip):
                     self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
                     return
-                m = start_match(mode, "private")
+                m = start_match(mode, "private", map_id)
             self.reply(200, public_view(m)) if isinstance(m, dict) else self.reply(503, {"ok": False, "error": m})
             return
         self.reply(404, {"ok": False, "error": "not found"})
@@ -1032,7 +1042,7 @@ async function genel() {
     <div class="card stat"><div class="n">${dur(s.uptime||0)}</div><div class="l">Çalışma süresi</div></div>
   </div>
   <h2>Süren maçlar</h2>
-  <div class="list">${j.matches.length ? j.matches.map(m => `<div class="row"><span class="id">${m.code}</span><span class="name">${m.kind === "private" ? "Özel oda" : "Hızlı maç"} · ${m.mode.toUpperCase()}</span><span class="pill ${m.state === "playing" ? "good" : "acc"}">${({waiting:"bekleme odası",starting:"başlıyor",playing:"oynanıyor",ended:"bitti"})[m.state]||m.state}</span><span class="grow dim">${m.players} oyuncu · ${dur(m.age)}</span></div>`).join("") : '<div class="empty">Şu an maç yok</div>'}</div>
+  <div class="list">${j.matches.length ? j.matches.map(m => `<div class="row"><span class="id">${m.code}</span><span class="name">${m.kind === "private" ? "Özel oda" : "Hızlı maç"} · ${m.mode.toUpperCase()} · ${({eksioglu:"Ekşioğlu",senir:"Senir",firat:"Fırat Üni."})[m.map]||"Ekşioğlu"}</span><span class="pill ${m.state === "playing" ? "good" : "acc"}">${({waiting:"bekleme odası",starting:"başlıyor",playing:"oynanıyor",ended:"bitti"})[m.state]||m.state}</span><span class="grow dim">${m.players} oyuncu · ${dur(m.age)}</span></div>`).join("") : '<div class="empty">Şu an maç yok</div>'}</div>
   <h2>Çevrimiçi oyuncular</h2>
   <div class="list">${j.online.length ? j.online.map(p => `<div class="row"><span class="name">${esc(p.name)}</span><span class="id">${p.id}</span><span class="grow dim">${p.status === "match" ? "maçta (" + esc(p.room) + ")" : p.status === "room" ? "odada " + esc(p.room) : "lobide"}</span></div>`).join("") : '<div class="empty">Kimse çevrimiçi değil</div>'}</div>`;
 }

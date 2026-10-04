@@ -71,6 +71,8 @@ public static class PostFx
             ao.radius.Override(0.6f);
             ao.quality.Override(AmbientOcclusionQuality.Low);
 
+            if (volume != null)
+                Object.Destroy(volume.gameObject);   // the last scene's (it outlives scene reloads)
             volume = PostProcessManager.instance.QuickVolume(0, 100f, bloom, grading, vignette, ao);
             Object.DontDestroyOnLoad(volume.gameObject);
         }

@@ -295,7 +295,7 @@ public class ErrorReporter : MonoBehaviour
                 Check("ZM-C-14", "Arayüz ikonu eksik: " + icon, "Rütbe/ödül ekranlarında boş kutu görünür.");
 
         if (!MapData.Loaded)
-            Check("ZM-C-10", "Çekmeköy harita verisi yüklenemedi (Resources/Map).", "Yedek ada haritası kullanılıyor.");
+            Check("ZM-C-10", MapCatalog.CurrentInfo.name + " harita verisi yüklenemedi (Resources/Map/" + MapCatalog.Current + ").", "Yedek ada haritası kullanılıyor.");
         if (CityBuilder.LastError != null)
             Check("ZM-C-11", "Şehir kurulurken hata: " + CityBuilder.LastError, "Bazı binalar/yollar eksik olabilir.");
 
