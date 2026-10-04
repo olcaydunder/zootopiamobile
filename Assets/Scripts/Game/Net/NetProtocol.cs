@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game
@@ -23,10 +23,11 @@ public static class NetProtocol
     public const byte C_Door = 6;       // ushort door, bool open, Pos from
     public const byte C_Grenade = 7;    // Pos, float vx vy vz
     public const byte C_Start = 8;      // (private room leader) start now
+    public const byte C_Voice = 9;      // voice frame: byte seq, short predictor, byte index, ADPCM bytes (unreliable)
 
     // Server -> phone
-    public const byte S_Lobby = 20;       // byte phase, float seconds left, byte mode, bool private, ushort leader, string code, byte n {ushort id, string name}
-    public const byte S_Entities = 21;    // byte n {ushort id, byte team, bool bot, string name, string skin, string parachute}
+    public const byte S_Lobby = 20;       // byte phase, float seconds left, byte mode, bool private, ushort leader, string code, byte n {ushort id, string name, string account}
+    public const byte S_Entities = 21;    // byte n {ushort id, byte team, bool bot, string name, string skin, string parachute, string account}
     public const byte S_MatchStart = 22;  // ushort you, byte team, byte mode, Pos plane start, Pos plane end, float zx zz zr, ushort doors, byte teams
     public const byte S_Loot = 23;        // ushort n {ushort id, byte type, Pos}
     public const byte S_LootTaken = 24;   // ushort id, bool yours (answer to C_Pickup: only then the item is given)
@@ -40,10 +41,14 @@ public static class NetProtocol
     public const byte S_Placement = 32;   // byte place, byte teams
     public const byte S_MatchEnd = 33;    // byte winner team (255 none), string names
     public const byte S_Toast = 34;       // string
+    public const byte S_Voice = 35;       // ushort speaker, then the C_Voice payload after its id byte
 
     // Entity flags (C_State and snapshots)
     public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64;
     public const int F_Air = F_Plane | F_Freefall | F_Parachute;
+
+    /// <summary>Largest voice payload accepted (40 ms of 8 kHz ADPCM = 160 bytes + header).</summary>
+    public const int MaxVoiceBytes = 220;
 
     // Lobby phases
     public const int LobbyWaiting = 0, LobbyCountdown = 1;

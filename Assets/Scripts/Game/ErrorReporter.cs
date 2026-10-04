@@ -182,6 +182,38 @@ public class ErrorReporter : MonoBehaviour
         return e;
     }
 
+    /// <summary>Device details, this session's errors and the end of the error log, for a bug report.</summary>
+    public static string RecentLog(int maxChars)
+    {
+        var sb = new StringBuilder();
+        sb.Append("Cihaz: ").Append(SystemInfo.deviceModel).Append(" | ").Append(SystemInfo.operatingSystem)
+          .Append(" | GPU ").Append(SystemInfo.graphicsDeviceName).Append(" | RAM ").Append(SystemInfo.systemMemorySize).Append(" MB")
+          .Append(" | ekran ").Append(Screen.width).Append('x').Append(Screen.height).Append('\n');
+        if (Instance != null)
+        {
+            sb.Append("FPS ").Append(Mathf.RoundToInt(Instance.fps)).Append(" | hata sayısı ").Append(Instance.errorCount).Append('\n');
+            int start = Mathf.Max(0, Instance.entries.Count - 40);
+            for (int i = start; i < Instance.entries.Count; i++)
+            {
+                var e = Instance.entries[i];
+                sb.Append('[').Append(e.code).Append("] ").Append(e.type).Append(" x").Append(e.count).Append(": ").Append(e.message).Append('\n');
+                if (!string.IsNullOrEmpty(e.stack))
+                    sb.Append(Trim(e.stack, 6)).Append('\n');
+            }
+            try
+            {
+                if (File.Exists(Instance.logPath))
+                {
+                    string file = File.ReadAllText(Instance.logPath);
+                    sb.Append("--- zm_hata.log ---\n").Append(file.Length > maxChars / 2 ? file.Substring(file.Length - maxChars / 2) : file);
+                }
+            }
+            catch { }
+        }
+        string all = sb.ToString();
+        return all.Length > maxChars ? all.Substring(all.Length - maxChars) : all;
+    }
+
     /// <summary>Records a failed system check with a fixed code and a Turkish explanation.</summary>
     public static void Check(string code, string message, string hint)
     {

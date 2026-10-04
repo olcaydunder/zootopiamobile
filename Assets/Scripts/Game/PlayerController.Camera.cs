@@ -176,6 +176,12 @@ public partial class PlayerController
         pitch = Mathf.Clamp(pitch + pitchErr * strength, -60f, 60f);
     }
 
+    /// <summary>For the HUD crosshair: an enemy is right under it.</summary>
+    public bool EnemyInSights()
+    {
+        return state == PlayerState.Ground && currentWeapon != null && currentWeapon.weaponData != null && !isDead && EnemyUnderCrosshair();
+    }
+
     private bool EnemyUnderCrosshair()
     {
         Transform cam = playerCamera.transform;

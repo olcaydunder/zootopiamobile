@@ -37,6 +37,7 @@ public static class GameSettings
     public static float RenderScale = 1f;        // 0.5 .. 1 (screen resolution)
     public static int GrassDensity = 2;          // 0 off, 1 low, 2 normal, 3 high
     public static int CrosshairColor;            // index into CrosshairColors
+    public static int CrosshairStyle;            // index into Crosshair.StyleNames
     public static bool DamageNumbers = true;
     public static bool Vibration = true;
     public static bool UiSounds = true;
@@ -89,6 +90,7 @@ public static class GameSettings
         RenderScale = Mathf.Clamp(PlayerPrefs.GetFloat("zm_render_scale", 1f), 0.5f, 1f);
         GrassDensity = Mathf.Clamp(PlayerPrefs.GetInt("zm_grass", Quality == 0 ? 0 : 2), 0, 3);
         CrosshairColor = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross", 0), 0, CrosshairColors.Length - 1);
+        CrosshairStyle = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross_style", 0), 0, Crosshair.StyleNames.Length - 1);
         DamageNumbers = PlayerPrefs.GetInt("zm_dmg_numbers", 1) == 1;
         Vibration = PlayerPrefs.GetInt("zm_vibration", 1) == 1;
         UiSounds = PlayerPrefs.GetInt("zm_ui_sounds", 1) == 1;
@@ -126,6 +128,7 @@ public static class GameSettings
         PlayerPrefs.SetFloat("zm_render_scale", RenderScale);
         PlayerPrefs.SetInt("zm_grass", GrassDensity);
         PlayerPrefs.SetInt("zm_cross", CrosshairColor);
+        PlayerPrefs.SetInt("zm_cross_style", CrosshairStyle);
         PlayerPrefs.SetInt("zm_dmg_numbers", DamageNumbers ? 1 : 0);
         PlayerPrefs.SetInt("zm_vibration", Vibration ? 1 : 0);
         PlayerPrefs.SetInt("zm_ui_sounds", UiSounds ? 1 : 0);
@@ -143,6 +146,7 @@ public static class GameSettings
                 AimAssist = true;
                 FirePreset = 0;
                 CrosshairColor = 0;
+                CrosshairStyle = 0;
                 DamageNumbers = true;
                 CustomFire[0] = 0; CustomFire[1] = 0; CustomFire[2] = 1; CustomFire[3] = 0; CustomFire[4] = 1;
                 break;

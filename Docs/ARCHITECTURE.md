@@ -30,6 +30,11 @@ Telefon ──UDP───> maç süreci (7777–7799)  bekleme odası → maç 
 - `NetConnection`: seçmeli onay (ack + 32 bitlik alındı maskesi) ile yalnız kaybolan mesaj yeniden gönderilir;
   yeniden gönderme süresi ölçülen gidiş-dönüş süresine göre ayarlanır.
 - Sandık: telefon sandığa değince sunucuya sorar; eşya ancak sunucu "senin" deyince verilir (iki kişi aynı anda alamaz).
+- Hesaplar ve topluluk: telefon ilk açılışta hesap alır (6 haneli arkadaş kodu + gizli anahtar). Arkadaşlar, oda
+  daveti, engelleme, şikayet, hata bildirimi ve yasaklama `orchestrator.py` + SQLite üzerinden; oyun sunucusu her
+  katılanı `/verify` ile doğrular (yasaklıysa atar). Yönetim paneli `/admin`.
+- Sesli sohbet: açık mikrofon (konuşunca gönderir), 8 kHz IMA ADPCM, 40 ms kareler; oyun sunucusu özel odada odaya,
+  maçta yalnız takıma iletir; engellenen/susturulan oyuncu çalınmaz (`VoiceChat.cs`).
 - v1'de çevrimiçi kapalı olanlar: sınıf yetenekleri, jetonlar, araçlar, güçlendirme noktaları, yere düşme.
   Takım modlarında elenen oyuncu sonucunu hemen görür (izleyici modu ve takımla birlikte kazanma sonraki sürümde).
 

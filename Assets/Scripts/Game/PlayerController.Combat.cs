@@ -251,6 +251,8 @@ public partial class PlayerController
             if (currentWeapon.TryFire(origin, cam.forward, Team, Physics.DefaultRaycastLayers, extraSpread, out killed))
             {
                 lastFireTime = Time.time;
+                if (gm.uiManager != null)
+                    gm.uiManager.CrosshairKick(0.18f + currentWeapon.weaponData.Recoil * 0.06f);
                 if (Ability != null)
                     Ability.EndStealth();   // shooting gives you away
                 pitch -= currentWeapon.weaponData.Recoil;

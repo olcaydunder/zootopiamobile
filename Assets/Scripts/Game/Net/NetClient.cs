@@ -29,6 +29,17 @@ public sealed class NetClient : MonoBehaviour
     public double CountdownEnds;
     public readonly List<int> LobbyIds = new List<int>();
     public readonly List<string> LobbyNames = new List<string>();
+    public readonly List<string> LobbyAccounts = new List<string>();
+
+    /// <summary>A human player met online (for the friends screen: add, report, block).</summary>
+    public struct MetPlayer
+    {
+        public string name, account, match;
+        public bool teammate;
+    }
+
+    /// <summary>Players of the last online match (and the current one), newest first.</summary>
+    public static readonly List<MetPlayer> RecentPlayers = new List<MetPlayer>();
     /// <summary>Changes whenever something the waiting room shows changes.</summary>
     public int Revision;
 
@@ -45,7 +56,7 @@ public sealed class NetClient : MonoBehaviour
     {
         public int id, team;
         public bool bot;
-        public string name, skin, para;
+        public string name, skin, para, account;
     }
 
     private NetSocket socket;
@@ -125,6 +136,7 @@ public sealed class NetClient : MonoBehaviour
             return;
         }
         nonce = (uint)Random.Range(1, int.MaxValue);
+        VoiceChat.Ensure();
         State = Phase.Connecting;
         connectStarted = Now;
         nextHello = 0;
@@ -146,6 +158,8 @@ public sealed class NetClient : MonoBehaviour
         w.String(gm != null ? gm.profile.playerName : "Oyuncu", 40);
         w.String(gm != null ? gm.profile.equippedSkin : ModelLibrary.PlayerSkin, 32);
         w.String(Cosmetics.EquippedParachuteCamo ?? "", 32);
+        w.String(OnlineService.AccountId, 12);
+        w.String(OnlineService.SecretForHello, 64);
         socket.Send(w.Buffer, w.Length, server);
     }
 
@@ -180,6 +194,7 @@ public sealed class NetClient : MonoBehaviour
         CountdownEnds = -1;
         LobbyIds.Clear();
         LobbyNames.Clear();
+        LobbyAccounts.Clear();
         Revision++;
     }
 
@@ -334,7 +349,7 @@ public sealed class NetClient : MonoBehaviour
                     if (finished)
                         Leave();
                     else
-                        Fail("Sunucu bağlantıyı kapattı");
+                        Fail(State != Phase.Playing && Error.Length > 0 ? Error : "Sunucu bağlantıyı kapattı");
                 }
             }
         }
@@ -373,8 +388,24 @@ public sealed class NetClient : MonoBehaviour
                     break;
                 case NetProtocol.S_MatchEnd: OnMatchEnd(); break;
                 case NetProtocol.S_Toast:
-                    Toast(reader.String());
+                {
+                    string text = reader.String();
+                    Toast(text);
+                    if (State != Phase.Playing)
+                    {
+                        Error = text;   // e.g. "Hesabın yasaklandı" before the server closes the link
+                        Status = text;
+                        Revision++;
+                    }
                     break;
+                }
+                case NetProtocol.S_Voice:
+                {
+                    int speaker = reader.UShort();
+                    if (len > 3)
+                        VoiceChat.Receive(speaker, AccountOf(speaker), buf, off + 3, len - 3);
+                    break;
+                }
             }
         }
         catch (NetFormatException) { }
@@ -397,10 +428,12 @@ public sealed class NetClient : MonoBehaviour
         int n = reader.Byte();
         LobbyIds.Clear();
         LobbyNames.Clear();
+        LobbyAccounts.Clear();
         for (int i = 0; i < n; i++)
         {
             LobbyIds.Add(reader.UShort());
             LobbyNames.Add(reader.String());
+            LobbyAccounts.Add(reader.String());
         }
         CountdownEnds = left >= 0f ? Now + left : -1;
         Revision++;
@@ -420,7 +453,8 @@ public sealed class NetClient : MonoBehaviour
                 bot = reader.Bool(),
                 name = reader.String(),
                 skin = reader.String(),
-                para = reader.String()
+                para = reader.String(),
+                account = reader.String()
             };
             infos[e.id] = e;
         }
@@ -465,6 +499,75 @@ public sealed class NetClient : MonoBehaviour
             gm.Combatants.Add(p);
         }
         AliveCount = infos.Count;
+
+        RecentPlayers.Clear();
+        foreach (var e in infos.Values)
+            if (!e.bot && e.id != MyId && !string.IsNullOrEmpty(e.account))
+                RecentPlayers.Add(new MetPlayer { name = e.name, account = e.account, match = RoomCode, teammate = e.team == myServerTeam });
+    }
+
+    /// <summary>Account id of a player by their id in the room / match ("" for bots and unknown ids).</summary>
+    public string AccountOf(int id)
+    {
+        if (State == Phase.Playing)
+        {
+            EntityInfo e;
+            return infos.TryGetValue(id, out e) && !e.bot ? e.account ?? "" : "";
+        }
+        int i = LobbyIds.IndexOf(id);
+        return i >= 0 && i < LobbyAccounts.Count ? LobbyAccounts[i] : "";
+    }
+
+    public string NameOfPlayer(int id)
+    {
+        if (State == Phase.Playing)
+            return NameOf(id);
+        int i = LobbyIds.IndexOf(id);
+        return i >= 0 ? LobbyNames[i] : "?";
+    }
+
+    /// <summary>Whether anyone can hear us now (private room waiting room, or teammates in the match).</summary>
+    public bool VoiceAvailable
+    {
+        get
+        {
+            if (State == Phase.Lobby)
+                return PrivateRoom && LobbyIds.Count > 1;
+            if (State != Phase.Playing)
+                return false;
+            foreach (var p in puppets.Values)
+                if (p != null && p.team == 0 && !p.isBot)
+                    return true;
+            return false;
+        }
+    }
+
+    /// <summary>Teammates (in the match) or room members (waiting room) for the players list: id, name, account.</summary>
+    public void ListPlayers(List<MetPlayer> into)
+    {
+        into.Clear();
+        if (State == Phase.Playing)
+        {
+            foreach (var e in infos.Values)
+                if (!e.bot && e.id != MyId)
+                    into.Add(new MetPlayer { name = e.name, account = e.account ?? "", match = RoomCode, teammate = e.team == myServerTeam });
+        }
+        else
+        {
+            for (int i = 0; i < LobbyIds.Count; i++)
+                if (LobbyIds[i] != MyId)
+                    into.Add(new MetPlayer { name = LobbyNames[i], account = i < LobbyAccounts.Count ? LobbyAccounts[i] : "", match = RoomCode, teammate = true });
+        }
+    }
+
+    public void SendVoice(byte[] payload, int length)
+    {
+        if (conn == null || (State != Phase.Lobby && State != Phase.Playing) || length > NetProtocol.MaxVoiceBytes)
+            return;
+        w.Reset();
+        w.Byte(NetProtocol.C_Voice);
+        w.Bytes(payload, 0, length);
+        conn.SendUnreliable(w.ToArray());
     }
 
     private void OnLoot()

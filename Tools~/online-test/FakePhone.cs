@@ -16,7 +16,7 @@ public class Phone
     public int id = -1, team = -1, teams; public bool inMatch; public V3 pos; public int flags = 2; ushort seq;
     public Dictionary<int, Ent> ents = new Dictionary<int, Ent>(); public Dictionary<int, V3> loot = new Dictionary<int, V3>(); public Dictionary<int, int> lootType = new Dictionary<int, int>();
     public List<string> lobbyNames = new List<string>(); public int leader; public int lobbyPhase;
-    public int snaps, shotsSeen, damageMsgs, kills, lootGone, doorMsgs, grenades; public float damageTotal; public int lastAttacker = -1, lastHow = -1;
+    public int voiceFrames, lastVoiceFrom = -1; public int snaps, shotsSeen, damageMsgs, kills, lootGone, doorMsgs, grenades; public float damageTotal; public int lastAttacker = -1, lastHow = -1;
     public List<string> killLog = new List<string>(); public int placement = -1, endWinner = -2; public string reject; public int lootTakenId = -1; public bool lootTakenOk;
     public float snapTime; public int alive, aliveTeams; public float zoneR; public int zonePhase; public int doorCount;
     NetWriter w = new NetWriter(); NetReader r = new NetReader();
@@ -25,7 +25,7 @@ public class Phone
     public Phone(string n, int port) { name = n; server = new IPEndPoint(IPAddress.Loopback, port); sock.Open(0); nonce = (uint)new Random(Environment.TickCount + (count++) * 7919).Next(1, int.MaxValue); }
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(1); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String("");
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(2); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret");
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
@@ -57,8 +57,8 @@ public class Phone
         r.Set(b, o, l); int t = r.Byte();
         switch (t)
         {
-            case 20: lobbyPhase = r.Byte(); r.Float(); r.Byte(); r.Bool(); leader = r.UShort(); r.String(); { int n = r.Byte(); lobbyNames.Clear(); for (int i = 0; i < n; i++) { r.UShort(); lobbyNames.Add(r.String()); } } break;
-            case 21: { int n = r.Byte(); for (int i = 0; i < n; i++) { var e = new Ent { id = r.UShort(), team = r.Byte(), bot = r.Bool(), name = r.String(), skin = r.String() }; r.String(); ents[e.id] = e; } } break;
+            case 20: lobbyPhase = r.Byte(); r.Float(); r.Byte(); r.Bool(); leader = r.UShort(); r.String(); { int n = r.Byte(); lobbyNames.Clear(); for (int i = 0; i < n; i++) { r.UShort(); lobbyNames.Add(r.String()); r.String(); } } break;
+            case 21: { int n = r.Byte(); for (int i = 0; i < n; i++) { var e = new Ent { id = r.UShort(), team = r.Byte(), bot = r.Bool(), name = r.String(), skin = r.String() }; r.String(); r.String(); ents[e.id] = e; } } break;
             case 22: id = r.UShort(); team = r.Byte(); r.Byte(); { var ps = Pos(r); var pe = Pos(r); r.Float(); r.Float(); zoneR = r.Float(); doorCount = r.UShort(); teams = r.Byte(); pos = ps; inMatch = true; Console.WriteLine(name + ": MATCH START id=" + id + " team=" + team + " teams=" + teams + " plane " + ps + "->" + pe + " zoneR=" + zoneR + " doors=" + doorCount + " ents=" + ents.Count); } break;
             case 23: { int n = r.UShort(); for (int i = 0; i < n; i++) { int lid = r.UShort(); int ty = r.Byte(); loot[lid] = Pos(r); lootType[lid] = ty; } } break;
             case 24: lootTakenId = r.UShort(); lootTakenOk = r.Bool(); break;
@@ -77,6 +77,7 @@ public class Phone
             case 32: placement = r.Byte(); r.Byte(); break;
             case 33: endWinner = r.Byte(); Console.WriteLine(name + ": MATCH END winner team " + endWinner + " (" + r.String() + ")"); break;
             case 34: Console.WriteLine(name + ": TOAST " + r.String()); break;
+            case 35: lastVoiceFrom = r.UShort(); voiceFrames++; break;
         }
     }
 }
@@ -107,6 +108,11 @@ public static class FakePhoneTest
         Check(A.lobbyNames.Count == 2, "lobby list: " + string.Join(" | ", A.lobbyNames.ToArray()));
         Check(A.lobbyNames.Count == 2 && A.lobbyNames[0] != A.lobbyNames[1], "duplicate names made unique");
         Check(A.leader == A.id, "first player is the leader");
+        Console.WriteLine("== voice in the private room");
+        for (int i = 0; i < 5; i++) A.Unrel(x => { x.Byte(9); for (int k = 0; k < 164; k++) x.Byte(k); });
+        RunUntil(2, ps, () => B.voiceFrames >= 5);
+        Check(B.voiceFrames >= 5 && B.lastVoiceFrom == A.id, "B heard A in the room: " + B.voiceFrames + " frames");
+        Check(A.voiceFrames == 0, "A does not hear itself");
         Console.WriteLine("== start (leader)");
         B.Rel(x => x.Byte(8));   // not the leader: ignored
         Run(1, ps); Check(A.lobbyPhase == 0, "non-leader start ignored");
@@ -119,6 +125,11 @@ public static class FakePhoneTest
         Check(squad ? A.team == B.team : A.team != B.team, "teams " + A.team + "/" + B.team);
         Run(3, ps);
         Check(A.snaps >= 45 && A.snaps <= 66, "snapshot rate ~20/s: " + A.snaps + " in ~3 s");
+        Console.WriteLine("== voice in the match");
+        int vb = B.voiceFrames;
+        for (int i = 0; i < 5; i++) A.Unrel(x => { x.Byte(9); for (int k = 0; k < 164; k++) x.Byte(k); });
+        Run(1, ps);
+        if (squad) Check(B.voiceFrames - vb >= 5, "squad: teammate B hears A"); else Check(B.voiceFrames == vb, "solo: enemy B does not hear A");
         Console.WriteLine("== bots drop");
         ok = RunUntil(90, ps, () => { int landed = 0; foreach (var e in A.ents.Values) if (e.bot && (e.flags & 14) == 0 && (e.flags & 1) == 0) landed++; return landed >= 18; });
         int ln = 0; foreach (var e in A.ents.Values) if (e.bot && (e.flags & 14) == 0) ln++;

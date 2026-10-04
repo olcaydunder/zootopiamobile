@@ -108,22 +108,109 @@ public class TitleScreen : MonoBehaviour
         var credit = UIUtil.CreateText(loading.transform, UIManager.ProducerCredit, new Vector2(0.5f, 0f), new Vector2(0f, 50f), new Vector2(900f, 36f), 24, TextAnchor.MiddleCenter);
         credit.color = new Color(1f, 1f, 1f, 0.45f);
 
-        // ---- Title (over the 3D city)
+        // ---- Title (over the 3D city): cinematic camera shots, letterbox, animated logo
         title = UIUtil.CreateStretch(t, "Title").gameObject;
-        var shade = title.AddComponent<RawImage>();
-        shade.texture = Gradient(new Color(0.02f, 0.03f, 0.05f, 0.55f), new Color(0.01f, 0.01f, 0.02f, 0.95f), false);
+        var vignette = title.AddComponent<RawImage>();
+        vignette.texture = Vignette();
         var tap = title.AddComponent<Button>();
-        tap.targetGraphic = shade;
+        tap.targetGraphic = vignette;
         tap.transition = Selectable.Transition.None;
         tap.onClick.AddListener(Leave);
-        Logo(title.transform, new Vector2(0f, 230f), 0.9f);
-        tapText = UIUtil.CreateText(title.transform, "DOKUNARAK BAŞLA", new Vector2(0.5f, 0f), new Vector2(0f, 190f), new Vector2(900f, 70f), 44, TextAnchor.MiddleCenter);
+
+        // Drifting embers over everything.
+        for (int i = 0; i < 26; i++)
+        {
+            var e = UIUtil.CreateImage(title.transform, "Ember", new Vector2(0.5f, 0f), Vector2.zero, Vector2.one * Random.Range(4f, 9f), new Color(1f, 0.75f, 0.35f, 0f), true);
+            e.raycastTarget = false;
+            embers.Add(new Ember { img = e, x = Random.Range(-1000f, 1000f), y = Random.Range(0f, 1100f), speed = Random.Range(25f, 70f), phase = Random.value * 10f, alpha = Random.Range(0.25f, 0.7f) });
+        }
+
+        letterTop = UIUtil.CreateImage(title.transform, "BarTop", new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(4000f, 0f), Color.black, false).rectTransform;
+        letterTop.pivot = new Vector2(0.5f, 1f);
+        letterBottom = UIUtil.CreateImage(title.transform, "BarBottom", new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(4000f, 0f), Color.black, false).rectTransform;
+        letterBottom.pivot = new Vector2(0.5f, 0f);
+        letterTop.GetComponent<Image>().raycastTarget = false;
+        letterBottom.GetComponent<Image>().raycastTarget = false;
+
+        logoRoot = UIUtil.CreateRect(title.transform, "Logo", new Vector2(0.5f, 0.5f), new Vector2(0f, 200f), new Vector2(1600f, 400f));
+        logoGroup = logoRoot.gameObject.AddComponent<CanvasGroup>();
+        var glow = UIUtil.CreateText(logoRoot, "ZOOTOPIA", new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(1500f, 220f), 176, TextAnchor.MiddleCenter);
+        glow.fontStyle = FontStyle.Bold;
+        glow.color = new Color(1f, 0.7f, 0.15f, 0.25f);
+        var gs = glow.GetComponent<Shadow>();
+        gs.effectColor = new Color(1f, 0.6f, 0.1f, 0.35f);
+        gs.effectDistance = new Vector2(0f, 0f);
+        glow.gameObject.AddComponent<Outline>().effectColor = new Color(1f, 0.6f, 0.1f, 0.18f);
+        var o2 = glow.gameObject.GetComponent<Outline>();
+        o2.effectDistance = new Vector2(10f, 10f);
+        Logo(logoRoot, Vector2.zero, 1f);
+        var tagline = UIUtil.CreateText(logoRoot, "B A T T L E   R O Y A L E", new Vector2(0.5f, 0.5f), new Vector2(0f, -160f), new Vector2(1200f, 50f), 30, TextAnchor.MiddleCenter);
+        tagline.color = new Color(1f, 1f, 1f, 0.7f);
+        sweep = UIUtil.CreateImage(logoRoot, "Sweep", new Vector2(0.5f, 0.5f), new Vector2(-900f, 30f), new Vector2(90f, 420f), new Color(1f, 1f, 1f, 0.12f), false).rectTransform;
+        sweep.localRotation = Quaternion.Euler(0f, 0f, -18f);
+        sweep.GetComponent<Image>().raycastTarget = false;
+
+        // Tap to start, in a framed pill.
+        var pill = UIUtil.CreateImage(title.transform, "Start", new Vector2(0.5f, 0f), new Vector2(0f, 205f), new Vector2(560f, 92f), new Color(0f, 0f, 0f, 0.55f), false);
+        pill.raycastTarget = false;
+        pillFrame = pill.gameObject.AddComponent<Outline>();
+        pillFrame.effectColor = Theme.Accent;
+        pillFrame.effectDistance = new Vector2(2f, -2f);
+        tapText = UIUtil.CreateText(pill.transform, "DOKUNARAK BAŞLA", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 92f), 40, TextAnchor.MiddleCenter);
         tapText.fontStyle = FontStyle.Bold;
-        var info = UIUtil.CreateText(title.transform, "Ekşioğlu, Çekmeköy  •  25 oyunculu Battle Royale", new Vector2(0.5f, 0f), new Vector2(0f, 120f), new Vector2(1200f, 40f), 26, TextAnchor.MiddleCenter);
+        var info = UIUtil.CreateText(title.transform, "Ekşioğlu, Çekmeköy  •  Çevrimiçi ve botlarla Battle Royale", new Vector2(0.5f, 0f), new Vector2(0f, 135f), new Vector2(1200f, 40f), 26, TextAnchor.MiddleCenter);
         info.color = Theme.TextDim;
-        var ver = UIUtil.CreateText(title.transform, "v" + Application.version + "   •   " + UIManager.ProducerCredit, new Vector2(1f, 0f), new Vector2(-320f, 40f), new Vector2(600f, 34f), 22, TextAnchor.MiddleRight);
-        ver.color = new Color(1f, 1f, 1f, 0.45f);
+
+        // Player card (bottom-left) and version / credit (bottom-right).
+        var card = Theme.Box(title.transform, "Card", new Vector2(0f, 0f), new Vector2(290f, 80f), new Vector2(520f, 110f), new Color(0f, 0f, 0f, 0.55f), true);
+        cardIcon = Icons.Create(card.transform, Icons.Rank(0), new Vector2(0f, 0.5f), new Vector2(62f, 0f), new Vector2(88f, 88f));
+        cardName = UIUtil.CreateText(card.transform, "", new Vector2(0f, 0.5f), new Vector2(300f, 18f), new Vector2(380f, 44f), 32, TextAnchor.MiddleLeft);
+        cardName.fontStyle = FontStyle.Bold;
+        cardRank = UIUtil.CreateText(card.transform, "", new Vector2(0f, 0.5f), new Vector2(300f, -20f), new Vector2(380f, 34f), 22, TextAnchor.MiddleLeft);
+        cardRank.color = Theme.Accent;
+        var ver = UIUtil.CreateText(title.transform, "v" + Application.version + "   •   " + UIManager.ProducerCredit, new Vector2(1f, 0f), new Vector2(-320f, 60f), new Vector2(600f, 34f), 22, TextAnchor.MiddleRight);
+        ver.color = new Color(1f, 1f, 1f, 0.5f);
+
+        fade = UIUtil.CreateImage(title.transform, "Fade", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(5000f, 3000f), Color.black, false);
+        fade.raycastTarget = false;
         title.SetActive(false);
+    }
+
+    private class Ember
+    {
+        public Image img;
+        public float x, y, speed, phase, alpha;
+    }
+
+    private readonly System.Collections.Generic.List<Ember> embers = new System.Collections.Generic.List<Ember>();
+    private RectTransform letterTop, letterBottom, logoRoot, sweep;
+    private CanvasGroup logoGroup;
+    private Outline pillFrame;
+    private Image fade, cardIcon;
+    private Text cardName, cardRank;
+    private float titleTime;
+    private int shot = -1;
+    private float shotTime;
+
+    /// <summary>Dark edges, clear middle: the city shows through.</summary>
+    private static Texture2D Vignette()
+    {
+        const int n = 128;
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n - 0.5f, dy = (y + 0.5f) / n - 0.5f;
+                float d = Mathf.Sqrt(dx * dx * 1.2f + dy * dy) * 2f;
+                float a = Mathf.Clamp01((d - 0.45f) / 0.75f);
+                a = a * a * 0.85f + (y < n * 0.35f ? (0.35f - y / (float)n) * 1.4f : 0f);   // extra shade low down for the text
+                px[y * n + x] = new Color32(2, 3, 6, (byte)(Mathf.Clamp01(a) * 255f));
+            }
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.SetPixels32(px);
+        tex.Apply();
+        return tex;
     }
 
     public void SetProgress(float value, string message)
@@ -144,6 +231,16 @@ public class TitleScreen : MonoBehaviour
         title.SetActive(true);
         titleActive = true;
         orbit = 0f;
+        titleTime = 0f;
+        shot = -1;
+        var gm = GameManager.Instance;
+        if (gm != null)
+        {
+            var prof = gm.profile;
+            cardName.text = prof.playerName;
+            cardRank.text = prof.RankName.ToUpper() + "  •  SV " + prof.level;
+            Icons.Set(cardIcon, Icons.Rank(prof.RankIndex));
+        }
     }
 
     private void Leave()
@@ -178,18 +275,91 @@ public class TitleScreen : MonoBehaviour
             return;
         }
 
-        tapText.color = new Color(1f, 1f, 1f, 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.2f)));
+        float dt = Time.unscaledDeltaTime;
+        titleTime += dt;
+        float pulse = Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.2f));
+        tapText.color = new Color(1f, 1f, 1f, 0.6f + 0.4f * pulse);
+        pillFrame.effectColor = new Color(Theme.Accent.r, Theme.Accent.g, Theme.Accent.b, 0.35f + 0.65f * pulse);
 
-        // Slow aerial orbit around the clinic.
+        // Letterbox slides in, logo settles from a slight zoom, a light sweep crosses it now and then.
+        float bars = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(titleTime / 1.2f)) * 95f;
+        letterTop.sizeDelta = new Vector2(4000f, bars);
+        letterBottom.sizeDelta = new Vector2(4000f, bars * 0.6f);
+        float k = Mathf.Clamp01((titleTime - 0.3f) / 1.1f);
+        logoGroup.alpha = k;
+        logoRoot.localScale = Vector3.one * Mathf.Lerp(1.12f, 1f, 1f - (1f - k) * (1f - k));
+        float sw = Mathf.Repeat(titleTime - 1.5f, 6f);
+        sweep.anchoredPosition = new Vector2(Mathf.Lerp(-900f, 900f, sw / 1.4f), 30f);
+        sweep.gameObject.SetActive(titleTime > 1.5f && sw < 1.4f);
+
+        foreach (var e in embers)
+        {
+            e.y += e.speed * dt;
+            if (e.y > 1150f)
+            {
+                e.y = -20f;
+                e.x = Random.Range(-1000f, 1000f);
+            }
+            e.img.rectTransform.anchoredPosition = new Vector2(e.x + Mathf.Sin(Time.unscaledTime * 0.7f + e.phase) * 30f, e.y);
+            float life = Mathf.Clamp01(e.y / 200f) * Mathf.Clamp01((1150f - e.y) / 300f);
+            e.img.color = new Color(1f, 0.72f, 0.3f, e.alpha * life * Mathf.Clamp01(titleTime));
+        }
+
+        // Camera: a few slow shots around the clinic and over the city, with fades between them.
         var cam = Camera.main;
         if (cam != null && !leaving)
+            CameraShots(cam, dt);
+    }
+
+    private static readonly float[] ShotLengths = { 9f, 7f, 9f };
+
+    private void CameraShots(Camera cam, float dt)
+    {
+        if (shot < 0 || shotTime >= ShotLengths[shot])
         {
-            orbit += Time.unscaledDeltaTime * 0.05f;
-            Vector3 c = World.LobbySpot;
-            float a = orbit + 0.6f;
-            cam.transform.position = c + new Vector3(Mathf.Cos(a) * 70f, 38f, Mathf.Sin(a) * 70f);
-            cam.transform.LookAt(c + Vector3.up * 6f);
-            cam.fieldOfView = 50f;
+            shot = (shot + 1) % ShotLengths.Length;
+            shotTime = 0f;
+        }
+        shotTime += dt;
+        float len = ShotLengths[shot];
+        float u = Mathf.Clamp01(shotTime / len);
+        float f = Mathf.Max(Mathf.Clamp01(1f - shotTime / 0.7f), Mathf.Clamp01((shotTime - (len - 0.6f)) / 0.6f));
+        if (titleTime < 0.7f)
+            f = Mathf.Max(f, 1f - titleTime / 0.7f);
+        fade.color = new Color(0f, 0f, 0f, f);
+
+        Vector3 c = World.LobbySpot;
+        Vector3 fwd = Quaternion.Euler(0f, World.LobbyYaw, 0f) * Vector3.forward;
+        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        switch (shot)
+        {
+            case 0:   // slow orbit around the clinic
+            {
+                orbit += dt * 0.05f;
+                float a = orbit + 0.6f;
+                cam.transform.position = c + new Vector3(Mathf.Cos(a) * 70f, 38f, Mathf.Sin(a) * 70f);
+                cam.transform.LookAt(c + Vector3.up * 6f);
+                cam.fieldOfView = 50f;
+                break;
+            }
+            case 1:   // low dolly in on the character
+            {
+                float e = Mathf.SmoothStep(0f, 1f, u);
+                cam.transform.position = Vector3.Lerp(c + fwd * 8f + right * 4.5f + Vector3.up * 1.3f, c + fwd * 3.6f + right * 1.6f + Vector3.up * 1.7f, e);
+                cam.transform.LookAt(c + Vector3.up * 1.45f);
+                cam.fieldOfView = Mathf.Lerp(48f, 40f, e);
+                break;
+            }
+            default:  // high pass over the city
+            {
+                float e = Mathf.SmoothStep(0f, 1f, u);
+                Vector3 from = c - fwd * 160f + right * 120f + Vector3.up * 120f;
+                Vector3 to = c - fwd * 60f - right * 140f + Vector3.up * 95f;
+                cam.transform.position = Vector3.Lerp(from, to, e);
+                cam.transform.LookAt(c + Vector3.up * 10f + fwd * 40f);
+                cam.fieldOfView = 55f;
+                break;
+            }
         }
     }
 }

@@ -195,6 +195,7 @@ public class SettingsScreen : MonoBehaviour
         Note("Tek dokunuşla nişangâh: ateş düğmesine basınca nişangâh açılır.  Otomatik: nişangâh düşmanın üstüne gelince kendiliğinden ateş eder.");
 
         Header("NİŞANGÂH VE GÖSTERGELER");
+        Segments("NİŞANGÂH ŞEKLİ", Crosshair.StyleNames, () => GameSettings.CrosshairStyle, v => GameSettings.CrosshairStyle = v, true);
         Segments("NİŞANGÂH RENGİ", GameSettings.CrosshairNames, () => GameSettings.CrosshairColor, v => GameSettings.CrosshairColor = v, true);
         Segments("HASAR SAYILARI", new[] { "AÇIK", "KAPALI" }, () => GameSettings.DamageNumbers ? 0 : 1, v => GameSettings.DamageNumbers = v == 0);
 

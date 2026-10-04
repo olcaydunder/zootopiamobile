@@ -16,7 +16,8 @@ public class NetLobbyScreen : MonoBehaviour
     private Text title, status, hint, codeLabel, codeText, playersTitle, joinDigits, joinError;
     private readonly List<Text> playerTexts = new List<Text>();
     private GameObject statusGroup, joinGroup, renameGroup, codeGroup, listGroup;
-    private GameObject startButton, okButton, leaveButton;
+    private GameObject startButton, okButton, leaveButton, voiceGroup, inviteButton;
+    private Text micLabel, speakerLabel, talkingText;
     private InputField nameField;
     private string code = "";
     private bool waitingHttp;
@@ -98,6 +99,19 @@ public class NetLobbyScreen : MonoBehaviour
             UiSound.Confirm();
         });
         startButton = start.gameObject;
+        // Voice in a private room's waiting room, and inviting friends.
+        voiceGroup = UIUtil.CreateRect(sg, "Voice", new Vector2(0f, 0f), new Vector2(330f, 110f), new Vector2(560f, 110f)).gameObject;
+        var mic = UIUtil.CreateButton(voiceGroup.transform, "MİK", new Vector2(0f, 0.5f), new Vector2(70f, 0f), new Vector2(130f, 100f), Theme.Panel, false, 24, out micLabel);
+        mic.onClick.AddListener(() => VoiceChat.MicOn = !VoiceChat.MicOn);
+        var spk = UIUtil.CreateButton(voiceGroup.transform, "SES", new Vector2(0f, 0.5f), new Vector2(210f, 0f), new Vector2(130f, 100f), Theme.Panel, false, 24, out speakerLabel);
+        spk.onClick.AddListener(() => VoiceChat.SpeakerOn = !VoiceChat.SpeakerOn);
+        talkingText = UIUtil.CreateText(voiceGroup.transform, "", new Vector2(0f, 0.5f), new Vector2(430f, 0f), new Vector2(260f, 60f), 24, TextAnchor.MiddleLeft);
+        talkingText.color = new Color(0.5f, 1f, 0.6f);
+        talkingText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        var invite = UIUtil.CreateButton(sg, "ARKADAŞ ÇAĞIR", new Vector2(0.5f, 0.5f), new Vector2(-560f, -205f), new Vector2(460f, 90f), new Color(0.16f, 0.45f, 0.95f, 0.95f), false, 30, out label);
+        invite.onClick.AddListener(() => GameManager.Instance.uiManager.OpenSocialFromRoom(gameObject));
+        inviteButton = invite.gameObject;
+
         var ok = UIUtil.CreateButton(sg, "TAMAM", new Vector2(0.5f, 0f), new Vector2(260f, 110f), new Vector2(420f, 110f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 40, out label);
         ok.onClick.AddListener(Close);
         okButton = ok.gameObject;
@@ -195,6 +209,16 @@ public class NetLobbyScreen : MonoBehaviour
         Show(Page.Join, "ODAYA KATIL");
     }
 
+    /// <summary>Joins a friend's private room by its code (invite / friends list).</summary>
+    public void OpenJoinCode(string joinCode, System.Action closed)
+    {
+        onClose = closed;
+        EnsureName();
+        Show(Page.Status, "ÖZEL ODA  •  " + joinCode);
+        ShowBusy("Oda aranıyor...");
+        OnlineService.FindRoom(joinCode, info => OnMatchInfo(info, NetProtocol.ParseMode(info.mode), true));
+    }
+
     public void OpenRename(System.Action closed)
     {
         onClose = closed;
@@ -244,6 +268,7 @@ public class NetLobbyScreen : MonoBehaviour
         var p = GameManager.Instance.profile;
         p.playerName = n.Length > 16 ? n.Substring(0, 16) : n;
         p.Save();
+        OnlineService.SyncName();
         UiSound.Confirm();
         Close();
     }
@@ -320,6 +345,8 @@ public class NetLobbyScreen : MonoBehaviour
         startButton.SetActive(false);
         okButton.SetActive(false);
         leaveButton.SetActive(true);
+        voiceGroup.SetActive(false);
+        inviteButton.SetActive(false);
     }
 
     private void ShowError(string text)
@@ -333,6 +360,8 @@ public class NetLobbyScreen : MonoBehaviour
         startButton.SetActive(false);
         okButton.SetActive(true);
         leaveButton.SetActive(false);
+        voiceGroup.SetActive(false);
+        inviteButton.SetActive(false);
     }
 
     // ----- Waiting room -----
@@ -353,6 +382,18 @@ public class NetLobbyScreen : MonoBehaviour
         {
             ShowError(net.Error);
             return;
+        }
+
+        bool voice = net.State == NetClient.Phase.Lobby && net.PrivateRoom;
+        if (voiceGroup.activeSelf != voice)
+            voiceGroup.SetActive(voice);
+        if (inviteButton.activeSelf != voice)
+            inviteButton.SetActive(voice);
+        if (voice)
+        {
+            UIManager.VoiceLabels(micLabel, speakerLabel);
+            string talking = VoiceChat.TalkingNow();
+            talkingText.text = talking.Length > 0 ? "Konuşuyor: " + talking : (net.LobbyIds.Count > 1 ? "Sesli sohbet açık" : "");
         }
 
         int seconds = net.LobbyPhase == NetProtocol.LobbyCountdown && net.CountdownEnds > 0

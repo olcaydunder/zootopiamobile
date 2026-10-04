@@ -147,6 +147,8 @@ public class UIManager : MonoBehaviour
         if (career != null) career.Hide();
         if (loadout != null) loadout.Hide();
         if (netLobby != null) netLobby.Hide();
+        if (social != null) social.Hide();
+        if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -198,6 +200,29 @@ public class UIManager : MonoBehaviour
         lobbyCoinsText.fontStyle = FontStyle.Bold;
         UIUtil.CreateButton(t, "AYARLAR", new Vector2(1f, 1f), new Vector2(-140f, -70f), new Vector2(220f, 80f), Theme.Panel, false, 28, out unused)
             .onClick.AddListener(() => OpenSettings(false));
+        var friendsButton = UIUtil.CreateButton(t, "ARKADAŞLAR", new Vector2(1f, 1f), new Vector2(-695f, -70f), new Vector2(240f, 80f), Theme.Panel, false, 28, out unused);
+        friendsButton.onClick.AddListener(() => { HideAll(); social.Open(SocialScreen.Tab.Friends, ShowLobby); });
+        var fb = UIUtil.CreateImage(friendsButton.transform, "Badge", new Vector2(1f, 1f), new Vector2(-6f, -6f), new Vector2(40f, 40f), Theme.Red, true);
+        fb.raycastTarget = false;
+        friendsBadgeText = UIUtil.CreateText(fb.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40f, 40f), 22, TextAnchor.MiddleCenter);
+        friendsBadge = fb.gameObject;
+        friendsBadge.SetActive(false);
+        UIUtil.CreateButton(t, "HATA BİLDİR", new Vector2(1f, 1f), new Vector2(-950f, -70f), new Vector2(240f, 80f), Theme.Panel, false, 26, out unused)
+            .onClick.AddListener(() => { HideAll(); social.Open(SocialScreen.Tab.Bug, ShowLobby); });
+
+        // Room invite from a friend (shown over the lobby).
+        var banner = Theme.Box(canvas.transform, "InviteBanner", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(1000f, 120f), new Color(0.1f, 0.2f, 0.4f, 0.97f), true);
+        inviteBanner = banner.gameObject;
+        inviteText = UIUtil.CreateText(banner.transform, "", new Vector2(0f, 0.5f), new Vector2(290f, 0f), new Vector2(540f, 100f), 30, TextAnchor.MiddleLeft);
+        inviteText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        Text bl;
+        var joinInvite = UIUtil.CreateButton(banner.transform, "KATIL", new Vector2(1f, 0.5f), new Vector2(-300f, 0f), new Vector2(180f, 84f), Theme.Accent, false, 32, out bl);
+        bl.color = new Color(0.1f, 0.08f, 0.02f);
+        bl.GetComponent<Shadow>().enabled = false;
+        joinInvite.onClick.AddListener(() => { inviteBanner.SetActive(false); JoinRoomByCode(inviteRoom); });
+        UIUtil.CreateButton(banner.transform, "YOKSAY", new Vector2(1f, 0.5f), new Vector2(-105f, 0f), new Vector2(180f, 84f), Theme.PanelLight, false, 28, out bl)
+            .onClick.AddListener(() => { inviteBanner.SetActive(false); OnlineService.DismissInvite(inviteFrom, null); });
+        inviteBanner.SetActive(false);
 
         // Left tiles
         var loadTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, 335f), new Vector2(440f, 130f), Theme.Panel, false, 20, out unused);
@@ -298,6 +323,7 @@ public class UIManager : MonoBehaviour
         career = CareerScreen.Create(canvas.transform);
         loadout = LoadoutScreen.Create(canvas.transform);
         netLobby = NetLobbyScreen.Create(canvas.transform);
+        social = SocialScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -399,11 +425,7 @@ public class UIManager : MonoBehaviour
 
         // Crosshair + hit marker
         var c = new Vector2(0.5f, 0.5f);
-        var crossColor = new Color(1f, 1f, 1f, 0.85f);
-        crossH = UIUtil.CreateImage(t, "CrossH", c, Vector2.zero, new Vector2(28f, 3f), crossColor, false);
-        crossH.raycastTarget = false;
-        crossV = UIUtil.CreateImage(t, "CrossV", c, Vector2.zero, new Vector2(3f, 28f), crossColor, false);
-        crossV.raycastTarget = false;
+        crosshair = Crosshair.Create(t);
         hitMarks = new Image[4];
         for (int i = 0; i < 4; i++)
         {
@@ -509,6 +531,109 @@ public class UIManager : MonoBehaviour
         Text pauseLabel;
         UIUtil.CreateButton(t, "II", new Vector2(0f, 1f), new Vector2(70f, -60f), new Vector2(90f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 34, out pauseLabel)
             .onClick.AddListener(OpenPause);
+
+        // Voice chat (online, with teammates): microphone and speaker toggles + who is talking.
+        var mic = UIUtil.CreateButton(t, "MİK", new Vector2(0f, 1f), new Vector2(185f, -60f), new Vector2(120f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 24, out micLabel);
+        mic.onClick.AddListener(() => VoiceChat.MicOn = !VoiceChat.MicOn);
+        micButton = mic.gameObject;
+        var spk = UIUtil.CreateButton(t, "SES", new Vector2(0f, 1f), new Vector2(315f, -60f), new Vector2(120f, 80f), new Color(0f, 0f, 0f, 0.45f), false, 24, out speakerLabel);
+        spk.onClick.AddListener(() => VoiceChat.SpeakerOn = !VoiceChat.SpeakerOn);
+        speakerButton = spk.gameObject;
+        talkingText = UIUtil.CreateText(t, "", new Vector2(0f, 1f), new Vector2(620f, -60f), new Vector2(460f, 40f), 24, TextAnchor.MiddleLeft);
+        talkingText.color = new Color(0.5f, 1f, 0.6f);
+        micButton.SetActive(false);
+        speakerButton.SetActive(false);
+    }
+
+    /// <summary>Voice buttons follow the mic / speaker state; shown only when someone can hear you.</summary>
+    private void UpdateVoiceHud()
+    {
+        var net = NetClient.Instance;
+        bool show = net != null && net.InMatch && net.VoiceAvailable;
+        if (micButton.activeSelf != show)
+        {
+            micButton.SetActive(show);
+            speakerButton.SetActive(show);
+        }
+        if (!show)
+        {
+            if (talkingText.text.Length > 0)
+                talkingText.text = "";
+            return;
+        }
+        VoiceLabels(micLabel, speakerLabel);
+        string talking = VoiceChat.TalkingNow();
+        talkingText.text = talking.Length > 0 ? "Konuşuyor: " + talking : "";
+    }
+
+    /// <summary>Shared by the HUD and the waiting room.</summary>
+    public static void VoiceLabels(Text mic, Text speaker)
+    {
+        string micText = !VoiceChat.MicOn ? "MİK\nKAPALI" : VoiceChat.MicProblem != null ? "MİK\nİZİN YOK" : VoiceChat.Speaking ? "MİK\n•••" : "MİK\nAÇIK";
+        if (mic.text != micText)
+        {
+            mic.text = micText;
+            mic.color = !VoiceChat.MicOn || VoiceChat.MicProblem != null ? new Color(1f, 0.5f, 0.45f) : VoiceChat.Speaking ? new Color(0.5f, 1f, 0.6f) : Color.white;
+        }
+        string spkText = VoiceChat.SpeakerOn ? "SES\nAÇIK" : "SES\nKAPALI";
+        if (speaker.text != spkText)
+        {
+            speaker.text = spkText;
+            speaker.color = VoiceChat.SpeakerOn ? Color.white : new Color(1f, 0.5f, 0.45f);
+        }
+    }
+
+    /// <summary>From a private room's waiting room: friends list (to invite), back to the room after.</summary>
+    public void OpenSocialFromRoom(GameObject room)
+    {
+        room.SetActive(false);
+        social.Open(SocialScreen.Tab.Friends, () => room.SetActive(true));
+    }
+
+    /// <summary>Join a private room by its code (friend's invite or the friends list).</summary>
+    public void JoinRoomByCode(string code)
+    {
+        HideAll();
+        netLobby.OpenJoinCode(code, ShowLobby);
+    }
+
+    /// <summary>Lobby: refresh friends now and then (badge for requests / invites, invite banner).</summary>
+    private void PollSocial()
+    {
+        if (socialPolling || Time.unscaledTime < nextSocialPoll)
+            return;
+        var gm = GameManager.Instance;
+        if (gm == null || gm.currentState != GameState.Lobby)
+            return;
+        var net = NetClient.Instance;
+        bool room = net != null && net.State == NetClient.Phase.Lobby && net.PrivateRoom;
+        nextSocialPoll = Time.unscaledTime + 12f;
+        socialPolling = true;
+        OnlineService.RefreshSocial(room ? "room" : "lobby", room ? net.RoomCode : "", net != null ? net.Mode : MatchMode.Solo, view =>
+        {
+            socialPolling = false;
+            if (!view.ok || view.friends == null)
+                return;
+            int count = view.incoming.Length + view.invites.Length;
+            friendsBadge.SetActive(count > 0);
+            friendsBadgeText.text = count.ToString();
+            foreach (var inv in view.invites)
+            {
+                string key = inv.id + inv.room;
+                if (seenInvites.Contains(key))
+                    continue;
+                seenInvites.Add(key);
+                if (lobbyPanel.activeSelf && !(net != null && net.State != NetClient.Phase.Idle))
+                {
+                    inviteRoom = inv.room;
+                    inviteFrom = inv.id;
+                    inviteText.text = inv.name + " seni " + (inv.mode ?? "").ToUpper() + " odasına çağırıyor";
+                    inviteBanner.SetActive(true);
+                    inviteBanner.transform.SetAsLastSibling();
+                    UiSound.Confirm();
+                }
+            }
+        });
     }
 
     private void BuildMinimap(Transform parent)
@@ -633,7 +758,15 @@ public class UIManager : MonoBehaviour
     }
 
     private SettingsScreen settingsScreen;
-    private Image crossH, crossV;
+    private Crosshair crosshair;
+    private int crosshairFrame;
+    private bool enemyInSights;
+
+    public void CrosshairKick(float amount)
+    {
+        if (crosshair != null)
+            crosshair.Kick(amount);
+    }
     private MatchPrepScreen matchPrep;
     private CareerScreen career;
     private LoadoutScreen loadout;
@@ -641,6 +774,15 @@ public class UIManager : MonoBehaviour
     private Text lobbyClassText;
     private Image lobbyRankIcon;
     private NetLobbyScreen netLobby;
+    private SocialScreen social;
+    private GameObject friendsBadge, inviteBanner;
+    private Text friendsBadgeText, inviteText;
+    private string inviteRoom = "", inviteFrom = "";
+    private readonly HashSet<string> seenInvites = new HashSet<string>();
+    private float nextSocialPoll;
+    private bool socialPolling;
+    private GameObject micButton, speakerButton;
+    private Text micLabel, speakerLabel, talkingText;
     private readonly List<Vector3> teammateScratch = new List<Vector3>();
     private RectTransform resultRewards;
     private Text resultLevel;
@@ -753,18 +895,22 @@ public class UIManager : MonoBehaviour
 
     private void BuildPause()
     {
-        pausePanel = CreateOverlay("PausePanel", new Vector2(640f, 560f));
+        pausePanel = CreateOverlay("PausePanel", new Vector2(640f, 800f));
         pausePanel.AddComponent<PopIn>();
         var box = pausePanel.transform.Find("Box");
         var c = new Vector2(0.5f, 0.5f);
-        var title = UIUtil.CreateText(box, "DURAKLATILDI", c, new Vector2(0f, 200f), new Vector2(600f, 70f), 46, TextAnchor.MiddleCenter);
+        var title = UIUtil.CreateText(box, "DURAKLATILDI", c, new Vector2(0f, 320f), new Vector2(600f, 70f), 46, TextAnchor.MiddleCenter);
         title.fontStyle = FontStyle.Bold;
         Text unused;
-        UIUtil.CreateButton(box, "DEVAM ET", c, new Vector2(0f, 70f), new Vector2(420f, 96f), new Color(0.2f, 0.6f, 0.3f, 1f), false, 36, out unused)
+        UIUtil.CreateButton(box, "DEVAM ET", c, new Vector2(0f, 190f), new Vector2(420f, 96f), new Color(0.2f, 0.6f, 0.3f, 1f), false, 36, out unused)
             .onClick.AddListener(ClosePause);
-        UIUtil.CreateButton(box, "AYARLAR", c, new Vector2(0f, -50f), new Vector2(420f, 96f), new Color(0.35f, 0.38f, 0.45f, 1f), false, 36, out unused)
+        UIUtil.CreateButton(box, "AYARLAR", c, new Vector2(0f, 75f), new Vector2(420f, 96f), new Color(0.35f, 0.38f, 0.45f, 1f), false, 36, out unused)
             .onClick.AddListener(() => OpenSettings(true));
-        UIUtil.CreateButton(box, "MAÇTAN ÇIK", c, new Vector2(0f, -170f), new Vector2(420f, 96f), new Color(0.7f, 0.2f, 0.18f, 1f), false, 36, out unused)
+        UIUtil.CreateButton(box, "OYUNCULAR / ŞİKAYET", c, new Vector2(0f, -40f), new Vector2(420f, 96f), new Color(0.35f, 0.38f, 0.45f, 1f), false, 30, out unused)
+            .onClick.AddListener(() => { pausePanel.SetActive(false); social.Open(SocialScreen.Tab.Players, () => pausePanel.SetActive(true)); });
+        UIUtil.CreateButton(box, "HATA BİLDİR", c, new Vector2(0f, -155f), new Vector2(420f, 96f), new Color(0.35f, 0.38f, 0.45f, 1f), false, 32, out unused)
+            .onClick.AddListener(() => { pausePanel.SetActive(false); social.Open(SocialScreen.Tab.Bug, () => pausePanel.SetActive(true)); });
+        UIUtil.CreateButton(box, "MAÇTAN ÇIK", c, new Vector2(0f, -290f), new Vector2(420f, 96f), new Color(0.7f, 0.2f, 0.18f, 1f), false, 36, out unused)
             .onClick.AddListener(() => { Time.timeScale = 1f; GameManager.Instance.JoinLobby(); });
     }
 
@@ -850,11 +996,7 @@ public class UIManager : MonoBehaviour
         damageAlpha = 0f;
         touchControls.ResetState();
         botLastPos.Clear();
-        if (crossH != null)
-        {
-            crossH.color = GameSettings.CrosshairColors[GameSettings.CrosshairColor];
-            crossV.color = crossH.color;
-        }
+
         hudPanel.SetActive(true);
     }
 
@@ -998,6 +1140,12 @@ public class UIManager : MonoBehaviour
 
     private void Update()
     {
+        if (canvas == null)
+            return;   // game server
+        if (lobbyPanel.activeSelf || (social != null && social.gameObject.activeSelf))
+            PollSocial();
+        if (hudPanel.activeSelf)
+            UpdateVoiceHud();
         if (hudPanel == null || !hudPanel.activeSelf)
             return;
 
@@ -1007,15 +1155,9 @@ public class UIManager : MonoBehaviour
             return;
 
         healthFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.health / player.maxHealth), healthFill.sizeDelta.y);
-        if (crossH != null)
-        {
-            Color cc = GameSettings.CrosshairColors[GameSettings.CrosshairColor];
-            if (crossH.color != cc)
-            {
-                crossH.color = cc;
-                crossV.color = cc;
-            }
-        }
+        if ((++crosshairFrame & 3) == 0)
+            enemyInSights = player.EnemyInSights();   // one ray every 4th frame is plenty for the colour
+        crosshair.Tick(player, enemyInSights);
         bool scoped = player.IsScoped && !player.isDead;
         if (scopeOverlay.activeSelf != scoped)
             scopeOverlay.SetActive(scoped);

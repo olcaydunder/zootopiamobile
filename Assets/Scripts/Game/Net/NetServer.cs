@@ -25,6 +25,10 @@ public sealed class NetServer : MonoBehaviour
         public uint nonce;
         public int id;
         public string name, skin, para;
+        public string account = "", secret = "";
+        public bool verified;
+        public int voiceThisSecond;
+        public double voiceSecond;
         public Entity entity;
         public bool gone;
         public int lastSeq = -1;
@@ -135,7 +139,7 @@ public sealed class NetServer : MonoBehaviour
             peers[i].conn.Flush(now, peers[i].output);
 
         if (now >= nextReport)
-            Report(false);
+            Report(phase == Phase.Playing || phase == Phase.Countdown);   // keeps friends' "in a match" status fresh
         if (quitAt > 0 && now >= quitAt)
             Quit();
     }
@@ -190,6 +194,8 @@ public sealed class NetServer : MonoBehaviour
             string name = CleanName(reader.String());
             string skin = reader.String();
             string para = reader.String();
+            string account = reader.String().ToUpperInvariant();
+            string secret = reader.String();
 
             Peer existing;
             if (byNonce.TryGetValue(nonce, out existing) && !existing.gone)
@@ -229,6 +235,8 @@ public sealed class NetServer : MonoBehaviour
                 name = name,
                 skin = ValidSkin(skin),
                 para = para.Length <= 32 ? para : "",
+                account = Token(account, 12),
+                secret = Token(secret, 64),
                 budgetTime = now
             };
             p.output = (buf, n) => socket.Send(buf, n, p.ep);
@@ -251,8 +259,72 @@ public sealed class NetServer : MonoBehaviour
             }
             SendLobbyToAll(now);
             Report(true);
+            if (!string.IsNullOrEmpty(args.api))
+                StartCoroutine(Verify(p));
+            else
+                p.verified = true;   // local test without the matchmaker
         }
         catch (NetFormatException) { }
+    }
+
+    /// <summary>Asks the matchmaker whether the player's account is real and not banned; uses its name.</summary>
+    private IEnumerator Verify(Peer p)
+    {
+        if (p.account.Length == 0)
+        {
+            Kick(p, "Hesap gerekli: oyunu yeniden başlat");
+            yield break;
+        }
+        string json = "{\"id\":\"" + p.account + "\",\"secret\":\"" + p.secret + "\"}";
+        var req = new UnityWebRequest(args.api.TrimEnd('/') + "/verify", "POST");
+        req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+        req.downloadHandler = new DownloadHandlerBuffer();
+        req.SetRequestHeader("Content-Type", "application/json");
+        req.timeout = 5;
+        yield return req.SendWebRequest();
+        string text = req.result == UnityWebRequest.Result.Success ? req.downloadHandler.text : "";
+        req.Dispose();
+        if (p.gone)
+            yield break;
+        if (text.Length == 0)
+        {
+            p.verified = true;   // matchmaker unreachable: don't punish the player for it
+            yield break;
+        }
+        var answer = JsonUtility.FromJson<VerifyAnswer>(text);
+        if (answer == null || !answer.ok)
+        {
+            Kick(p, answer != null && !string.IsNullOrEmpty(answer.error) ? answer.error : "Hesap doğrulanamadı");
+            yield break;
+        }
+        p.verified = true;
+        string name = CleanName(answer.name);
+        if (name != p.name && phase != Phase.Playing)
+        {
+            p.name = name;
+            foreach (var other in peers)
+                if (other != p && other.name == p.name)
+                    p.name = (p.name.Length > 12 ? p.name.Substring(0, 12) : p.name) + " " + p.id;
+            SendLobbyToAll(Now);
+        }
+    }
+
+    [System.Serializable]
+    private class VerifyAnswer
+    {
+        public bool ok;
+        public string name = "";
+        public string error = "";
+    }
+
+    private void Kick(Peer p, string reason)
+    {
+        w.Reset();
+        w.Byte(NetProtocol.S_Toast);
+        w.String(reason, 160);
+        p.conn.SendReliable(w.ToArray());
+        p.conn.Flush(Now, p.output);
+        Drop(p, "atıldı: " + reason);
     }
 
     private static string CleanName(string s)
@@ -269,6 +341,16 @@ public sealed class NetServer : MonoBehaviour
         }
         string r = sb.ToString().Trim();
         return r.Length > 0 ? r : "Oyuncu";
+    }
+
+    /// <summary>Only letters, digits, '-' and '_' (account ids and secrets go into JSON).</summary>
+    private static string Token(string s, int max)
+    {
+        var sb = new StringBuilder();
+        foreach (char c in s ?? "")
+            if (((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') && sb.Length < max)
+                sb.Append(c);
+        return sb.ToString();
     }
 
     private static string ValidSkin(string s)
@@ -411,6 +493,7 @@ public sealed class NetServer : MonoBehaviour
         {
             w.UShort(p.id);
             w.String(p.name, 40);
+            w.String(p.account, 12);
         }
         Broadcast(w.ToArray(), true, null);
     }
@@ -494,6 +577,7 @@ public sealed class NetServer : MonoBehaviour
                 w.String(e.name, 40);
                 w.String(e.skin, 32);
                 w.String(e.para, 32);
+                w.String(e.peer != null ? e.peer.account : "", 12);
             }
             entityMessages.Add(w.ToArray());
         }
@@ -657,6 +741,7 @@ public sealed class NetServer : MonoBehaviour
                 case NetProtocol.C_Pickup: OnPickup(p); break;
                 case NetProtocol.C_Door: OnDoor(p); break;
                 case NetProtocol.C_Grenade: OnGrenade(p); break;
+                case NetProtocol.C_Voice: OnVoice(p, buf, off, len); break;
             }
         }
         catch (NetFormatException) { }
@@ -895,6 +980,45 @@ public sealed class NetServer : MonoBehaviour
         Broadcast(w.ToArray(), true, p);
     }
 
+    /// <summary>
+    /// Voice: in a private room's waiting room everyone hears everyone (friends); in the match only
+    /// living teammates hear each other. Each phone mutes the players it blocked.
+    /// </summary>
+    private void OnVoice(Peer p, byte[] buf, int off, int len)
+    {
+        int payload = len - 1;
+        if (payload < 4 || payload > NetProtocol.MaxVoiceBytes || !p.verified)
+            return;
+        double now = Now;
+        if (now - p.voiceSecond >= 1.0)
+        {
+            p.voiceSecond = now;
+            p.voiceThisSecond = 0;
+        }
+        if (++p.voiceThisSecond > 40)
+            return;
+        bool lobby = phase == Phase.Waiting || phase == Phase.Countdown;
+        if (lobby && !args.privateRoom)
+            return;
+        if (!lobby && (p.entity == null || p.entity.human == null || phase != Phase.Playing))
+            return;
+        w.Reset();
+        w.Byte(NetProtocol.S_Voice);
+        w.UShort(p.id);
+        w.Bytes(buf, off + 1, payload);
+        byte[] msg = null;
+        foreach (var o in peers)
+        {
+            if (o == p || o.gone)
+                continue;
+            if (!lobby && (o.entity == null || o.entity.team != p.entity.team))
+                continue;
+            if (msg == null)
+                msg = w.ToArray();
+            o.conn.SendUnreliable(msg);
+        }
+    }
+
     private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel)
     {
         w.Reset();
@@ -1075,7 +1199,17 @@ public sealed class NetServer : MonoBehaviour
             return;
         reportedState = state;
         reportedPlayers = peers.Count;
-        string json = "{\"code\":\"" + args.code + "\",\"state\":\"" + state + "\",\"players\":" + peers.Count + "}";
+        var accounts = new StringBuilder();
+        foreach (var p in peers)
+        {
+            if (p.account.Length == 0 || !p.verified)
+                continue;
+            if (accounts.Length > 0)
+                accounts.Append(',');
+            accounts.Append('"').Append(p.account).Append('"');
+        }
+        string json = "{\"code\":\"" + args.code + "\",\"state\":\"" + state + "\",\"players\":" + peers.Count +
+                      ",\"accounts\":[" + accounts + "]}";
         StartCoroutine(Post(args.api.TrimEnd('/') + "/report", json));
     }
 
