@@ -55,5 +55,6 @@ public class LocalPlayerInput : IPlayerInput
     public bool ConsumeSwap() { var tc = Touch; return Input.GetKeyDown(KeyCode.Q) || (tc != null && tc.ConsumeSwap()); }
     public bool ConsumeVehicle() { var tc = Touch; return Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle()); }
     public bool ConsumeAirAction() { var tc = Touch; return Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeAirAction()); }
+    public bool ConsumeDoor() { var tc = Touch; return Input.GetKeyDown(KeyCode.T) || (tc != null && tc.ConsumeDoor()); }
     public bool ConsumeAim() { var tc = Touch; return Input.GetKeyDown(KeyCode.E) || (tc != null && tc.ConsumeAim()); }
 }

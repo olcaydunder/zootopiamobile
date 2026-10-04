@@ -45,12 +45,18 @@ public static class CityBuilder
         new Color(0.86f, 0.78f, 0.70f)
     };
 
+    private static Transform doorParent;
+    private static Material doorMat;
+
     public static void Build(Transform parent)
     {
         LastError = null;
         if (!MapData.Loaded)
             return;
 
+        doorParent = new GameObject("Doors").transform;
+        doorParent.SetParent(parent, false);
+        doorMat = MaterialCache.Lit(new Color(0.45f, 0.31f, 0.2f));
         batches = new Dictionary<long, Batch>();
         colliders = new Dictionary<int, Batch>();
         materials = new List<Material>();
@@ -1020,6 +1026,8 @@ public static class CityBuilder
             Box(chunk, shell, true, o, L, S, new Vector3(-(hw + door * 0.5f) * 0.5f, ShellHeight * 0.5f, z), new Vector3(sideLen * 0.5f, ShellHeight * 0.5f, t * 0.5f), 0.4f);
             Box(chunk, shell, true, o, L, S, new Vector3((hw + door * 0.5f) * 0.5f, ShellHeight * 0.5f, z), new Vector3(sideLen * 0.5f, ShellHeight * 0.5f, t * 0.5f), 0.4f);
             Box(chunk, shell, true, o, L, S, new Vector3(0f, (doorH + ShellHeight) * 0.5f, z), new Vector3(door * 0.5f, (ShellHeight - doorH) * 0.5f, t * 0.5f), 0.4f);
+            // the door itself (opens with KAPI; bots push it open)
+            Door.Create(doorParent, o + L * (-door * 0.5f) + S * z, L, door, doorH, doorMat);
             // shop windows either side of the door (glass panes on the outside)
             for (int w = -1; w <= 1; w += 2)
             {

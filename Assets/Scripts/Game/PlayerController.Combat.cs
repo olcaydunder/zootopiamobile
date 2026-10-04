@@ -141,6 +141,9 @@ public partial class PlayerController
 
     private bool adsFromFire;
 
+    /// <summary>How close the player must be to a door to open or close it.</summary>
+    public const float DoorReach = 2.4f;
+
     private void HandleActions(GameManager gm, IPlayerInput tc)
     {
         bool jump = tc != null && tc.ConsumeJump();
@@ -153,6 +156,14 @@ public partial class PlayerController
         bool useVehicle = tc != null && tc.ConsumeVehicle();
         bool fire = tc != null && tc.FireHeld;
         bool aim = tc != null && tc.ConsumeAim();
+        bool door = tc != null && tc.ConsumeDoor();
+
+        if (door)
+        {
+            Door near = Door.Nearest(transform.position, DoorReach);
+            if (near != null)
+                near.Toggle(transform.position);
+        }
 
         if (aim)
         {

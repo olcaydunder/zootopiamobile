@@ -23,7 +23,7 @@ public class TouchControls : MonoBehaviour
     }
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
-    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued;
+    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued;
     private Image aimImage;
 
     private Canvas canvas;
@@ -46,6 +46,8 @@ public class TouchControls : MonoBehaviour
     private GameObject combatGroup;
     private GameObject swapButton;
     private GameObject vehicleButton;
+    private GameObject doorButton;
+    private Text doorLabel;
     private GameObject airButton;
 
     private int moveFinger = -1;
@@ -66,6 +68,7 @@ public class TouchControls : MonoBehaviour
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
     public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
+    public bool ConsumeDoor() { bool v = doorQueued; doorQueued = false; return v; }
     public bool ConsumeAim() { bool v = aimQueued; aimQueued = false; return v; }
 
     public void Build(Canvas parentCanvas)
@@ -130,6 +133,10 @@ public class TouchControls : MonoBehaviour
         vehicle.onClick.AddListener(() => vehicleQueued = true);
         vehicleButton = vehicle.gameObject;
 
+        var doorBtn = UIUtil.CreateButton(root, "KAPI", new Vector2(1f, 0f), new Vector2(-470f, 590f), new Vector2(150f, 80f), new Color(0.55f, 0.4f, 0.25f, 0.65f), false, 24, out doorLabel);
+        doorBtn.onClick.AddListener(() => doorQueued = true);
+        doorButton = doorBtn.gameObject;
+
         var airBtn = UIUtil.CreateButton(root, "ATLA", new Vector2(1f, 0f), new Vector2(-280f, 330f), new Vector2(240f, 240f), new Color(1f, 0.75f, 0.15f, 0.7f), true, 40, out airLabel);
         airBtn.onClick.AddListener(() => airQueued = true);
         airButton = airBtn.gameObject;
@@ -149,9 +156,11 @@ public class TouchControls : MonoBehaviour
         RegisterHud("drink", "İÇECEK", drink);
         RegisterHud("vehicle", "BİN / İN", vehicle);
         RegisterHud("air", "ATLA", airBtn);
+        RegisterHud("door", "KAPI", doorBtn);
 
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
+        doorButton.SetActive(false);
         foreach (var feel in GetComponentsInChildren<ButtonFeel>(true))
             feel.silent = true;   // in-game controls: squash + buzz, no click sound
         ApplySettings();
@@ -189,6 +198,13 @@ public class TouchControls : MonoBehaviour
             vehicleButton.SetActive(showVehicle);
         if (showVehicle)
             vehicleLabel.text = player.state == PlayerState.Driving ? "İN" : "BİN";
+
+        Door door = onFoot ? Door.Nearest(player.transform.position, PlayerController.DoorReach) : null;
+        bool showDoor = door != null;
+        if (doorButton.activeSelf != showDoor)
+            doorButton.SetActive(showDoor);
+        if (showDoor)
+            doorLabel.text = door.IsOpen ? "KAPAT" : "AÇ";
 
         if (aimImage != null)
             aimImage.color = player.aimingDownSights ? new Color(1f, 0.85f, 0.2f, 0.6f) : ButtonColor;
@@ -267,7 +283,7 @@ public class TouchControls : MonoBehaviour
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
-        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = false;
+        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

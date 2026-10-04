@@ -273,6 +273,7 @@ public class GameManager : MonoBehaviour
                 Destroy(bot.gameObject);
         }
         bots.Clear();
+        Door.ResetAll();
 
         foreach (var v in vehicles)
         {

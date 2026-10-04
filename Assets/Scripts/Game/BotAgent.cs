@@ -233,6 +233,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         {
             thinkTimer = 0.3f;
             Think(gm);
+            Door.PushOpenNear(transform.position, 2f);   // walk through doorways
         }
 
         if (target != null && (target.IsDead || target.IsAirborne))
