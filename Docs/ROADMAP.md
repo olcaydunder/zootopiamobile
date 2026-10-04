@@ -3,7 +3,7 @@
 | Faz | Konu | Durum |
 | --- | --- | --- |
 | 0 | Repo analizi | Tamam |
-| 1 | Mobil oynanış: input soyutlama, oyuncu bölünmesi, yatış/vault/yüzme, FPP, HUD düzenleyici, kapılar | Başladı (1a: input soyutlama) |
+| 1 | Mobil oynanış: input soyutlama, oyuncu bölünmesi, yatış/vault/yüzme, FPP, HUD düzenleyici, kapılar | Sürüyor: 1a input, 1b bölünme, 1c vault, 1d HUD düzenleyici tamam; kalan yatış, yüzme, FPP, kapılar |
 | 2 | Savaş: ScriptableObject silahlar, atış modları, balistik, isabet bölgeleri | – |
 | 3 | Loot ve envanter: slot, çanta, zırh 1–3, atılabilirler | – |
 | 4 | BR döngüsü: maç durum makinesi, uçak rotası, pusula, ikmal, izleyici | – |
