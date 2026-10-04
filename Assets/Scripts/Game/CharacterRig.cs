@@ -8,7 +8,8 @@ public enum RigPose
     Freefall,
     Parachute,
     Driving,
-    Dead
+    Dead,
+    Swim
 }
 
 /// <summary>
@@ -218,6 +219,15 @@ public class CharacterRig : MonoBehaviour
                 root.localRotation = Quaternion.Euler(70f, 0f, 0f);
                 head.localRotation = Quaternion.Euler(-55f, 0f, 0f);
                 return;
+            case RigPose.Swim:
+                {
+                    float stroke = Mathf.Sin(Time.time * 4f) * 60f;
+                    SetLimbs(-150f + stroke, -150f - stroke, 15f, -15f, 10f, 0f);
+                    root.localPosition = new Vector3(0f, 0.15f, 0f);
+                    root.localRotation = Quaternion.Euler(75f, 0f, 0f);
+                    head.localRotation = Quaternion.Euler(-60f, 0f, 0f);
+                    return;
+                }
             case RigPose.Parachute:
                 SetLimbs(-170f, -170f, 10f, -10f, 0f, 0f);
                 root.localPosition = Vector3.zero;
@@ -422,6 +432,11 @@ public class CharacterRig : MonoBehaviour
             case RigPose.Freefall:
                 target = Idle;
                 bodyRot = Quaternion.Euler(70f, 0f, 0f);
+                break;
+            case RigPose.Swim:
+                target = speed > 0.6f ? Run : Idle;   // running arms read as strokes when lying flat
+                bodyRot = Quaternion.Euler(75f, 0f, 0f);
+                bodyPos = new Vector3(0f, 0.15f, 0f);
                 break;
             case RigPose.Parachute:
                 target = Idle;

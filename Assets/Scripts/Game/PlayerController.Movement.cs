@@ -15,6 +15,11 @@ public partial class PlayerController
             UpdateVault();
             return;
         }
+        if (CheckSwim())
+        {
+            UpdateSwim(tc);
+            return;
+        }
         Vector2 input = MoveInput(tc);
 
         bool sprintInput = tc != null && tc.SprintHeld;
@@ -28,12 +33,6 @@ public partial class PlayerController
             speed *= Mathf.Clamp(0.85f + 0.15f * currentWeapon.weaponData.mobilityMul, 0.75f, 1.15f);
         if (aimingDownSights)
             speed *= 0.6f;
-
-        // Shallow water only: stop before wading into deep sea.
-        Vector3 ahead = transform.position + move * 1.5f;
-        if (move.sqrMagnitude > 0.01f && World.HeightAt(ahead.x, ahead.z) < -1.2f &&
-            World.HeightAt(ahead.x, ahead.z) < World.HeightAt(transform.position.x, transform.position.z))
-            move = Vector3.zero;
 
         if (controller.isGrounded && velocity.y < 0f)
             velocity.y = -2f;
@@ -198,6 +197,7 @@ public partial class PlayerController
     private void EnterVehicle(Vehicle v)
     {
         EndVault();
+        StopSwim();
         vehicle = v;
         v.SetDriver(this);
         state = PlayerState.Driving;
@@ -260,6 +260,7 @@ public partial class PlayerController
     private void GoDown()
     {
         EndVault();
+        StopSwim();
         isDowned = true;
         health = maxHealth;            // now bleed-out health
         boostRemaining = 0f;
@@ -291,6 +292,13 @@ public partial class PlayerController
 
         Vector2 input = MoveInput(tc);
         Vector3 move = Vector3.ClampMagnitude(transform.right * input.x + transform.forward * input.y, 1f);
+        if (WaterDepthAt(transform.position) > SwimDepth)
+        {
+            controller.Move((move * 1.2f + Vector3.up * FloatVelocity()) * Time.deltaTime);   // kept afloat
+            rig.crouched = true;
+            rig.aiming = false;
+            return;
+        }
         if (controller.isGrounded && velocity.y < 0f)
             velocity.y = -2f;
         velocity.y += gravity * Time.deltaTime;
