@@ -787,8 +787,8 @@ public sealed class NetServer : MonoBehaviour
         if (!Playing(p))
             return;
         Entity killer;
-        if (!byId.TryGetValue(killerId, out killer) || killer == p.entity)
-            killer = null;
+        if (!byId.TryGetValue(killerId, out killer) || killer == p.entity || killer.team == p.entity.team)
+            killer = null;   // no credit for yourself or a teammate (they can't hurt you)
         if (killer == null)
             how = 0;
         else if (how != NetProtocol.HitGrenade && (how < 1 || how > (int)WeaponType.Pistol + 1))
