@@ -212,9 +212,9 @@ public class UIManager : MonoBehaviour
             .onClick.AddListener(() => { HideAll(); social.Open(SocialScreen.Tab.Bug, ShowLobby); });
 
         // Room invite from a friend (shown over the lobby).
-        var banner = Theme.Box(canvas.transform, "InviteBanner", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(1000f, 120f), new Color(0.1f, 0.2f, 0.4f, 0.97f), true);
+        var banner = Theme.Box(canvas.transform, "InviteBanner", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(860f, 120f), new Color(0.1f, 0.2f, 0.4f, 0.97f), true);
         inviteBanner = banner.gameObject;
-        inviteText = UIUtil.CreateText(banner.transform, "", new Vector2(0f, 0.5f), new Vector2(290f, 0f), new Vector2(540f, 100f), 30, TextAnchor.MiddleLeft);
+        inviteText = UIUtil.CreateText(banner.transform, "", new Vector2(0f, 0.5f), new Vector2(245f, 0f), new Vector2(440f, 100f), 28, TextAnchor.MiddleLeft);
         inviteText.horizontalOverflow = HorizontalWrapMode.Wrap;
         Text bl;
         var joinInvite = UIUtil.CreateButton(banner.transform, "KATIL", new Vector2(1f, 0.5f), new Vector2(-300f, 0f), new Vector2(180f, 84f), Theme.Accent, false, 32, out bl);

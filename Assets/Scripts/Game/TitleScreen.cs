@@ -116,7 +116,7 @@ public class TitleScreen : MonoBehaviour
         var mapName = UIUtil.CreateText(loading.transform, map.name, new Vector2(0.5f, 0.5f), new Vector2(0f, -55f), new Vector2(1200f, 64f), 48, TextAnchor.MiddleCenter);
         mapName.fontStyle = FontStyle.Bold;
         mapName.color = Theme.Accent;
-        var sub = UIUtil.CreateText(loading.transform, map.place.ToUpper() + "  •  SAVAŞ ALANI", new Vector2(0.5f, 0.5f), new Vector2(0f, -110f), new Vector2(1200f, 44f), 30, TextAnchor.MiddleCenter);
+        var sub = UIUtil.CreateText(loading.transform, MapCatalog.TrUpper(map.place) + "  •  SAVAŞ ALANI", new Vector2(0.5f, 0.5f), new Vector2(0f, -110f), new Vector2(1200f, 44f), 30, TextAnchor.MiddleCenter);
         sub.color = Theme.TextDim;
 
         UIUtil.CreateImage(loading.transform, "BarBack", new Vector2(0.5f, 0f), new Vector2(0f, 190f), new Vector2(BarWidth + 8f, 18f), new Color(1f, 1f, 1f, 0.12f), false);

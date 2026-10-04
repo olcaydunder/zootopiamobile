@@ -109,6 +109,19 @@ public static class CityBuilder
         meshUvs = null;
     }
 
+    /// <summary>Drops the last city's materials and meshes (before the world is rebuilt for another map).</summary>
+    public static void Release()
+    {
+        materials = null;
+        blobs = null;
+        doorParent = null;
+        batches = null;
+        colliders = null;
+        meshVerts = null;
+        meshTris = null;
+        meshUvs = null;
+    }
+
     // ---------------------------------------------------------------- materials & textures
 
     private static int Mat(Material m)
@@ -634,6 +647,13 @@ public static class CityBuilder
         }
         string l1 = info.signTop;
         string l2 = info.signBottom;
+        if (info.signCross)
+        {
+            // the clinic's sign, laid out as it always was
+            DrawText(px, w, h, l1, x0 + (width - TextWidth(l1, 7)) / 2, 62, 7, white);
+            DrawText(px, w, h, l2, x0 + (width - TextWidth(l2, 3)) / 2, 18, 3, white);
+            return MakeTexture(w, h, px, false);
+        }
         int s1 = Mathf.Clamp((width + 1) / (6 * Mathf.Max(1, l1.Length)), 2, 7);
         int s2 = Mathf.Clamp((width + 1) / (6 * Mathf.Max(1, l2.Length)), 1, 3);
         DrawText(px, w, h, l1, x0 + (width - TextWidth(l1, s1)) / 2, 56 + (7 - s1) * 3, s1, white);

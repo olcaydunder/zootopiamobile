@@ -62,6 +62,7 @@ public class GameBootstrap : MonoBehaviour
             yield return ServerStart();
             yield break;
         }
+        Switching = false;   // a map change ends here: the new scene is up
         MapCatalog.Current = MapCatalog.Selected;
         var titleScreen = TitleScreen.Create();
         titleScreen.SetProgress(0.05f, "Harita verisi yükleniyor...");
@@ -95,7 +96,7 @@ public class GameBootstrap : MonoBehaviour
             // Back from a map change: straight to the lobby, then whatever asked for the change (joining a room).
             skipTitle = false;
             titleScreen.Dismiss(player);
-            Switching = false;
+            Resources.UnloadUnusedAssets();   // the last map's textures and meshes
             var then = afterSwitch;
             afterSwitch = null;
             yield return null;
@@ -115,6 +116,12 @@ public class GameBootstrap : MonoBehaviour
     {
         if (Switching || !MapCatalog.IsValid(id))
             return;
+        int scene = SceneManager.GetActiveScene().buildIndex;
+        if (scene < 0)
+        {
+            Debug.LogWarning("ZM harita: sahne derlemede yok, harita değiştirilemedi");
+            return;
+        }
         MapCatalog.Select(id);
         if (id == MapCatalog.Current && MapData.Loaded)
         {
@@ -129,7 +136,18 @@ public class GameBootstrap : MonoBehaviour
         if (NetClient.Instance != null)
             NetClient.Instance.Leave();
         SceneManager.sceneLoaded += OnReloaded;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        try
+        {
+            SceneManager.LoadScene(scene);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            SceneManager.sceneLoaded -= OnReloaded;
+            Switching = false;
+            skipTitle = false;
+            afterSwitch = null;
+        }
     }
 
     private static void OnReloaded(Scene scene, LoadSceneMode mode)
@@ -138,6 +156,7 @@ public class GameBootstrap : MonoBehaviour
         // The old world is gone: forget everything static that pointed into it.
         Step(MapData.Unload);
         Step(World.Release);
+        Step(CityBuilder.Release);
         Step(Door.All.Clear);
         Step(UpgradeStation.ClearAll);
         Step(AbilityFx.ClearAll);

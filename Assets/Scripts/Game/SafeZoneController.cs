@@ -221,7 +221,7 @@ public class SafeZoneController : MonoBehaviour
     private void UpdateWall()
     {
         wall.transform.position = new Vector3(center.x, -10f, center.z);
-        wall.transform.localScale = new Vector3(Mathf.Max(0.1f, radius), 160f, Mathf.Max(0.1f, radius));
+        wall.transform.localScale = new Vector3(Mathf.Max(0.1f, radius), 160f + Mathf.Max(0f, MapData.MaxHeight - 40f), Mathf.Max(0.1f, radius));
     }
 
     private void ApplyDamage(GameManager gm)

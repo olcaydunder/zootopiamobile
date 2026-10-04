@@ -4,7 +4,7 @@ using UnityEngine;
 public class AirPlane : MonoBehaviour
 {
     /// <summary>Flight height: 170 m, more over maps with a mountain (Senir) so the jump is never too short.</summary>
-    public static float Altitude { get { return 170f + Mathf.Max(0f, MapData.MaxHeight - 40f); } }
+    public static float Altitude { get { return 170f + Mathf.Max(0f, MapData.MaxHeight - 90f); } }
     public const float Speed = 22f;
 
     public Vector3 start;

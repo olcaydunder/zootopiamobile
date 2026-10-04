@@ -16,6 +16,7 @@ public static class MapCatalog
         public string signBottom;    // small line under it
         public Color32 signColor;
         public bool signCross;       // the clinic's white medical cross
+        public bool sea;             // an island in the sea (otherwise land, or a lake, runs on past the edge)
     }
 
     public static readonly Info[] All =
@@ -25,7 +26,7 @@ public static class MapCatalog
             id = "eksioglu", name = "EKŞİOĞLU", place = "Çekmeköy, İstanbul",
             blurb = "Kliniğin mahallesi: apartmanlar, dar sokaklar, denizle çevrili ada.",
             signTop = "ZOOTOPIA", signBottom = "VETERİNER KLİNİĞİ 7/24",
-            signColor = new Color32(22, 110, 60, 255), signCross = true
+            signColor = new Color32(22, 110, 60, 255), signCross = true, sea = true
         },
         new Info
         {
@@ -95,6 +96,15 @@ public static class MapCatalog
             if (All[i].id == id)
                 return i;
         return 0;
+    }
+
+    /// <summary>Turkish capitals whatever the phone's language ("Keçiborlu" → "KEÇİBORLU", "Elazığ" → "ELAZIĞ").</summary>
+    public static string TrUpper(string s)
+    {
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (char c in s)
+            sb.Append(c == 'i' ? 'İ' : c == 'ı' ? 'I' : char.ToUpperInvariant(c));
+        return sb.ToString();
     }
 
     /// <summary>The selection screen's picture of a map (Resources/Map/&lt;id&gt;/preview.png), or null.</summary>

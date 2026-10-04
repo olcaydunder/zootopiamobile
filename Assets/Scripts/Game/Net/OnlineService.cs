@@ -81,6 +81,7 @@ public class OnlineService : MonoBehaviour
     private static int apiPort = 8080;
     private static float endpointTime = -1000f;
     private static bool registering;
+    private bool registeringHere;   // this runner's Register() is the one in flight
 
     /// <summary>The latest friends / invites / blocked list (refreshed by <see cref="RefreshSocial"/>).</summary>
     public static SocialView Social;
@@ -377,11 +378,20 @@ public class OnlineService : MonoBehaviour
         }
     }
 
+    /// <summary>A map change reloads the scene and destroys the runners mid-request: don't leave the
+    /// sign-up flag set, or every later request would wait for it forever.</summary>
+    private void OnDestroy()
+    {
+        if (registeringHere)
+            registering = false;
+    }
+
     private IEnumerator Register()
     {
         if (registering)
             yield break;
         registering = true;
+        registeringHere = true;
         var gm = GameManager.Instance;
         string name = gm != null ? gm.profile.playerName : "Oyuncu";
         string body = "{\"name\":\"" + Json(name) + "\",\"device\":\"" + Json(SystemInfo.deviceModel) + "\",\"version\":\"" + Json(NetGame.BuildVersion) + "\"}";
@@ -394,6 +404,7 @@ public class OnlineService : MonoBehaviour
             }
         });
         registering = false;
+        registeringHere = false;
         if (answer != null && answer.ok && answer.id.Length > 0 && answer.secret.Length > 0)
         {
             PlayerPrefs.SetString("zm_acc_id", answer.id);

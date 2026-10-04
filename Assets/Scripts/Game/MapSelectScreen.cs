@@ -46,11 +46,16 @@ public class MapSelectScreen : MonoBehaviour
         var maps = MapCatalog.All;
         const float cardW = 540f, cardH = 760f, gap = 44f;
         float x0 = -(maps.Length - 1) * (cardW + gap) * 0.5f;
+        // The cards need ~1710 units: shrink them together on screens narrower than 16:9 (tablets).
+        float canvasW = 1080f * Screen.width / Mathf.Max(1f, Screen.height);
+        float need = maps.Length * cardW + (maps.Length - 1) * gap + 80f;
+        var row = UIUtil.CreateRect(t, "Cards", new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(need, cardH));
+        row.localScale = Vector3.one * Mathf.Clamp(canvasW / need, 0.6f, 1f);
         for (int i = 0; i < maps.Length; i++)
         {
             var m = maps[i];
             string id = m.id;
-            var card = UIUtil.CreateButton(t, "", new Vector2(0.5f, 0.5f), new Vector2(x0 + i * (cardW + gap), -40f), new Vector2(cardW, cardH), Theme.Panel, false, 20, out label);
+            var card = UIUtil.CreateButton(row, "", new Vector2(0.5f, 0.5f), new Vector2(x0 + i * (cardW + gap), 0f), new Vector2(cardW, cardH), Theme.Panel, false, 20, out label);
             card.onClick.AddListener(() => Pick(id));
             var ct = card.transform;
             var frame = card.gameObject.AddComponent<Outline>();
@@ -125,7 +130,7 @@ public class MapSelectScreen : MonoBehaviour
             Close();
             return;
         }
-        if (NetClient.Instance != null)
+        if (NetClient.Instance != null && NetClient.Instance.State != NetClient.Phase.Idle)
         {
             GameManager.Instance.uiManager.Toast("Önce çevrimiçi odadan çık");
             return;

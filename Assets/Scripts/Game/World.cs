@@ -181,6 +181,8 @@ public static class World
         ComputeHeightGrid();
         SetupAtmosphere();
         BuildTerrain();
+        if (city && !MapCatalog.CurrentInfo.sea)
+            BuildOuterLand();
         BuildWater();
 
         var props = new GameObject("Props").transform;
@@ -457,6 +459,108 @@ public static class World
                 chunk.AddComponent<MeshCollider>().sharedMesh = mesh;
             }
         }
+    }
+
+    /// <summary>
+    /// Maps that are not islands (Senir, Fırat): the land runs on past the edge of the map and rises into
+    /// distant hills (Senir's lake stays water), so the world never ends in a cliff over the sea. Looks only:
+    /// no collider, players stop at the edge anyway. A low curtain under the edge hides any crack.
+    /// </summary>
+    private static void BuildOuterLand()
+    {
+        float half = MapSize * 0.5f;
+        float step = MapSize / MeshRes;
+        float[] ring = { 0f, 30f, 90f, 220f, 480f, 900f };
+        float[] rise = { 0f, 4f, 14f, 30f, 48f, 58f };
+        const int every = 4;
+        int count = MeshRes / every + 1;
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        for (int side = 0; side < 4; side++)
+        {
+            int start = verts.Count;
+            for (int i = 0; i < count; i++)
+            {
+                int k = i * every;
+                int gx, gz;
+                Vector2 normal, tangent;
+                switch (side)
+                {
+                    case 0: gx = k; gz = 0; normal = new Vector2(0f, -1f); tangent = new Vector2(1f, 0f); break;
+                    case 1: gx = MeshRes; gz = k; normal = new Vector2(1f, 0f); tangent = new Vector2(0f, 1f); break;
+                    case 2: gx = MeshRes - k; gz = MeshRes; normal = new Vector2(0f, 1f); tangent = new Vector2(-1f, 0f); break;
+                    default: gx = 0; gz = MeshRes - k; normal = new Vector2(-1f, 0f); tangent = new Vector2(0f, -1f); break;
+                }
+                float h = MapData.Node(gx, gz);
+                var edge = new Vector3(gx * step - half, h, gz * step - half);
+                // the corners' rays go diagonally, shared by both sides, so there is no gap between them
+                Vector2 dir = i == 0 ? normal - tangent : (i == count - 1 ? normal + tangent : normal);
+                var uv = new Vector2((float)gx / MeshRes, (float)gz / MeshRes);
+                for (int r = 0; r < ring.Length; r++)
+                {
+                    Vector3 p = edge + new Vector3(dir.x, 0f, dir.y) * ring[r];
+                    float y = h;
+                    if (h >= 0.3f)
+                    {
+                        float noise = Mathf.PerlinNoise(p.x * 0.004f + 3.1f, p.z * 0.004f + 7.7f);
+                        y = Mathf.Max(0.6f, h + rise[r] * (0.6f + noise * 0.8f));
+                    }
+                    p.y = r == 0 ? h - 0.05f : y;
+                    verts.Add(p);
+                    uvs.Add(uv);
+                }
+            }
+            int rings = ring.Length;
+            for (int i = 0; i < count - 1; i++)
+            {
+                for (int r = 0; r < rings - 1; r++)
+                {
+                    int a = start + i * rings + r, b = start + (i + 1) * rings + r;
+                    tris.Add(a); tris.Add(b); tris.Add(b + 1);
+                    tris.Add(a); tris.Add(b + 1); tris.Add(a + 1);
+                }
+            }
+        }
+        // Curtain: every edge node down 40 m, seen from both sides.
+        for (int side = 0; side < 4; side++)
+        {
+            int start = verts.Count;
+            for (int k = 0; k <= MeshRes; k++)
+            {
+                int gx = side == 0 ? k : side == 1 ? MeshRes : side == 2 ? MeshRes - k : 0;
+                int gz = side == 0 ? 0 : side == 1 ? k : side == 2 ? MeshRes : MeshRes - k;
+                float h = MapData.Node(gx, gz);
+                var top = new Vector3(gx * step - half, h, gz * step - half);
+                var uv = new Vector2((float)gx / MeshRes, (float)gz / MeshRes);
+                verts.Add(top);
+                verts.Add(top - Vector3.up * 40f);
+                uvs.Add(uv);
+                uvs.Add(uv);
+            }
+            for (int k = 0; k < MeshRes; k++)
+            {
+                int a = start + k * 2, b = a + 2;
+                tris.Add(a); tris.Add(b); tris.Add(b + 1);
+                tris.Add(a); tris.Add(b + 1); tris.Add(a + 1);
+                tris.Add(a); tris.Add(b + 1); tris.Add(b);
+                tris.Add(a); tris.Add(a + 1); tris.Add(b + 1);
+            }
+        }
+        var mesh = new Mesh { name = "OuterLand" };
+        mesh.indexFormat = verts.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+        var go = new GameObject("OuterLand");
+        go.transform.SetParent(Root, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = TerrainMaterial;
+        mr.shadowCastingMode = ShadowCastingMode.Off;
     }
 
     public static Material TerrainMaterial { get; private set; }
