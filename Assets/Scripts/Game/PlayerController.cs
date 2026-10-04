@@ -316,6 +316,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         }
         plane = null;
         state = PlayerState.Ground;
+        isVaulting = false;
         controller.enabled = false;
         transform.position = spawnPosition;
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);

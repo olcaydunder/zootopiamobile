@@ -178,11 +178,13 @@ public partial class PlayerController
             aimingDownSights = false;
         AimAssistTick(fire);
 
+        if (jump && isVaulting)
+            jump = false;
         if (jump && controller.isGrounded)
         {
             if (isCrouching)
                 SetCrouch(false);
-            else
+            else if (!TryVault())
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 

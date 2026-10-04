@@ -10,6 +10,11 @@ public partial class PlayerController
 
     private void HandleMovement(IPlayerInput tc)
     {
+        if (isVaulting)
+        {
+            UpdateVault();
+            return;
+        }
         Vector2 input = MoveInput(tc);
 
         bool sprintInput = tc != null && tc.SprintHeld;
@@ -192,6 +197,7 @@ public partial class PlayerController
 
     private void EnterVehicle(Vehicle v)
     {
+        EndVault();
         vehicle = v;
         v.SetDriver(this);
         state = PlayerState.Driving;
@@ -253,6 +259,7 @@ public partial class PlayerController
 
     private void GoDown()
     {
+        EndVault();
         isDowned = true;
         health = maxHealth;            // now bleed-out health
         boostRemaining = 0f;
