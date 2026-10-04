@@ -23,7 +23,8 @@ public static class NetGame
 
     private static string version;
 
-    /// <summary>Build version (commit) written by the CI build into Resources/zm_version.txt; "dev" otherwise.
+    /// <summary>Online compatibility version written by the CI build into Resources/zm_version.txt
+    /// (Tools~/net_version.sh: changes only with the network code, the map and the world); "dev" otherwise.
     /// The phone and the server must have the same one.</summary>
     public static string BuildVersion
     {

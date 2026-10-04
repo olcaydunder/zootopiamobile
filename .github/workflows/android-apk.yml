@@ -15,7 +15,8 @@
 #   - aynı APK, çalıştırma sayfasında 5 gün saklanan bir zip olarak
 #   - "son-server" ön sürümünde ZootopiaServer.tar.gz: çevrimiçi oyun sunucusu (Linux). Kiralık sunucudaki
 #     maç yöneticisi (Server/orchestrator.py) bunu birkaç dakika içinde kendisi indirip kullanır.
-#     APK ile sunucu aynı commit'ten derlenir; sürümleri aynı değilse telefon "güncelle" der.
+#     İkisine aynı "çevrimiçi sürüm" gömülür (Tools~/net_version.sh: yalnız ağ kodu, harita ve dünya değişince
+#     değişir). Telefonunki sunucununkiyle aynı değilse telefon "güncelle" der.
 #
 # İmza: Tools~/android/gelistirme.keystore (şifresi Android'in standart test şifresi "android").
 # Her derleme aynı anahtarla imzalandığı için yeni APK eskisinin üstüne kurulur, kayıtlar silinmez.
@@ -91,10 +92,11 @@ jobs:
           restore-keys: |
             Library-Android-
 
-      - name: Sürüm damgası (telefon ve sunucu aynı commit'i taşır)
+      - name: Çevrimiçi sürüm damgası (telefon ile sunucu aynı olmalı)
         run: |
           mkdir -p Assets/Resources
-          echo "${GITHUB_SHA::10}" > Assets/Resources/zm_version.txt
+          echo "net-$(bash 'Tools~/net_version.sh')" > Assets/Resources/zm_version.txt
+          echo "Çevrimiçi sürüm: $(cat Assets/Resources/zm_version.txt)"
 
       - name: Sürüm numarası ve imza anahtarı
         id: hazirlik
@@ -219,10 +221,11 @@ jobs:
           restore-keys: |
             Library-Linux-
 
-      - name: Sürüm damgası (telefon ve sunucu aynı commit'i taşır)
+      - name: Çevrimiçi sürüm damgası (telefon ile sunucu aynı olmalı)
         run: |
           mkdir -p Assets/Resources
-          echo "${GITHUB_SHA::10}" > Assets/Resources/zm_version.txt
+          echo "net-$(bash 'Tools~/net_version.sh')" > Assets/Resources/zm_version.txt
+          echo "Çevrimiçi sürüm: $(cat Assets/Resources/zm_version.txt)"
 
       - name: Unity ile Linux sunucusu derle
         uses: game-ci/unity-builder@v4
@@ -257,7 +260,7 @@ jobs:
           fi
           mkdir -p paket
           cp -r "$(dirname "$exe")"/. paket/
-          echo "${GITHUB_SHA::10}" > paket/VERSION
+          cp Assets/Resources/zm_version.txt paket/VERSION
           tar -czf ZootopiaServer.tar.gz -C paket .
           echo "Sunucu paketi: $(du -h ZootopiaServer.tar.gz | cut -f1)"
 

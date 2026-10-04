@@ -173,7 +173,7 @@ public static class ZootopiaBuild
         }
     }
 
-    /// <summary>Written by the CI workflow (the commit) before building; read at run time as Resources/zm_version.</summary>
+    /// <summary>Written by the CI workflow (online compatibility version) before building; read at run time as Resources/zm_version.</summary>
     public const string VersionFile = "Assets/Resources/zm_version.txt";
 
     private static Dictionary<string, string> ReadCommandLine()

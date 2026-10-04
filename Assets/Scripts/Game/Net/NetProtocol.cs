@@ -18,7 +18,7 @@ public static class NetProtocol
     public const byte C_State = 1;      // ushort seq, Pos, Yaw, sbyte pitch, byte flags, byte weapon+1, byte health, byte armor
     public const byte C_Shot = 2;       // Pos end, byte weapon+1
     public const byte C_Hit = 3;        // ushort target, ushort damage*10, byte weapon (or HitGrenade), byte head
-    public const byte C_Died = 4;       // ushort killer
+    public const byte C_Died = 4;       // ushort killer, byte how (weapon+1 / HitGrenade, from the last S_Damage)
     public const byte C_Pickup = 5;     // ushort loot id
     public const byte C_Door = 6;       // ushort door, bool open, Pos from
     public const byte C_Grenade = 7;    // Pos, float vx vy vz
@@ -29,10 +29,11 @@ public static class NetProtocol
     public const byte S_Entities = 21;    // byte n {ushort id, byte team, bool bot, string name, string skin, string parachute}
     public const byte S_MatchStart = 22;  // ushort you, byte team, byte mode, Pos plane start, Pos plane end, float zx zz zr, ushort doors, byte teams
     public const byte S_Loot = 23;        // ushort n {ushort id, byte type, Pos}
+    public const byte S_LootTaken = 24;   // ushort id, bool yours (answer to C_Pickup: only then the item is given)
     public const byte S_LootGone = 25;    // ushort id
     public const byte S_Snap = 26;        // see NetServer.SendSnapshots
     public const byte S_Shot = 27;        // ushort shooter, Pos end, byte weapon+1
-    public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, bool head
+    public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, bool head, byte how
     public const byte S_Kill = 29;        // ushort killer, ushort victim, byte how
     public const byte S_Door = 30;        // ushort door, bool open, Pos from
     public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz

@@ -174,7 +174,9 @@ public static class Haptics
     /// <summary>Long buzz (knocked down / eliminated). Also makes Unity add the VIBRATE permission.</summary>
     public static void Long()
     {
+#if UNITY_ANDROID || UNITY_IOS
         if (GameSettings.Vibration)
             Handheld.Vibrate();
+#endif
     }
 }

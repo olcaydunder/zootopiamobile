@@ -28,6 +28,6 @@ henüz oyunun sunucu derlemesini indirmemiştir (GitHub Actions derlemesi bittik
   sonra (16 kişi dolarsa 5 sn) başlar; özel odayı lider BAŞLAT ile başlatır. Boş yerleri botlar doldurur.
   Maç bitince süreç kendiliğinden kapanır.
 - Yeni sunucu derlemesi GitHub release `son-server` içindeki `ZootopiaServer.tar.gz`'den otomatik alınır; çalışan
-  maçlar eski derlemeyle biter. Telefon ile sunucu aynı commit'ten derlenmiş olmalı (APK ile aynı Actions
-  çalıştırmasında derlenir).
+  maçlar eski derlemeyle biter. Telefonun "çevrimiçi sürümü" sunucununkiyle aynı olmalı; bu yalnız ağ kodu ya da
+  harita değişince değişir (APK ile sunucu aynı Actions çalıştırmasında derlenir).
 - Kayıtlar: `/opt/zootopia/logs/` (`orchestrator.log`, her maç için `match-<kod>.log`).

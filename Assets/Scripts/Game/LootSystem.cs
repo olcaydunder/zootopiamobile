@@ -34,6 +34,8 @@ public class LootSystem : MonoBehaviour
     private readonly List<Crate> crates = new List<Crate>();
     private const float PickupDistance = 1.6f;
     private int nextId = 1;
+    /// <summary>Online: crates we asked the server for, given only when it says they are ours.</summary>
+    private readonly Dictionary<int, LootType> pendingNet = new Dictionary<int, LootType>();
 
     public void SpawnLoot(int outdoorCount)
     {
@@ -230,6 +232,7 @@ public class LootSystem : MonoBehaviour
 
     public void Clear()
     {
+        pendingNet.Clear();
         foreach (var c in crates)
         {
             if (c.obj != null)
@@ -288,6 +291,18 @@ public class LootSystem : MonoBehaviour
             if (d.magnitude > PickupDistance)
                 continue;
 
+            if (NetGame.InOnlineMatch)
+            {
+                // Two players can touch the same crate: the server decides who gets it.
+                if (!CanTake(player, c.type))
+                    continue;
+                pendingNet[c.id] = c.type;
+                NetGame.LootTaken(c.id);
+                Destroy(c.obj);
+                crates.RemoveAt(i);
+                continue;
+            }
+
             string message = Apply(player, c.type);
             if (message == null)
                 continue; // e.g. medkits full: leave it for later
@@ -295,10 +310,40 @@ public class LootSystem : MonoBehaviour
             if (ui != null)
                 ui.Toast(message);
             Sfx.Play(SoundBank.Pickup, 0.45f);
-            NetGame.LootTaken(c.id);
             Destroy(c.obj);
             crates.RemoveAt(i);
         }
+    }
+
+    /// <summary>Whether picking this up would do anything (same rules as <see cref="Apply"/>).</summary>
+    private static bool CanTake(PlayerController player, LootType type)
+    {
+        switch (type)
+        {
+            case LootType.Medkit: return player.inventory.medkits < Inventory.MaxMedkits;
+            case LootType.Grenade: return player.inventory.grenades < Inventory.MaxGrenades;
+            case LootType.Drink: return player.inventory.drinks < Inventory.MaxDrinks;
+            case LootType.Armor: return player.armor < player.maxArmor;
+            default: return true;
+        }
+    }
+
+    /// <summary>Online: the server's answer to our pick-up. Only now the item is given.</summary>
+    public void NetPickupResult(int id, bool ours, PlayerController player)
+    {
+        LootType type;
+        if (!pendingNet.TryGetValue(id, out type))
+            return;
+        pendingNet.Remove(id);
+        if (!ours || player == null || player.isDead)
+            return;
+        string message = Apply(player, type);
+        if (message == null)
+            return;
+        var ui = GameManager.Instance != null ? GameManager.Instance.uiManager : null;
+        if (ui != null)
+            ui.Toast(message);
+        Sfx.Play(SoundBank.Pickup, 0.45f);
     }
 
     private static string Apply(PlayerController player, LootType type)

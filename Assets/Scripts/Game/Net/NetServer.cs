@@ -262,7 +262,7 @@ public sealed class NetServer : MonoBehaviour
         var sb = new StringBuilder();
         foreach (char c in s)
         {
-            if (!char.IsControl(c))
+            if (!char.IsControl(c) && c != '<' && c != '>')   // no rich-text tags in other players' screens
                 sb.Append(c);
             if (sb.Length >= 16)
                 break;
@@ -369,13 +369,19 @@ public sealed class NetServer : MonoBehaviour
                 }
                 if (now >= countdownEnds)
                     BeginMatch(now);
-                else if (now >= nextLobbyRefresh)
-                    SendLobbyToAll(now);
+                else
+                {
+                    if (now >= nextLobbyRefresh)
+                        SendLobbyToAll(now);
+                    if (countdownEnds - now < 6.0 && reportedState == "waiting")
+                        Report(true);   // "starting": the matchmaker stops sending players here
+                }
                 break;
             case Phase.Playing:
                 if (now >= nextSnapshot)
                 {
-                    nextSnapshot = now + NetProtocol.TickInterval;
+                    // Keep the 20 Hz rhythm on a 30 fps server (frames of 33 ms), without bursts after a hitch.
+                    nextSnapshot = System.Math.Max(nextSnapshot + NetProtocol.TickInterval, now - NetProtocol.TickInterval);
                     SendSnapshot(now);
                 }
                 if (now >= nextEndCheck)
@@ -411,8 +417,33 @@ public sealed class NetServer : MonoBehaviour
 
     private void BeginMatch(double now)
     {
+        try
+        {
+            StartRound(now);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+            Debug.LogError("[Sunucu] maç başlatılamadı, kapanıyor");
+            w.Reset();
+            w.Byte(NetProtocol.S_Toast);
+            w.String("Sunucu hatası: maç başlatılamadı", 120);
+            Broadcast(w.ToArray(), true, null);
+            foreach (var p in peers)
+                p.conn.Flush(Now, p.output);
+            phase = Phase.Ended;
+            quitAt = Now + 1.0;
+            Report(true);
+        }
+    }
+
+    private void StartRound(double now)
+    {
         var gm = GameManager.Instance;
         phase = Phase.Playing;
+        // Match ids: players 1..16 (join order), bots from 100.
+        for (int i = 0; i < peers.Count; i++)
+            peers[i].id = i + 1;
         matchStarted = now;
         nextSnapshot = now;
         nextEndCheck = now + 5.0;
@@ -725,11 +756,11 @@ public sealed class NetServer : MonoBehaviour
         }
         else if (target.peer != null && !target.peer.gone)
         {
-            SendDamage(target.peer, damage, me.id, from, head);
+            SendDamage(target.peer, damage, me.id, from, head, weapon);
         }
     }
 
-    private void SendDamage(Peer to, float amount, int attackerId, Vector3 from, bool head)
+    private void SendDamage(Peer to, float amount, int attackerId, Vector3 from, bool head, int weapon)
     {
         w.Reset();
         w.Byte(NetProtocol.S_Damage);
@@ -737,25 +768,31 @@ public sealed class NetServer : MonoBehaviour
         w.UShort(attackerId);
         w.Pos(from);
         w.Bool(head);
+        w.Byte(HowCode(weapon));
         to.conn.SendReliable(w.ToArray());
+    }
+
+    /// <summary>Kill-feed code: weapon type + 1, HitGrenade, or 0 (unknown).</summary>
+    private static int HowCode(int weapon)
+    {
+        if (weapon == NetProtocol.HitGrenade)
+            return NetProtocol.HitGrenade;
+        return weapon >= 0 && weapon <= (int)WeaponType.Pistol ? weapon + 1 : 0;
     }
 
     private void OnDied(Peer p)
     {
         int killerId = reader.UShort();
+        int how = reader.Byte();   // what the last damage we sent this phone was
         if (!Playing(p))
             return;
         Entity killer;
         if (!byId.TryGetValue(killerId, out killer) || killer == p.entity)
             killer = null;
-        int how = 0;
-        if (killer != null)
-        {
-            if (killer.agent != null && killer.agent.weapon != null && killer.agent.weapon.weaponData != null)
-                how = (int)killer.agent.weapon.weaponData.weaponType + 1;
-            else if (killer.human != null && killer.human.weapon >= 0)
-                how = killer.human.weapon + 1;
-        }
+        if (killer == null)
+            how = 0;
+        else if (how != NetProtocol.HitGrenade && (how < 1 || how > (int)WeaponType.Pistol + 1))
+            how = 0;
         HumanDied(p.entity, killer, how);
     }
 
@@ -806,10 +843,14 @@ public sealed class NetServer : MonoBehaviour
             return;
         var gm = GameManager.Instance;
         Vector3 at;
-        if (!gm.lootSystem.CratePosition(id, out at))
-            return;   // someone was faster
-        Vector3 d = at - p.entity.human.transform.position;
-        if (d.magnitude > 6f)
+        bool ok = gm.lootSystem.CratePosition(id, out at) &&                       // still there (nobody was faster)
+                  (at - p.entity.human.transform.position).magnitude <= 6f;       // and within reach
+        w.Reset();
+        w.Byte(NetProtocol.S_LootTaken);
+        w.UShort(id);
+        w.Bool(ok);
+        p.conn.SendReliable(w.ToArray());
+        if (!ok)
             return;
         gm.lootSystem.RemoveById(id);
         w.Reset();
@@ -828,7 +869,16 @@ public sealed class NetServer : MonoBehaviour
         var door = Door.All[index];
         Vector3 me = p.entity.human.transform.position;
         if (Vector3.Distance(me, door.Center) > 6f)
+        {
+            // Too far by our positions: put the requester's door back the way it really is.
+            w.Reset();
+            w.Byte(NetProtocol.S_Door);
+            w.UShort(index);
+            w.Bool(door.IsOpen);
+            w.Pos(door.Center);
+            p.conn.SendReliable(w.ToArray());
             return;
+        }
         if (open)
             door.Open(from);
         else
@@ -914,7 +964,7 @@ public sealed class NetServer : MonoBehaviour
         if (key != null)
             byObject.TryGetValue(key, out attacker);
         Vector3 from = HitContext.Attacker != null ? HitContext.From : human.transform.position;
-        SendDamage(e.peer, amount, attacker != null ? attacker.id : NetProtocol.NoEntity, from, HitContext.Head);
+        SendDamage(e.peer, amount, attacker != null ? attacker.id : NetProtocol.NoEntity, from, HitContext.Head, HitContext.Weapon);
     }
 
     public void OnBotEliminated(BotAgent bot)
@@ -926,8 +976,7 @@ public sealed class NetServer : MonoBehaviour
         var key = HitContext.Attacker as Object;
         if (key != null)
             byObject.TryGetValue(key, out killer);
-        int how = HitContext.Weapon == NetProtocol.HitGrenade ? NetProtocol.HitGrenade : HitContext.Weapon >= 0 ? HitContext.Weapon + 1 : 0;
-        Kill(killer, e, how);
+        Kill(killer, e, HowCode(HitContext.Weapon));
         CheckEnd();
     }
 
@@ -1020,7 +1069,8 @@ public sealed class NetServer : MonoBehaviour
         nextReport = Now + 10.0;
         if (string.IsNullOrEmpty(args.api))
             return;
-        string state = phase == Phase.Playing ? "playing" : phase == Phase.Ended ? "ended" : "waiting";
+        string state = phase == Phase.Playing ? "playing" : phase == Phase.Ended ? "ended" :
+                       phase == Phase.Countdown && countdownEnds - Now < 6.0 ? "starting" : "waiting";
         if (!force && state == reportedState && peers.Count == reportedPlayers)
             return;
         reportedState = state;

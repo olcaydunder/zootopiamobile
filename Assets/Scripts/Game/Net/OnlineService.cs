@@ -36,6 +36,7 @@ public class OnlineService : MonoBehaviour
     }
 
     private static OnlineService runner;
+    private static readonly System.Collections.Generic.List<UnityWebRequest> active = new System.Collections.Generic.List<UnityWebRequest>();
     private static string host = "";
     private static int apiPort = 8080;
     private static float endpointTime = -1000f;
@@ -69,6 +70,11 @@ public class OnlineService : MonoBehaviour
     {
         if (runner != null)
             runner.StopAllCoroutines();
+        foreach (var r in active)
+        {
+            try { r.Abort(); r.Dispose(); } catch (System.Exception) { }
+        }
+        active.Clear();
     }
 
     private IEnumerator Call(string method, string path, System.Action<MatchInfo> done)
@@ -78,7 +84,9 @@ public class OnlineService : MonoBehaviour
         {
             var get = UnityWebRequest.Get(EndpointUrl + "?t=" + System.DateTime.UtcNow.Ticks / 600000000L);
             get.timeout = 8;
+            active.Add(get);
             yield return get.SendWebRequest();
+            active.Remove(get);
             if (get.result == UnityWebRequest.Result.Success)
             {
                 try
@@ -119,7 +127,9 @@ public class OnlineService : MonoBehaviour
         if (method == "POST")
             req.uploadHandler = new UploadHandlerRaw(new byte[0]);
         req.timeout = 12;
+        active.Add(req);
         yield return req.SendWebRequest();
+        active.Remove(req);
 
         MatchInfo info = null;
         string text = req.downloadHandler != null ? req.downloadHandler.text : "";

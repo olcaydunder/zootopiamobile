@@ -25,8 +25,13 @@ Telefon ──UDP───> maç süreci (7777–7799)  bekleme odası → maç 
   menzil/hasar/hız sınırıyla denetler; ölümleri ve kazananı o belirler. Her telefon kendi oyuncusunu hareket
   ettirir ve kendi canını tutar (hasar sunucudan gelir). Diğer herkes `NetPuppet` olarak 0,12 sn geriden
   ara değerlemeyle çizilir. Sunucuda telefondaki oyuncuyu `ServerHuman` temsil eder (botlar onu görür, vurur).
-- Sürüm: CI, telefon ve sunucuya aynı commit'i `Resources/zm_version.txt` olarak gömer; farklıysa bağlanılmaz.
+- Sürüm: CI, telefon ve sunucuya aynı "çevrimiçi sürümü" `Resources/zm_version.txt` olarak gömer
+  (`Tools~/net_version.sh`: yalnız ağ kodu, harita ve dünya değişince değişir); farklıysa bağlanılmaz.
+- `NetConnection`: seçmeli onay (ack + 32 bitlik alındı maskesi) ile yalnız kaybolan mesaj yeniden gönderilir;
+  yeniden gönderme süresi ölçülen gidiş-dönüş süresine göre ayarlanır.
+- Sandık: telefon sandığa değince sunucuya sorar; eşya ancak sunucu "senin" deyince verilir (iki kişi aynı anda alamaz).
 - v1'de çevrimiçi kapalı olanlar: sınıf yetenekleri, jetonlar, araçlar, güçlendirme noktaları, yere düşme.
+  Takım modlarında elenen oyuncu sonucunu hemen görür (izleyici modu ve takımla birlikte kazanma sonraki sürümde).
 
 ## Hedef klasör yapısı (fazlar ilerledikçe taşınır)
 

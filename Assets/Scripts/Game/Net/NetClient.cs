@@ -39,7 +39,7 @@ public sealed class NetClient : MonoBehaviour
 
     private const double ConnectTimeout = 45.0;
     private const double LinkTimeout = 12.0;
-    private const double InterpolationDelay = 0.12;
+    private const double InterpolationDelay = 0.15;   // three snapshots: one lost packet does not show
 
     private sealed class EntityInfo
     {
@@ -76,6 +76,9 @@ public sealed class NetClient : MonoBehaviour
     private bool deathSent;
     private bool finished;
     private bool resultShown;
+    private int lastAttackHow;
+    /// <summary>Bumped by every Connect/Leave: result coroutines of an old match must not touch a new one.</summary>
+    private int session;
 
     private static double Now { get { return Time.realtimeSinceStartupAsDouble; } }
 
@@ -169,11 +172,20 @@ public sealed class NetClient : MonoBehaviour
         }
         CloseSocket();
         ClearMatch();
+        session++;
         State = Phase.Idle;
         MyId = -1;
+        LeaderId = 0;
+        LobbyPhase = NetProtocol.LobbyWaiting;
+        CountdownEnds = -1;
         LobbyIds.Clear();
         LobbyNames.Clear();
         Revision++;
+    }
+
+    private void OnApplicationQuit()
+    {
+        Leave();   // tell the server at once instead of letting it time out
     }
 
     private void CloseSocket()
@@ -200,9 +212,11 @@ public sealed class NetClient : MonoBehaviour
         haveOffset = false;
         haveSnap = false;
         placement = -1;
+        placementTeams = 0;
         deathSent = false;
         finished = false;
         lastAttacker = NetProtocol.NoEntity;
+        lastAttackHow = 0;
         AliveCount = 0;
         AliveTeams = 0;
     }
@@ -339,6 +353,14 @@ public sealed class NetClient : MonoBehaviour
                 case NetProtocol.S_MatchStart: OnMatchStart(); break;
                 case NetProtocol.S_Loot: OnLoot(); break;
                 case NetProtocol.S_LootGone: OnLootGone(); break;
+                case NetProtocol.S_LootTaken:
+                {
+                    int id = reader.UShort();
+                    bool ok = reader.Bool();
+                    var gm = GameManager.Instance;
+                    gm.lootSystem.NetPickupResult(id, ok, gm.player);
+                    break;
+                }
                 case NetProtocol.S_Snap: OnSnapshot(); break;
                 case NetProtocol.S_Shot: OnShot(); break;
                 case NetProtocol.S_Damage: OnDamage(); break;
@@ -530,12 +552,14 @@ public sealed class NetClient : MonoBehaviour
         int attacker = reader.UShort();
         Vector3 from = reader.Pos();
         reader.Bool();   // head shot (not shown yet)
+        int how = reader.Byte();
         var player = GameManager.Instance.player;
         if (State != Phase.Playing || player == null || player.isDead)
             return;
         if (attacker != NetProtocol.NoEntity)
         {
             lastAttacker = attacker;
+            lastAttackHow = how;
             lastAttackTime = Time.time;
         }
         player.MarkHitFrom(from);
@@ -615,7 +639,7 @@ public sealed class NetClient : MonoBehaviour
         if (deathSent || gm.player == null || gm.player.isDead)
             return;   // our result is already on its way
         bool won = winner == myServerTeam;
-        StartCoroutine(FinishRoutine(won, won ? 1 : Mathf.Max(2, AliveTeams), 1.5f));
+        StartCoroutine(FinishRoutine(won, won ? 1 : Mathf.Max(2, AliveTeams), 1.5f, session));
     }
 
     /// <summary>Living teammates on the ground (minimap).</summary>
@@ -729,38 +753,42 @@ public sealed class NetClient : MonoBehaviour
         if (!InMatch || deathSent)
             return;
         deathSent = true;
-        int killer = Time.time - lastAttackTime < 15f ? lastAttacker : NetProtocol.NoEntity;
+        bool recent = Time.time - lastAttackTime < 15f;
+        int killer = recent ? lastAttacker : NetProtocol.NoEntity;
         if (conn != null)
         {
             w.Reset();
             w.Byte(NetProtocol.C_Died);
             w.UShort(killer);
+            w.Byte(recent ? lastAttackHow : 0);
             conn.SendReliable(w.ToArray());
             conn.Flush(Now, output);
         }
-        StartCoroutine(DeathResultRoutine());
+        StartCoroutine(DeathResultRoutine(session));
     }
 
-    private IEnumerator DeathResultRoutine()
+    private IEnumerator DeathResultRoutine(int forSession)
     {
         // The server answers with our placement; wait a moment for it.
         float until = Time.realtimeSinceStartup + 4f;
-        while (placement < 0 && Time.realtimeSinceStartup < until && State == Phase.Playing)
+        while (placement < 0 && Time.realtimeSinceStartup < until && State == Phase.Playing && session == forSession)
             yield return null;
         yield return new WaitForSecondsRealtime(1f);
         int place = placement > 0 ? placement : Mathf.Max(2, AliveTeams + 1);
         int teams = placementTeams > 0 ? placementTeams : teamCount;
-        ShowResult(false, place, teams);
+        ShowResult(false, place, teams, forSession);
     }
 
-    private IEnumerator FinishRoutine(bool won, int place, float delay)
+    private IEnumerator FinishRoutine(bool won, int place, float delay, int forSession)
     {
         yield return new WaitForSecondsRealtime(delay);
-        ShowResult(won, place, teamCount);
+        ShowResult(won, place, teamCount, forSession);
     }
 
-    private void ShowResult(bool won, int place, int teams)
+    private void ShowResult(bool won, int place, int teams, int forSession)
     {
+        if (forSession != session)
+            return;   // that match is over and we are elsewhere now
         var gm = GameManager.Instance;
         bool show = !resultShown && State == Phase.Playing;
         resultShown = true;
