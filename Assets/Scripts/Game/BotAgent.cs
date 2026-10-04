@@ -17,6 +17,8 @@ public partial class BotAgent : MonoBehaviour, IDamageable
 {
     public int team;
     public string botName = "Bot";
+    /// <summary>Character model (sent to the phones online).</summary>
+    public string skin = "";
     public float health = 100f;
     public float armor;
     public float moveSpeed = 4.2f;
@@ -79,6 +81,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         weaponModel = model.GetComponent<Renderer>();
 
         weapon = weaponObj.AddComponent<WeaponController>();
+        weapon.shooter = this;
         accuracy = Random.Range(3f, 7.5f);
     }
 
@@ -95,11 +98,11 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     {
         team = teamId;
         botName = displayName;
-        string skin = teamId == 0 ? ModelLibrary.PlayerSkin : ModelLibrary.EnemySkins[Random.Range(0, ModelLibrary.EnemySkins.Length)];
+        skin = teamId == 0 && !NetGame.IsServer ? ModelLibrary.PlayerSkin : ModelLibrary.EnemySkins[Random.Range(0, ModelLibrary.EnemySkins.Length)];
         rig = CharacterRig.Build(gameObject, color, new Color(0.22f, 0.23f, 0.25f),
             Skins[Random.Range(0, Skins.Length)], Helmets[Random.Range(0, Helmets.Length)], new Color(0.38f, 0.32f, 0.22f), skin);
         rig.weaponHold = weapon.transform;
-        if (teamId == 0)
+        if (teamId == 0 && !NetGame.IsServer)
         {
             // Green marker over teammates' heads.
             var marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);

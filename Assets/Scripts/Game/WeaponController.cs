@@ -10,6 +10,8 @@ public class WeaponController : MonoBehaviour
     public bool playerOwned;
     /// <summary>Class of whoever holds the gun (passives like Gözcü's bonus on marked enemies).</summary>
     public ClassAbility owner;
+    /// <summary>Who holds the gun (kill credit online).</summary>
+    public IDamageable shooter;
 
     private float nextShotTime;
     private Renderer modelRenderer;
@@ -142,8 +144,16 @@ public class WeaponController : MonoBehaviour
                     var hitPlayer = target as PlayerController;
                     if (hitPlayer != null)
                         hitPlayer.MarkHitFrom(transform.position);
-                    if (target.TakeDamage(damage, shooterTeam))
-                        killed = true;
+                    HitContext.Set(shooter, transform.position, head, (int)weaponData.weaponType);
+                    try
+                    {
+                        if (target.TakeDamage(damage, shooterTeam))
+                            killed = true;
+                    }
+                    finally
+                    {
+                        HitContext.Clear();
+                    }
                     totalDamage += damage;
                     anyHead |= head;
                     hitPoint = hit.point;
@@ -158,6 +168,7 @@ public class WeaponController : MonoBehaviour
         ShowTracer(transform.position, tracerEnd);
         if (!weaponData.suppressed)
             ShowFlash();
+        NetGame.WeaponFired(this, tracerEnd);
 
         float volume = playerOwned ? 0.55f : 0.9f;
         float pitch = Random.Range(0.94f, 1.06f);
@@ -183,6 +194,19 @@ public class WeaponController : MonoBehaviour
             Reload();
 
         return true;
+    }
+
+    /// <summary>Online: another player's (or a server bot's) shot — tracer, flash and sound only.</summary>
+    public void PlayRemoteShot(Vector3 end)
+    {
+        if (weaponData == null)
+            return;
+        EnsureTracer();
+        EnsureFlash();
+        ShowTracer(transform.position, end);
+        if (!weaponData.suppressed)
+            ShowFlash();
+        Sfx.PlayAt(SoundBank.Gunshot(weaponData.weaponType), transform.position, 0.9f, Random.Range(0.94f, 1.06f));
     }
 
     public void Reload()

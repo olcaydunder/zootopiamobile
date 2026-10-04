@@ -51,10 +51,6 @@ public class GameManager : MonoBehaviour
         new Color(0.85f, 0.35f, 0.2f), new Color(0.8f, 0.2f, 0.4f), new Color(0.9f, 0.6f, 0.15f),
         new Color(0.55f, 0.3f, 0.8f), new Color(0.7f, 0.15f, 0.15f), new Color(0.55f, 0.45f, 0.3f)
     };
-    private static readonly Color[] JeepColors =
-    {
-        new Color(0.35f, 0.42f, 0.25f), new Color(0.75f, 0.68f, 0.5f), new Color(0.55f, 0.15f, 0.12f), new Color(0.2f, 0.3f, 0.45f)
-    };
 
     private void Awake()
     {
@@ -88,6 +84,8 @@ public class GameManager : MonoBehaviour
 
     public void JoinLobby()
     {
+        if (NetClient.Instance != null)
+            NetClient.Instance.Leave();   // leaving an online match from the pause menu
         StopAllCoroutines();
         Time.timeScale = 1f;
         currentState = GameState.Lobby;
@@ -165,16 +163,46 @@ public class GameManager : MonoBehaviour
             bot.BoardPlane(plane, 1.1f, Vector3.zero, true);    // waits for the player to jump
         }
 
-        // Each enemy team picks a different part of the map (a building to loot, or open ground)
-        // and jumps from the plane where the flight path passes closest to it.
-        // Only spots the bots can glide to (~250 m either side of the flight line).
-        Vector3 lineDir = (plane.end - plane.start);
+        var spots = DropSpots(plane);
+        Vector3 teamSpot = Vector3.zero;
+        for (int i = 0; i < enemies; i++)
+        {
+            int team = 1 + i / teamSize;
+            var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team % EnemyColors.Length]);
+            PlanBotJump(bot, i, teamSize, spots, ref teamSpot);
+        }
+
+        VehicleSpawns.SpawnAll(vehicles);
+        tankDropped = false;
+
+        lootSystem.SpawnLoot(70);
+        safeZone.Init(Vector3.zero, ZoneStartRadius);
+
+        currentState = GameState.InGame;
+        uiManager.ShowBattleHud();
+        uiManager.Toast("Atlamak için ATLA'ya bas!");
+        if (!profile.tutorialDone)
+            StartCoroutine(TutorialTips());
+    }
+
+    private static float ZoneStartRadius
+    {
+        get { return MapData.Loaded ? MapData.PlayHalf * 1.42f + 10f : World.IslandRadius * 1.15f; }
+    }
+
+    /// <summary>
+    /// Places bots can glide to (~230 m either side of the flight line), shuffled: each bot team picks a
+    /// different part of the map (a building to loot, or open ground).
+    /// </summary>
+    private static List<Vector3> DropSpots(AirPlane dropPlane)
+    {
+        Vector3 lineDir = (dropPlane.end - dropPlane.start);
         lineDir.y = 0f;
         lineDir.Normalize();
         var spots = new List<Vector3>();
         foreach (var h in World.HouseCenters)
         {
-            Vector3 rel = h - plane.start;
+            Vector3 rel = h - dropPlane.start;
             rel.y = 0f;
             if ((rel - lineDir * Vector3.Dot(rel, lineDir)).magnitude < 230f)
                 spots.Add(h);
@@ -184,46 +212,111 @@ public class GameManager : MonoBehaviour
             int j = Random.Range(0, i + 1);
             Vector3 tmp = spots[i]; spots[i] = spots[j]; spots[j] = tmp;
         }
+        return spots;
+    }
+
+    /// <summary>
+    /// Bot number <paramref name="index"/> (teams of <paramref name="teamSize"/>) boards the plane and jumps
+    /// where the flight path passes closest to its team's landing spot.
+    /// </summary>
+    private void PlanBotJump(BotAgent bot, int index, int teamSize, List<Vector3> spots, ref Vector3 teamSpot)
+    {
+        Vector3 lineDir = plane.end - plane.start;
+        lineDir.y = 0f;
+        lineDir.Normalize();
         Vector3 flight = plane.end - plane.start;
         flight.y = 0f;
-        Vector3 teamSpot = Vector3.zero;
-        for (int i = 0; i < enemies; i++)
+        if (index % teamSize == 0)
         {
-            int team = 1 + i / teamSize;
-            var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team % EnemyColors.Length]);
-            if (i % teamSize == 0)
+            int pick = index / teamSize;
+            if (pick < spots.Count && Random.value < 0.75f)
+                teamSpot = spots[pick];
+            else
             {
-                int pick = (i / teamSize);
-                if (pick < spots.Count && Random.value < 0.75f)
-                    teamSpot = spots[pick];
-                else
-                {
-                    // Open ground somewhere along the flight path, off to either side.
-                    Vector3 side = new Vector3(-lineDir.z, 0f, lineDir.x);
-                    Vector3 onPath = Vector3.Lerp(plane.start, plane.end, Random.Range(0.15f, 0.85f));
-                    onPath.y = 0f;
-                    teamSpot = World.RandomOpenPoint(onPath + side * Random.Range(-200f, 200f), 30f);
-                }
+                // Open ground somewhere along the flight path, off to either side.
+                Vector3 side = new Vector3(-lineDir.z, 0f, lineDir.x);
+                Vector3 onPath = Vector3.Lerp(plane.start, plane.end, Random.Range(0.15f, 0.85f));
+                onPath.y = 0f;
+                teamSpot = World.RandomOpenPoint(onPath + side * Random.Range(-200f, 200f), 30f);
             }
-            Vector3 landing = World.RandomOpenPoint(teamSpot, 14f);
-            Vector3 fromStart = landing - plane.start;
-            fromStart.y = 0f;
-            float along = flight.sqrMagnitude > 1f ? Vector3.Dot(fromStart, flight) / flight.sqrMagnitude : Random.value;
-            float jumpAt = Mathf.Clamp(along - 0.05f + Random.Range(-0.03f, 0.03f), 0.06f, 0.94f);
-            bot.BoardPlane(plane, jumpAt, landing, false);
+        }
+        Vector3 landing = World.RandomOpenPoint(teamSpot, 14f);
+        Vector3 fromStart = landing - plane.start;
+        fromStart.y = 0f;
+        float along = flight.sqrMagnitude > 1f ? Vector3.Dot(fromStart, flight) / flight.sqrMagnitude : Random.value;
+        float jumpAt = Mathf.Clamp(along - 0.05f + Random.Range(-0.03f, 0.03f), 0.06f, 0.94f);
+        bot.BoardPlane(plane, jumpAt, landing, false);
+    }
+
+    // ----- Online -----
+
+    /// <summary>
+    /// Dedicated server: a new round. Players' teams are 0 .. humanTeams-1 (their stand-ins are added by
+    /// NetServer); <paramref name="botCount"/> bots fill the teams after them.
+    /// </summary>
+    public void BeginServerRound(MatchMode mode, int humanTeams, int botCount)
+    {
+        currentMode = mode;
+        ClearRound();
+        Physics.SyncTransforms();
+        plane = AirPlane.Launch();
+
+        int teamSize = TeamSize();
+        var spots = DropSpots(plane);
+        Vector3 teamSpot = Vector3.zero;
+        int nameIndex = Random.Range(0, BotNames.Length);
+        for (int i = 0; i < botCount; i++)
+        {
+            int team = humanTeams + i / teamSize;
+            string botName = BotNames[nameIndex++ % BotNames.Length];
+            if (i >= BotNames.Length)
+                botName += " " + (i / BotNames.Length + 1);
+            var bot = SpawnBot(team, botName, EnemyColors[team % EnemyColors.Length]);
+            PlanBotJump(bot, i, teamSize, spots, ref teamSpot);
         }
 
-        VehicleSpawns.SpawnAll(vehicles);
-        tankDropped = false;
-
         lootSystem.SpawnLoot(70);
-        safeZone.Init(Vector3.zero, MapData.Loaded ? MapData.PlayHalf * 1.42f + 10f : World.IslandRadius * 1.15f);
+        safeZone.Init(Vector3.zero, ZoneStartRadius);
+        currentState = GameState.InGame;
+    }
 
+    private bool onlineResultShown;
+
+    /// <summary>Phone: the online match starts (everything else arrives from the server).</summary>
+    public void BeginOnlineRound(MatchMode mode, Vector3 planeStart, Vector3 planeEnd, Vector3 zoneCenter, float zoneRadius)
+    {
+        StopAllCoroutines();
+        Time.timeScale = 1f;
+        currentMode = mode;
+        onlineResultShown = false;
+        ClearRound();
+        Physics.SyncTransforms();
+
+        plane = AirPlane.Launch(planeStart, planeEnd);
+        MatchTokens.DisableAll();   // tokens, abilities and vehicles are offline-only for now
+
+        player.SetLobbyView(false);
+        player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
+        player.GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));
+        player.BoardPlane(plane);
+        Combatants.Add(player);
+
+        safeZone.InitRemote(zoneCenter, zoneRadius);
         currentState = GameState.InGame;
         uiManager.ShowBattleHud();
-        uiManager.Toast("Atlamak için ATLA'ya bas!");
-        if (!profile.tutorialDone)
-            StartCoroutine(TutorialTips());
+        uiManager.Toast("ÇEVRİMİÇİ MAÇ  •  Atlamak için ATLA'ya bas!");
+    }
+
+    /// <summary>Phone: results of an online match (place and team count come from the server).</summary>
+    public void EndOnlineMatch(bool won, int place, int teams)
+    {
+        if (onlineResultShown)
+            return;
+        onlineResultShown = true;
+        StopAllCoroutines();
+        currentState = GameState.EndGame;
+        safeZone.Stop();
+        GiveResult(won, place, Mathf.Max(teams, place));
     }
 
     /// <summary>One-time hints during the very first match.</summary>
@@ -315,6 +408,12 @@ public class GameManager : MonoBehaviour
 
     public void OnBotEliminated(BotAgent bot, int attackerTeam)
     {
+        if (NetGame.IsServer)
+        {
+            if (NetServer.Instance != null)
+                NetServer.Instance.OnBotEliminated(bot);
+            return;
+        }
         string how = attackerTeam < 0 ? " bölgede elendi" : " elendi";
         uiManager.AddKillFeed(bot.botName + how);
         CheckForWin();
@@ -324,6 +423,11 @@ public class GameManager : MonoBehaviour
     {
         if (currentState != GameState.InGame)
             return;
+        if (NetGame.InOnlineMatch)
+        {
+            NetClient.Instance.OnLocalDeath();   // the server sends the placement, then the result shows
+            return;
+        }
         // Dirilme Jetonu: once per match, before the late zone phases.
         if (safeZone != null && safeZone.Phase < MatchTokens.ReviveBeforePhase && MatchTokens.Available(TokenType.Revive))
         {
@@ -379,6 +483,11 @@ public class GameManager : MonoBehaviour
 
         int place = won ? 1 : AliveEnemyTeams() + 1;
         int teams = (PlayersPerMatch - 1) / TeamSize() + 1;
+        GiveResult(won, place, teams);
+    }
+
+    private void GiveResult(bool won, int place, int teams)
+    {
         int kills = player.kills;
         // XP: taking part + kills + placement (up to 300) + the win.
         float placeShare = teams > 1 ? (float)(teams - place) / (teams - 1) : 1f;
@@ -398,6 +507,8 @@ public class GameManager : MonoBehaviour
 
     public int AliveCount()
     {
+        if (NetGame.InOnlineMatch)
+            return NetClient.Instance.AliveCount;
         int count = 0;
         foreach (var c in Combatants)
         {
@@ -433,7 +544,7 @@ public class GameManager : MonoBehaviour
     private void Update()
     {
         // The tank comes down once per match, when the zone starts its second phase.
-        if (currentState == GameState.InGame && !tankDropped && safeZone != null && safeZone.active && safeZone.Phase >= 2)
+        if (currentState == GameState.InGame && !tankDropped && !NetGame.Online && safeZone != null && safeZone.active && safeZone.Phase >= 2)
         {
             tankDropped = true;
             Vector3 p = World.RandomOpenPoint(safeZone.center, safeZone.radius * 0.5f);

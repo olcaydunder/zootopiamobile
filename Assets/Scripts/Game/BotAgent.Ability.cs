@@ -38,8 +38,8 @@ public partial class BotAgent : IAbilityUser
     /// <summary>Simple rules for when a bot uses its ability (checked a few times a second).</summary>
     private void AbilityThink(GameManager gm)
     {
-        if (Ability == null || !Ability.Ready || Random.value < 0.4f)
-            return;
+        if (Ability == null || !Ability.Ready || Random.value < 0.4f || NetGame.Online)
+            return;   // online: class abilities are not synced to the phones yet
         bool fighting = target != null && targetVisible;
         float dist = target != null ? Vector3.Distance(transform.position, target.transform.position) : 999f;
         bool use = false;

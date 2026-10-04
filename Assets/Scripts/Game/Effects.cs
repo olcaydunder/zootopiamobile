@@ -77,6 +77,8 @@ public static class Effects
     /// <summary>Bullet hitting something. Body hits make a small red puff, surfaces throw sparks and dust.</summary>
     public static void Impact(Vector3 point, Vector3 normal, bool body)
     {
+        if (NetGame.IsServer)
+            return;   // nobody watches the server
         Ensure();
         if (body)
         {
@@ -91,6 +93,8 @@ public static class Effects
 
     public static void Explosion(Vector3 point)
     {
+        if (NetGame.IsServer)
+            return;   // nobody watches the server
         Ensure();
         for (int i = 0; i < 30; i++)
             Emit(sparks, point, Random.insideUnitSphere * Random.Range(4f, 12f) + Vector3.up * 3f, Random.Range(0.08f, 0.2f), Random.Range(0.4f, 0.9f), new Color(1f, Random.Range(0.4f, 0.8f), 0.15f));
@@ -103,12 +107,16 @@ public static class Effects
     /// <summary>One puff of coloured marker smoke (air drops).</summary>
     public static void Smoke(Vector3 point, Color color)
     {
+        if (NetGame.IsServer)
+            return;   // nobody watches the server
         Ensure();
         Emit(smoke, point + Random.insideUnitSphere * 0.3f, new Vector3(Random.Range(-0.3f, 0.3f), Random.Range(2f, 3.5f), Random.Range(-0.3f, 0.3f)), Random.Range(0.8f, 1.4f), Random.Range(2.5f, 3.5f), color);
     }
 
     public static void Dust(Vector3 point, int count)
     {
+        if (NetGame.IsServer)
+            return;   // nobody watches the server
         Ensure();
         for (int i = 0; i < count; i++)
         {

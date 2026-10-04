@@ -38,6 +38,13 @@ public class SafeZoneController : MonoBehaviour
     public Vector3 NextCenter { get { return nextCenter; } }
     public float NextRadius { get { return nextRadius; } }
     public bool HasNext { get { return active && !finished; } }
+    public bool Shrinking { get { return shrinking; } }
+    public bool Finished { get { return finished; } }
+    /// <summary>Seconds left of the current wait or shrink.</summary>
+    public float Timer { get { return phaseTimer; } }
+
+    /// <summary>Online phone: the server runs the zone, this one only shows it (and still hurts the local player).</summary>
+    public bool remote;
 
     private void Awake()
     {
@@ -76,6 +83,7 @@ public class SafeZoneController : MonoBehaviour
 
     public void Init(Vector3 startCenterPos, float startRadiusValue)
     {
+        remote = false;
         center = startCenterPos;
         radius = startRadiusValue;
         initialRadius = startRadiusValue;
@@ -91,6 +99,40 @@ public class SafeZoneController : MonoBehaviour
         UpdateWall();
         DrawRing(ring, center, radius);
         DrawRing(nextRing, nextCenter, nextRadius);
+    }
+
+    /// <summary>Online phone: same start as the server; afterwards <see cref="ApplyNet"/> keeps it in step.</summary>
+    public void InitRemote(Vector3 startCenterPos, float startRadiusValue)
+    {
+        Init(startCenterPos, startRadiusValue);
+        remote = true;
+        nextCenter = center;
+        nextRadius = radius;
+        nextRing.enabled = false;
+    }
+
+    /// <summary>Zone state from a server snapshot.</summary>
+    public void ApplyNet(Vector3 c, float r, Vector3 nc, float nr, int netPhase, bool isActive, bool isShrinking, bool isFinished, float timer)
+    {
+        if (!remote)
+            return;
+        if (isShrinking && !shrinking && active)
+        {
+            var gm = GameManager.Instance;
+            if (gm != null && gm.uiManager != null)
+                gm.uiManager.Toast("Güvenli bölge daralıyor!");
+        }
+        center = c;
+        radius = r;
+        nextCenter = nc;
+        nextRadius = nr;
+        phase = Mathf.Clamp(netPhase, 0, WaitTimes.Length - 1);
+        shrinking = isShrinking;
+        finished = isFinished;
+        phaseTimer = timer;
+        if (!isActive && active)
+            Stop();
+        nextRing.enabled = active && !finished;
     }
 
     public void Stop()
@@ -123,7 +165,11 @@ public class SafeZoneController : MonoBehaviour
         if (gm == null || gm.currentState != GameState.InGame)
             return;
 
-        if (!finished)
+        if (remote)
+        {
+            phaseTimer = Mathf.Max(0f, phaseTimer - Time.deltaTime);   // smooth countdown between snapshots
+        }
+        else if (!finished)
         {
             phaseTimer -= Time.deltaTime;
             if (!shrinking)

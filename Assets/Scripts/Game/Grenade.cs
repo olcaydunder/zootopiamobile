@@ -10,8 +10,22 @@ public class Grenade : MonoBehaviour
     private int team;
     private float fuse = 2.6f;
     private bool exploded;
+    private bool visualOnly;
+
+    /// <summary>Online: someone else's grenade — it flies and explodes here, the damage is handled by the server.</summary>
+    public static void ThrowVisual(Vector3 position, Vector3 velocity)
+    {
+        var g = Spawn(position, velocity, null);
+        g.visualOnly = true;
+    }
 
     public static void Throw(Vector3 position, Vector3 velocity, IDamageable owner)
+    {
+        Spawn(position, velocity, owner);
+        NetGame.GrenadeThrown(position, velocity, owner);
+    }
+
+    private static Grenade Spawn(Vector3 position, Vector3 velocity, IDamageable owner)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "Grenade";
@@ -42,6 +56,7 @@ public class Grenade : MonoBehaviour
         var g = go.AddComponent<Grenade>();
         g.thrower = owner;
         g.team = owner != null ? owner.Team : -1;
+        return g;
     }
 
     private void Update()
@@ -59,7 +74,12 @@ public class Grenade : MonoBehaviour
         Sfx.PlayAt(SoundBank.Explosion, pos, 1f, Random.Range(0.9f, 1.05f));
 
         var gm = GameManager.Instance;
-        if (gm != null)
+        if (gm != null && visualOnly)
+        {
+            if (gm.player != null)
+                gm.player.Shake(Mathf.Clamp01(1f - Vector3.Distance(gm.player.transform.position, pos) / 30f) * 0.6f);
+        }
+        else if (gm != null)
         {
             // Copy: damage can remove entries indirectly.
             var targets = gm.Combatants.ToArray();
@@ -90,7 +110,16 @@ public class Grenade : MonoBehaviour
                 if (hitPlayer != null)
                     hitPlayer.MarkHitFrom(pos);
                 damage *= ClassAbility.ExplosionTaken(c);   // Kalkan Ustası takes less
-                bool killed = c.TakeDamage(damage, team);
+                bool killed;
+                HitContext.Set(thrower, pos, false, NetProtocol.HitGrenade);
+                try
+                {
+                    killed = c.TakeDamage(damage, team);
+                }
+                finally
+                {
+                    HitContext.Clear();
+                }
                 if (killed && !self && thrower is PlayerController)
                     gm.OnPlayerKill();
                 if (thrower is PlayerController && !self && gm.uiManager != null)

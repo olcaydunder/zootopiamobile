@@ -30,14 +30,23 @@ public class AirPlane : MonoBehaviour
         Vector3 dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
         Vector3 side = new Vector3(-dir.z, 0f, dir.x) * Random.Range(-30f, 30f);
         float half = World.IslandRadius + 70f;
+        return Launch(-dir * half + side + Vector3.up * Altitude, dir * half + side + Vector3.up * Altitude);
+    }
 
+    /// <summary>A plane on a given path (online: the server picks it, every phone flies the same one).</summary>
+    public static AirPlane Launch(Vector3 from, Vector3 to)
+    {
+        Vector3 dir = to - from;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 1f)
+            dir = Vector3.forward;
         var go = new GameObject("DropPlane");
         var plane = go.AddComponent<AirPlane>();
-        plane.start = -dir * half + side + Vector3.up * Altitude;
-        plane.end = dir * half + side + Vector3.up * Altitude;
+        plane.start = from;
+        plane.end = to;
         plane.length = Vector3.Distance(plane.start, plane.end);
         go.transform.position = plane.start;
-        go.transform.rotation = Quaternion.LookRotation(dir);
+        go.transform.rotation = Quaternion.LookRotation(dir.normalized);
         plane.Build();
         return plane;
     }

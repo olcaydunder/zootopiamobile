@@ -22,6 +22,13 @@ public static class MatchTokens
 
     public static bool Available(TokenType t) { return available[(int)t]; }
 
+    /// <summary>No tokens this match (online, for now).</summary>
+    public static void DisableAll()
+    {
+        for (int i = 0; i < available.Length; i++)
+            available[i] = false;
+    }
+
     /// <summary>Spends the token (profile count - 1). False if it is not available.</summary>
     public static bool Use(TokenType t)
     {

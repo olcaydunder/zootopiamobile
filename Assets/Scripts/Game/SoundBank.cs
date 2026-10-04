@@ -243,7 +243,7 @@ public static class Sfx
 
     public static void Play(AudioClip clip, float volume, float pitch)
     {
-        if (clip == null)
+        if (clip == null || NetGame.IsServer)
             return;
         Ensure();
         var src = pool2D[next2D];
@@ -259,7 +259,7 @@ public static class Sfx
 
     public static void PlayAt(AudioClip clip, Vector3 position, float volume, float pitch)
     {
-        if (clip == null)
+        if (clip == null || NetGame.IsServer)
             return;
         Ensure();
         var src = pool3D[next3D];

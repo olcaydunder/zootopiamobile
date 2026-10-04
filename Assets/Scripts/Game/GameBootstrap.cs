@@ -16,6 +16,8 @@ public class GameBootstrap : MonoBehaviour
             new GameObject("GameBootstrap").AddComponent<GameBootstrap>();
     }
 
+    private NetGame.ServerArgs serverArgs;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -24,6 +26,16 @@ public class GameBootstrap : MonoBehaviour
             return;
         }
         Instance = this;
+        serverArgs = NetGame.ParseServerArgs();
+        if (serverArgs != null)
+        {
+            // Dedicated server (Linux, -batchmode -nographics): no screens, a steady 30 updates a second.
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 30;
+            Application.runInBackground = true;
+            AudioListener.volume = 0f;
+            return;
+        }
         ErrorReporter.Install();   // first, so start-up errors are caught too
 
         Application.targetFrameRate = 60;
@@ -38,6 +50,11 @@ public class GameBootstrap : MonoBehaviour
     /// Each step is guarded: an error is reported (hata modu) and start-up carries on.</summary>
     private System.Collections.IEnumerator Start()
     {
+        if (serverArgs != null)
+        {
+            yield return ServerStart();
+            yield break;
+        }
         var titleScreen = TitleScreen.Create();
         titleScreen.SetProgress(0.05f, "Harita verisi yükleniyor...");
         yield return null;
@@ -66,6 +83,22 @@ public class GameBootstrap : MonoBehaviour
         titleScreen.SetProgress(1f, "Hazır");
         yield return new WaitForSecondsRealtime(0.4f);
         titleScreen.ShowTitle(player);
+    }
+
+    /// <summary>Game server: the same world as the phones, the game systems, then the network.</summary>
+    private System.Collections.IEnumerator ServerStart()
+    {
+        Debug.Log("[Sunucu] başlıyor, sürüm " + NetGame.BuildVersion);
+        yield return null;
+        Step(() => MapData.Load());
+        yield return null;
+        Step(World.Build);
+        yield return null;
+        GameManager manager = null;
+        Step(() => manager = new GameObject("GameManager").AddComponent<GameManager>());
+        yield return null;
+        Debug.Log("[Sunucu] dünya hazır: " + Door.All.Count + " kapı");
+        Step(() => NetServer.Create(serverArgs));
     }
 
     private static void Step(System.Action action)

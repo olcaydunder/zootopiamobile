@@ -174,7 +174,10 @@ public partial class PlayerController
         {
             Door near = Door.Nearest(transform.position, DoorReach);
             if (near != null)
+            {
                 near.Toggle(transform.position);
+                NetGame.LocalDoor(near, transform.position);
+            }
         }
 
         if (aim)

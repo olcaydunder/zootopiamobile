@@ -41,6 +41,12 @@ public partial class PlayerController : IAbilityUser
         if (Ability == null)
             return;
         var ui = GameManager.Instance != null ? GameManager.Instance.uiManager : null;
+        if (NetGame.Online)
+        {
+            if (ui != null)
+                ui.Toast("Sınıf yetenekleri çevrimiçi maçta yakında");
+            return;
+        }
         if (Ability.Charges <= 0)
         {
             if (ui != null) ui.Toast(Ability.Def.ability + " hazır değil (" + Mathf.CeilToInt(Ability.SecondsLeft) + " sn)");

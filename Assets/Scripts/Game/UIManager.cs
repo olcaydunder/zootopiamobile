@@ -111,6 +111,8 @@ public class UIManager : MonoBehaviour
 
     private void Awake()
     {
+        if (NetGame.IsServer)
+            return;   // the game server has no screen
         canvas = gameObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
@@ -144,6 +146,7 @@ public class UIManager : MonoBehaviour
         if (matchPrep != null) matchPrep.Hide();
         if (career != null) career.Hide();
         if (loadout != null) loadout.Hide();
+        if (netLobby != null) netLobby.Hide();
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -185,6 +188,8 @@ public class UIManager : MonoBehaviour
         xp.raycastTarget = false;
         xp.rectTransform.pivot = new Vector2(0f, 0.5f);
         lobbyXpFill = xp.rectTransform;
+        var rename = UIUtil.CreateButton(prof, "İSİM", new Vector2(1f, 0.5f), new Vector2(-52f, 20f), new Vector2(84f, 46f), Theme.PanelLight, false, 20, out unused);
+        rename.onClick.AddListener(() => { HideAll(); netLobby.OpenRename(ShowLobby); });
 
         // Coins + settings (top-right)
         var coins = Theme.Box(t, "Coins", new Vector2(1f, 1f), new Vector2(-420f, -70f), new Vector2(300f, 80f), Theme.Panel, false).transform;
@@ -255,10 +260,26 @@ public class UIManager : MonoBehaviour
         var mapLabel = UIUtil.CreateText(t, MapData.Loaded ? "BATTLE ROYALE  •  Çekmeköy  •  25 oyuncu" : "BATTLE ROYALE  •  Zootopia Adası  •  25 oyuncu", new Vector2(1f, 0.5f), new Vector2(-280f, 290f), new Vector2(480f, 40f), 22, TextAnchor.MiddleLeft);
         mapLabel.color = Theme.Accent;
 
-        UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel)
-            .onClick.AddListener(() => { HideAll(); matchPrep.Open(selectedMode); });
+        var startButton = UIUtil.CreateButton(t, "BAŞLAT", new Vector2(1f, 0f), new Vector2(-280f, 110f), new Vector2(480f, 130f), Theme.Accent, false, 54, out lobbyStartLabel);
+        startButton.onClick.AddListener(() => { HideAll(); matchPrep.Open(selectedMode); });
         lobbyStartLabel.color = new Color(0.1f, 0.08f, 0.02f);
         lobbyStartLabel.GetComponent<Shadow>().enabled = false;
+        lobbyStartLabel.rectTransform.anchoredPosition = new Vector2(0f, 10f);
+        var offline = UIUtil.CreateText(startButton.transform, "çevrimdışı  •  botlarla", new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(460f, 30f), 20, TextAnchor.MiddleCenter);
+        offline.color = new Color(0.1f, 0.08f, 0.02f, 0.75f);
+        offline.GetComponent<Shadow>().enabled = false;
+
+        // Online: quick match on the game server, or a private room with a code.
+        Color onlineBlue = new Color(0.16f, 0.45f, 0.95f, 0.95f);
+        Text onlineLabel;
+        var quick = UIUtil.CreateButton(t, "ÇEVRİMİÇİ  •  HIZLI MAÇ", new Vector2(1f, 0.5f), new Vector2(-280f, -165f), new Vector2(480f, 92f), onlineBlue, false, 32, out onlineLabel);
+        quick.onClick.AddListener(() => { HideAll(); netLobby.OpenQuick(selectedMode, ShowLobby); });
+        var create = UIUtil.CreateButton(t, "ODA KUR", new Vector2(1f, 0.5f), new Vector2(-404f, -267f), new Vector2(232f, 84f), Theme.Panel, false, 28, out onlineLabel);
+        create.onClick.AddListener(() => { HideAll(); netLobby.OpenCreate(selectedMode, ShowLobby); });
+        UIUtil.CreateImage(create.transform, "Accent", new Vector2(0.5f, 0f), new Vector2(0f, 3f), new Vector2(232f, 6f), onlineBlue, false).raycastTarget = false;
+        var join = UIUtil.CreateButton(t, "ODAYA KATIL", new Vector2(1f, 0.5f), new Vector2(-156f, -267f), new Vector2(232f, 84f), Theme.Panel, false, 28, out onlineLabel);
+        join.onClick.AddListener(() => { HideAll(); netLobby.OpenJoin(ShowLobby); });
+        UIUtil.CreateImage(join.transform, "Accent", new Vector2(0.5f, 0f), new Vector2(0f, 3f), new Vector2(232f, 6f), onlineBlue, false).raycastTarget = false;
 
         // Bottom-left: title + credit
         var title = UIUtil.CreateText(t, GameTitle, new Vector2(0f, 0f), new Vector2(330f, 120f), new Vector2(600f, 60f), 46, TextAnchor.MiddleLeft);
@@ -276,6 +297,7 @@ public class UIManager : MonoBehaviour
         matchPrep = MatchPrepScreen.Create(canvas.transform);
         career = CareerScreen.Create(canvas.transform);
         loadout = LoadoutScreen.Create(canvas.transform);
+        netLobby = NetLobbyScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -618,6 +640,8 @@ public class UIManager : MonoBehaviour
     private Image lobbyClassIcon;
     private Text lobbyClassText;
     private Image lobbyRankIcon;
+    private NetLobbyScreen netLobby;
+    private readonly List<Vector3> teammateScratch = new List<Vector3>();
     private RectTransform resultRewards;
     private Text resultLevel;
 
@@ -745,7 +769,8 @@ public class UIManager : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm == null || gm.currentState != GameState.InGame)
             return;
-        Time.timeScale = 0f;
+        if (!NetGame.InOnlineMatch)
+            Time.timeScale = 0f;   // online the match goes on without you
         touchControls.ResetState();
         pausePanel.SetActive(true);
     }
@@ -872,6 +897,8 @@ public class UIManager : MonoBehaviour
 
     public void Toast(string message)
     {
+        if (canvas == null)
+            return;   // game server
         if (hudPanel == null || !hudPanel.activeSelf)
         {
             LobbyToast(message);
@@ -915,6 +942,8 @@ public class UIManager : MonoBehaviour
 
     public void AddKillFeed(string line)
     {
+        if (killFeedText == null)
+            return;   // game server
         killFeed.Add(line);
         while (killFeed.Count > 4)
             killFeed.RemoveAt(0);
@@ -1142,6 +1171,18 @@ public class UIManager : MonoBehaviour
             allyDots[dot].gameObject.SetActive(true);
             allyDots[dot].anchoredPosition = MapPos(bot.transform.position);
             dot++;
+        }
+        if (NetGame.InOnlineMatch)
+        {
+            NetClient.Instance.TeammatePositions(teammateScratch);
+            foreach (var pos in teammateScratch)
+            {
+                if (dot >= allyDots.Count)
+                    break;
+                allyDots[dot].gameObject.SetActive(true);
+                allyDots[dot].anchoredPosition = MapPos(pos);
+                dot++;
+            }
         }
         for (; dot < allyDots.Count; dot++)
             allyDots[dot].gameObject.SetActive(false);

@@ -84,8 +84,9 @@ public class Door : MonoBehaviour
         // Swing away from the opener: the leaf's front (+Z of the root) faces one side of the wall.
         float side = Vector3.Dot(from - Center, transform.forward);
         target = side > 0f ? -OpenAngle : OpenAngle;
-        Sfx.Play(SoundBank.Footstep, 0.25f, 0.55f);
+        Sfx.PlayAt(SoundBank.Footstep, Center, 0.5f, 0.55f);
         enabled = true;
+        NetGame.DoorChanged(this, from);
     }
 
     public void Close()
@@ -94,8 +95,9 @@ public class Door : MonoBehaviour
             return;
         IsOpen = false;
         target = 0f;
-        Sfx.Play(SoundBank.Footstep, 0.3f, 0.45f);
+        Sfx.PlayAt(SoundBank.Footstep, Center, 0.6f, 0.45f);
         enabled = true;
+        NetGame.DoorChanged(this, Center);
     }
 
     /// <summary>Back to closed instantly (new round).</summary>

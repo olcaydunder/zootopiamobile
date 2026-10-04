@@ -17,13 +17,23 @@ public class LootSystem : MonoBehaviour
 {
     private class Crate
     {
+        public int id;
         public GameObject obj;
         public LootType type;
         public Vector3 basePos;
     }
 
+    /// <summary>A crate as the server sends it to the phones.</summary>
+    public struct CrateInfo
+    {
+        public int id;
+        public LootType type;
+        public Vector3 position;
+    }
+
     private readonly List<Crate> crates = new List<Crate>();
     private const float PickupDistance = 1.6f;
+    private int nextId = 1;
 
     public void SpawnLoot(int outdoorCount)
     {
@@ -69,7 +79,9 @@ public class LootSystem : MonoBehaviour
             ? hit.point.y
             : World.HeightAt(position.x, position.z);
         Vector3 p = new Vector3(position.x, ground + 0.3f, position.z);
-        SpawnCrate(p, Random.value < 0.55f ? LootType.Weapon : (Random.value < 0.5f ? LootType.Ammo : LootType.Medkit));
+        LootType type = Random.value < 0.55f ? LootType.Weapon : (Random.value < 0.5f ? LootType.Ammo : LootType.Medkit);
+        int id = SpawnCrate(p, type);
+        NetGame.CrateAdded(id, type, p);
     }
 
     /// <summary>A landed air-drop crate (picked up like any crate, gives top loot).</summary>
@@ -85,7 +97,9 @@ public class LootSystem : MonoBehaviour
         var beacon = AbilityFx.Primitive(model, PrimitiveType.Cylinder, new Vector3(0f, 6f, 0f), new Vector3(0.25f, 5f, 0.25f), AbilityFx.Glass(new Color(1f, 0.5f, 0.15f, 0.3f)));
         beacon.name = "Beacon";
         // basePos is ~0.65 m above the ground for the pick-up height check, like the other crates.
-        crates.Add(new Crate { obj = crate, type = LootType.Supply, basePos = ground + Vector3.up * 0.65f });
+        int id = nextId++;
+        crates.Add(new Crate { id = id, obj = crate, type = LootType.Supply, basePos = ground + Vector3.up * 0.65f });
+        NetGame.CrateAdded(id, LootType.Supply, ground + Vector3.up * 0.65f);
     }
 
     /// <summary>Landed supply crates still waiting to be opened (for the minimap).</summary>
@@ -97,8 +111,9 @@ public class LootSystem : MonoBehaviour
                 into.Add(c.basePos);
     }
 
-    private void SpawnCrate(Vector3 position, LootType type)
+    private int SpawnCrate(Vector3 position, LootType type)
     {
+        int id = nextId++;
         var crate = new GameObject("Loot_" + type);
         crate.transform.SetParent(transform, false);
         crate.transform.position = position;
@@ -143,7 +158,62 @@ public class LootSystem : MonoBehaviour
         // Small floating marker so loot is easy to spot.
         Part(crate.transform, PrimitiveType.Sphere, new Vector3(0f, 0.75f, 0f), Vector3.one * 0.16f, Color.Lerp(body, Color.white, 0.4f));
 
-        crates.Add(new Crate { obj = crate, type = type, basePos = position });
+        crates.Add(new Crate { id = id, obj = crate, type = type, basePos = position });
+        return id;
+    }
+
+    // ----- Online -----
+
+    /// <summary>Server: every crate on the map (sent to the phones at the start).</summary>
+    public void GetCrates(List<CrateInfo> into)
+    {
+        into.Clear();
+        foreach (var c in crates)
+            if (c.obj != null)
+                into.Add(new CrateInfo { id = c.id, type = c.type, position = c.basePos });
+    }
+
+    /// <summary>Phone: a crate the server told us about.</summary>
+    public void SpawnNet(int id, LootType type, Vector3 position)
+    {
+        foreach (var c in crates)
+            if (c.id == id)
+                return;
+        if (type == LootType.Supply)
+        {
+            SpawnSupplyCrate(position - Vector3.up * 0.65f);
+            crates[crates.Count - 1].id = id;   // the server's number, not ours
+            return;
+        }
+        SpawnCrate(position, type);
+        crates[crates.Count - 1].id = id;
+    }
+
+    public bool CratePosition(int id, out Vector3 position)
+    {
+        foreach (var c in crates)
+        {
+            if (c.id == id && c.obj != null)
+            {
+                position = c.basePos;
+                return true;
+            }
+        }
+        position = Vector3.zero;
+        return false;
+    }
+
+    /// <summary>Someone took this crate (server: a phone picked it up; phone: another player did).</summary>
+    public void RemoveById(int id)
+    {
+        for (int i = crates.Count - 1; i >= 0; i--)
+        {
+            if (crates[i].id != id)
+                continue;
+            if (crates[i].obj != null)
+                Destroy(crates[i].obj);
+            crates.RemoveAt(i);
+        }
     }
 
     private static void Part(Transform parent, PrimitiveType type, Vector3 pos, Vector3 scale, Color color)
@@ -225,6 +295,7 @@ public class LootSystem : MonoBehaviour
             if (ui != null)
                 ui.Toast(message);
             Sfx.Play(SoundBank.Pickup, 0.45f);
+            NetGame.LootTaken(c.id);
             Destroy(c.obj);
             crates.RemoveAt(i);
         }

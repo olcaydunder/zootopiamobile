@@ -64,6 +64,7 @@ public class TouchControls : MonoBehaviour
     private GameObject doorButton;
     private GameObject airdropTokenButton, boostTokenButton;
     private Image abilityImage, abilityShade;
+    private GameObject abilityObj;
     private Text abilityTimer, abilityCharges, abilityName;
     private GameObject abilityLevel;
     private string abilityIconShown;
@@ -147,6 +148,7 @@ public class TouchControls : MonoBehaviour
         var abilityBtn = UIUtil.CreateButton(g, "", new Vector2(1f, 0f), new Vector2(-250f, 700f), new Vector2(140f, 140f), Color.white, true, 20, out unused);
         abilityBtn.onClick.AddListener(() => abilityQueued = true);
         abilityImage = abilityBtn.GetComponent<Image>();
+        abilityObj = abilityBtn.gameObject;
         abilityShade = UIUtil.CreateImage(abilityBtn.transform, "Cooldown", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(140f, 140f), new Color(0f, 0f, 0f, 0.62f), true);
         abilityShade.raycastTarget = false;
         abilityShade.type = Image.Type.Filled;
@@ -326,6 +328,11 @@ public class TouchControls : MonoBehaviour
 
     private void UpdateAbility(PlayerController player)
     {
+        bool show = !NetGame.Online;   // class abilities are offline-only for now
+        if (abilityObj != null && abilityObj.activeSelf != show)
+            abilityObj.SetActive(show);
+        if (!show)
+            return;
         var a = player.Ability;
         if (a == null || a.Def == null)
             return;

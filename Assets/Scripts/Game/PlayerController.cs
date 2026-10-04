@@ -154,6 +154,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
         currentWeapon = weaponObj.AddComponent<WeaponController>();
         currentWeapon.playerOwned = true;
+        currentWeapon.shooter = this;
         currentWeapon.Initialize(WeaponData.CreatePistol(), weaponModel);
     }
 
