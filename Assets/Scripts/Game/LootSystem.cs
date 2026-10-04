@@ -8,7 +8,8 @@ public enum LootType
     Medkit,
     Armor,
     Grenade,
-    Drink
+    Drink,
+    Supply      // air drop: top loot
 }
 
 /// <summary>Spawns supply crates in houses and around the island; walking into one picks it up.</summary>
@@ -69,6 +70,28 @@ public class LootSystem : MonoBehaviour
             : World.HeightAt(position.x, position.z);
         Vector3 p = new Vector3(position.x, ground + 0.3f, position.z);
         SpawnCrate(p, Random.value < 0.55f ? LootType.Weapon : (Random.value < 0.5f ? LootType.Ammo : LootType.Medkit));
+    }
+
+    /// <summary>A landed air-drop crate (picked up like any crate, gives top loot).</summary>
+    public void SpawnSupplyCrate(Vector3 ground)
+    {
+        var crate = new GameObject("Loot_Supply");
+        crate.transform.SetParent(transform, false);
+        crate.transform.position = ground;
+        AirdropCall.BuildSupplyModel(crate.transform);
+        var beacon = AbilityFx.Primitive(crate.transform, PrimitiveType.Cylinder, new Vector3(0f, 6f, 0f), new Vector3(0.25f, 5f, 0.25f), AbilityFx.Glass(new Color(1f, 0.5f, 0.15f, 0.3f)));
+        beacon.name = "Beacon";
+        // basePos is ~0.65 m above the ground for the pick-up height check, like the other crates.
+        crates.Add(new Crate { obj = crate, type = LootType.Supply, basePos = ground + Vector3.up * 0.65f });
+    }
+
+    /// <summary>Landed supply crates still waiting to be opened (for the minimap).</summary>
+    public void SupplyCrates(List<Vector3> into)
+    {
+        into.Clear();
+        foreach (var c in crates)
+            if (c.obj != null && c.type == LootType.Supply)
+                into.Add(c.basePos);
     }
 
     private void SpawnCrate(Vector3 position, LootType type)
@@ -228,6 +251,18 @@ public class LootSystem : MonoBehaviour
                 if (!player.inventory.AddDrink())
                     return null;
                 return "Enerji içeceği alındı";
+
+            case LootType.Supply:
+            {
+                string gun = player.GiveWeapon(Random.value < 0.5f ? WeaponData.CreateSniper() : WeaponData.CreateRifle());
+                player.armor = player.maxArmor;
+                player.inventory.AddMedkit();
+                player.inventory.AddMedkit();
+                player.inventory.AddDrink();
+                player.inventory.AddGrenade();
+                player.GiveAmmo();
+                return "İKMAL: " + gun + "  •  tam zırh  •  ilk yardım";
+            }
 
             default:
                 if (player.armor >= player.maxArmor)

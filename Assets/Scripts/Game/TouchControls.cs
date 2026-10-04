@@ -23,7 +23,7 @@ public class TouchControls : MonoBehaviour
     }
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
-    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued;
+    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued, airdropQueued, boostQueued;
     private Image aimImage;
 
     private Canvas canvas;
@@ -47,6 +47,7 @@ public class TouchControls : MonoBehaviour
     private GameObject swapButton;
     private GameObject vehicleButton;
     private GameObject doorButton;
+    private GameObject airdropTokenButton, boostTokenButton;
     private Image abilityImage, abilityShade;
     private Text abilityTimer, abilityCharges, abilityName;
     private GameObject abilityLevel;
@@ -73,6 +74,8 @@ public class TouchControls : MonoBehaviour
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
     public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
+    public bool ConsumeAirdropToken() { bool v = airdropQueued; airdropQueued = false; return v; }
+    public bool ConsumeBoostToken() { bool v = boostQueued; boostQueued = false; return v; }
     public bool ConsumeAbility() { bool v = abilityQueued; abilityQueued = false; return v; }
     public bool ConsumeDoor() { bool v = doorQueued; doorQueued = false; return v; }
     public bool ConsumeAim() { bool v = aimQueued; aimQueued = false; return v; }
@@ -145,6 +148,18 @@ public class TouchControls : MonoBehaviour
         abilityCharges.fontStyle = FontStyle.Bold;
         abilityName = UIUtil.CreateText(abilityBtn.transform, "", new Vector2(0.5f, 0f), new Vector2(0f, -18f), new Vector2(220f, 30f), 20, TextAnchor.MiddleCenter);
 
+        // Tokens brought into the match (Teçhizat): tap to use.
+        var airdropTok = UIUtil.CreateButton(g, "", new Vector2(0f, 1f), new Vector2(80f, -200f), new Vector2(100f, 100f), Color.white, false, 18, out unused);
+        airdropTok.onClick.AddListener(() => airdropQueued = true);
+        Icons.Set(airdropTok.GetComponent<Image>(), "token_airdrop");
+        UIUtil.CreateText(airdropTok.transform, "İKMAL", new Vector2(0.5f, 0f), new Vector2(0f, -12f), new Vector2(120f, 26f), 18, TextAnchor.MiddleCenter).fontStyle = FontStyle.Bold;
+        airdropTokenButton = airdropTok.gameObject;
+        var boostTok = UIUtil.CreateButton(g, "", new Vector2(0f, 1f), new Vector2(80f, -330f), new Vector2(100f, 100f), Color.white, false, 18, out unused);
+        boostTok.onClick.AddListener(() => boostQueued = true);
+        Icons.Set(boostTok.GetComponent<Image>(), "token_boost");
+        UIUtil.CreateText(boostTok.transform, "GÜÇLEN", new Vector2(0.5f, 0f), new Vector2(0f, -12f), new Vector2(120f, 26f), 18, TextAnchor.MiddleCenter).fontStyle = FontStyle.Bold;
+        boostTokenButton = boostTok.gameObject;
+
         var swap = UIUtil.CreateButton(g, "DEĞİŞ", new Vector2(0.5f, 0f), new Vector2(0f, 330f), new Vector2(260f, 56f), ButtonColor, false, 20, out swapLabel);
         swap.onClick.AddListener(() => swapQueued = true);
         swapButton = swap.gameObject;
@@ -184,6 +199,8 @@ public class TouchControls : MonoBehaviour
         RegisterHud("air", "ATLA", airBtn);
         RegisterHud("door", "KAPI", doorBtn);
         RegisterHud("ability", "SINIF", abilityBtn);
+        RegisterHud("tokenAirdrop", "İKMAL", airdropTok);
+        RegisterHud("tokenBoost", "GÜÇLEN", boostTok);
 
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
@@ -227,6 +244,12 @@ public class TouchControls : MonoBehaviour
             vehicleLabel.text = player.state == PlayerState.Driving ? "İN" : "BİN";
 
         UpdateAbility(player);
+        bool airdropOn = MatchTokens.Available(TokenType.Airdrop);
+        if (airdropTokenButton.activeSelf != airdropOn)
+            airdropTokenButton.SetActive(airdropOn);
+        bool boostOn = MatchTokens.Available(TokenType.Boost) && player.Ability != null && !player.Ability.IsLevel2;
+        if (boostTokenButton.activeSelf != boostOn)
+            boostTokenButton.SetActive(boostOn);
 
         Door door = onFoot ? Door.Nearest(player.transform.position, PlayerController.DoorReach) : null;
         bool showDoor = door != null;
@@ -344,7 +367,7 @@ public class TouchControls : MonoBehaviour
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
-        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = false;
+        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = airdropQueued = boostQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

@@ -56,6 +56,67 @@ public partial class PlayerController : IAbilityUser
         Haptics.Tap(30);
     }
 
+    // ----- Tokens -----
+
+    private void UseAirdropToken()
+    {
+        if (!MatchTokens.Use(TokenType.Airdrop))
+            return;
+        AirdropCall.Call(transform.position);
+        var gm = GameManager.Instance;
+        if (gm != null && gm.uiManager != null)
+            gm.uiManager.Toast("Hava ikmali yolda! " + Mathf.RoundToInt(AirdropCall.Delay) + " sn");
+        Haptics.Tap(30);
+    }
+
+    private void UseBoostToken()
+    {
+        if (Ability == null || Ability.IsLevel2 || !MatchTokens.Use(TokenType.Boost))
+            return;
+        Ability.Upgrade();
+        AbilityFx.Flash(transform.position, new Color(0.65f, 0.4f, 1f, 0.6f), 3f, 0.5f);
+        Sfx.Play(SoundBank.Pickup, 0.8f, 1.3f);
+        var gm = GameManager.Instance;
+        if (gm != null && gm.uiManager != null)
+            gm.uiManager.Toast(Ability.Def.ability.ToUpper() + " SEVİYE 2!");
+    }
+
+    /// <summary>Dirilme Jetonu: back in the match, parachuting into the safe zone with a pistol.</summary>
+    public void RespawnFromToken(Vector3 groundPoint)
+    {
+        isDead = false;
+        isDowned = false;
+        reviveProgress = 0f;
+        health = maxHealth;
+        armor = 50f;
+        boostRemaining = 0f;
+        aimingDownSights = false;
+        isSprinting = false;
+        inventory.Reset();
+        if (isCrouching)
+            SetCrouch(false);
+        slots[0].data = Gunsmith.Apply(WeaponData.CreatePistol());
+        slots[0].ammo = slots[0].data.magazineSize;
+        slots[0].reserve = slots[0].data.reserveAmmo;
+        slots[1].data = null;
+        LoadSlot(0);
+        rig.ResetPose();
+        InitAbility();
+
+        controller.enabled = false;
+        transform.position = groundPoint + Vector3.up * 90f;
+        state = PlayerState.Parachute;
+        airVelocity = Vector3.zero;
+        rig.SetVisible(true);
+        rig.parachuteCamo = Cosmetics.EquippedParachuteCamo;
+        rig.pose = RigPose.Parachute;
+        currentWeapon.gameObject.SetActive(false);
+        camTarget = 7f;
+        wind.volume = 0.2f;
+        wind.Play();
+        Sfx.Play(SoundBank.Whoosh, 0.6f);
+    }
+
     public void HealBy(float hp, float armorAmount)
     {
         if (isDead || isDowned)

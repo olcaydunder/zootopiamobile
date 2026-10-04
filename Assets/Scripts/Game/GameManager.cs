@@ -145,6 +145,7 @@ public class GameManager : MonoBehaviour
 
         plane = AirPlane.Launch();
         UpgradeStation.SpawnAll();
+        MatchTokens.BeginMatch();
 
         player.SetLobbyView(false);
         player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
@@ -324,7 +325,36 @@ public class GameManager : MonoBehaviour
     {
         if (currentState != GameState.InGame)
             return;
+        // Dirilme Jetonu: once per match, before the late zone phases.
+        if (safeZone != null && safeZone.Phase < MatchTokens.ReviveBeforePhase && MatchTokens.Available(TokenType.Revive))
+        {
+            StartCoroutine(ReviveRoutine());
+            return;
+        }
         StartCoroutine(EndAfterDelay(false, 2f));
+    }
+
+    private System.Collections.IEnumerator ReviveRoutine()
+    {
+        const int Seconds = 8;
+        for (int s = Seconds; s > 0; s--)
+        {
+            uiManager.Toast("DİRİLME JETONU  •  " + s + " sn sonra yeniden doğacaksın");
+            yield return new WaitForSeconds(1f);
+            if (currentState != GameState.InGame)
+                yield break;
+        }
+        if (!MatchTokens.Use(TokenType.Revive))
+        {
+            StartCoroutine(EndAfterDelay(false, 0.5f));
+            yield break;
+        }
+        Vector3 c = safeZone != null && safeZone.active ? safeZone.center : Vector3.zero;
+        float r = safeZone != null && safeZone.active ? safeZone.radius * 0.5f : 60f;
+        Vector3 p = World.RandomOpenPoint(c, r);
+        player.RespawnFromToken(new Vector3(p.x, World.GroundHeight(p.x, p.z), p.z));
+        uiManager.Toast("Yeniden doğdun! Güvenli bölgeye iniyorsun");
+        CheckForWin();   // in case the last enemies fell while you were down
     }
 
     private IEnumerator EndAfterDelay(bool won, float delay)

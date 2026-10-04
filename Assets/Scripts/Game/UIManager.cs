@@ -75,6 +75,8 @@ public class UIManager : MonoBehaviour
     private readonly List<RectTransform> allyDots = new List<RectTransform>();
     private readonly List<RectTransform> markDots = new List<RectTransform>();
     private readonly List<Image> stationDots = new List<Image>();
+    private readonly List<Image> airdropDots = new List<Image>();
+    private readonly List<Vector3> supplyScratch = new List<Vector3>();
     private readonly List<Image> markedIcons = new List<Image>();
     private readonly List<Image> footArrows = new List<Image>();
     private readonly Dictionary<BotAgent, Vector3> botLastPos = new Dictionary<BotAgent, Vector3>();
@@ -523,6 +525,8 @@ public class UIManager : MonoBehaviour
             var s = Icons.Create(mapRect, "upgrade_station", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             stationDots.Add(s);
         }
+        for (int i = 0; i < 4; i++)
+            airdropDots.Add(Icons.Create(mapRect, "airdrop_crate", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24f, 24f)));
         for (int i = 0; i < 10; i++)
         {
             var d = UIUtil.CreateImage(mapRect, "Marked", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f), new Color(1f, 0.2f, 0.15f), false);
@@ -1130,6 +1134,22 @@ public class UIManager : MonoBehaviour
                 stationDots[i].rectTransform.anchoredPosition = MapPos(st.transform.position);
         }
 
+        // Air drops: on the way (smoke) and landed but not opened.
+        int ad = 0;
+        foreach (var call in AirdropCall.Active)
+            if (call != null && ad < airdropDots.Count)
+                Place(airdropDots[ad++], call.Target);
+        if (gm.lootSystem != null)
+        {
+            gm.lootSystem.SupplyCrates(supplyScratch);
+            foreach (var pos in supplyScratch)
+                if (ad < airdropDots.Count)
+                    Place(airdropDots[ad++], pos);
+        }
+        for (; ad < airdropDots.Count; ad++)
+            if (airdropDots[ad].enabled)
+                airdropDots[ad].enabled = false;
+
         // Enemies marked by the team's abilities.
         var marked = Marks.MarkedFor(0);
         for (int i = 0; i < markDots.Count; i++)
@@ -1140,6 +1160,13 @@ public class UIManager : MonoBehaviour
             if (show)
                 markDots[i].anchoredPosition = MapPos(marked[i].transform.position);
         }
+    }
+
+    private void Place(Image dot, Vector3 world)
+    {
+        if (!dot.enabled)
+            dot.enabled = true;
+        dot.rectTransform.anchoredPosition = MapPos(world);
     }
 
     /// <summary>Markers over marked enemies, K9 footstep arrows and the upgrade-station progress.</summary>

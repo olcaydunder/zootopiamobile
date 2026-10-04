@@ -100,6 +100,13 @@ public static class Effects
             Emit(smoke, point, Random.insideUnitSphere * 3f, Random.Range(1.5f, 2.5f), 0.25f, new Color(1f, 0.6f, 0.2f, 0.9f));
     }
 
+    /// <summary>One puff of coloured marker smoke (air drops).</summary>
+    public static void Smoke(Vector3 point, Color color)
+    {
+        Ensure();
+        Emit(smoke, point + Random.insideUnitSphere * 0.3f, new Vector3(Random.Range(-0.3f, 0.3f), Random.Range(2f, 3.5f), Random.Range(-0.3f, 0.3f)), Random.Range(0.8f, 1.4f), Random.Range(2.5f, 3.5f), color);
+    }
+
     public static void Dust(Vector3 point, int count)
     {
         Ensure();

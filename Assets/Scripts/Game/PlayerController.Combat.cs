@@ -158,6 +158,10 @@ public partial class PlayerController
         bool fire = tc != null && tc.FireHeld;
         bool aim = tc != null && tc.ConsumeAim();
         bool door = tc != null && tc.ConsumeDoor();
+        if (tc != null && tc.ConsumeAirdropToken())
+            UseAirdropToken();
+        if (tc != null && tc.ConsumeBoostToken())
+            UseBoostToken();
         bool ability = tc != null && tc.ConsumeAbility();
         if (ability)
         {

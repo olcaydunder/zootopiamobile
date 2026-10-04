@@ -19,6 +19,8 @@ public class SafeZoneController : MonoBehaviour
 
     private float initialRadius;
     private int phase;
+    /// <summary>Current zone phase (0 = first wait).</summary>
+    public int Phase { get { return phase; } }
     private bool shrinking;
     private bool finished;
     private float phaseTimer;

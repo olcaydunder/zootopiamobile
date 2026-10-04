@@ -28,4 +28,6 @@ public interface IPlayerInput
     bool ConsumeAim();
     bool ConsumeDoor();
     bool ConsumeAbility();
+    bool ConsumeAirdropToken();
+    bool ConsumeBoostToken();
 }
