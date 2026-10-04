@@ -240,7 +240,7 @@ public sealed class NetServer : MonoBehaviour
             byNonce[nonce] = p;
             lastPeerSeen = now;
             SendWelcome(p);
-            Debug.Log("[Sunucu] katıldı: " + p.name + " (#" + p.id + ") " + from + "  oyuncu " + peers.Count);
+            Debug.Log("[Sunucu] katıldı: " + p.name + " (#" + p.id + ")  oyuncu " + peers.Count);
 
             if (!args.privateRoom)
             {

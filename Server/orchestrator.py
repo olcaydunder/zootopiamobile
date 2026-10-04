@@ -14,6 +14,7 @@ Zootopia Mobile match orchestrator (runs on the game server as the "zootopia" se
 
 Only the Python standard library is used. Nothing secret is stored here.
 """
+import collections
 import hashlib
 import json
 import os
@@ -51,6 +52,7 @@ lock = threading.RLock()
 matches = {}                    # code -> dict
 current_build = {"dir": None, "version": None, "asset": None}
 create_times = {}               # client ip -> [timestamps] (simple rate limit)
+recent = collections.deque(maxlen=8)   # last finished matches, shown in /status (with errors, for remote checks)
 
 
 def log(*args):
@@ -219,6 +221,20 @@ def start_match(mode, kind):
     return m
 
 
+def error_lines(path, limit=6):
+    """A few error lines from the end of a match log (no player data: the game server does not log addresses)."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 65536))
+            text = f.read().decode("utf-8", "replace")
+    except OSError:
+        return ["log yok"]
+    keys = ("Exception", "error while loading", "Error", "Segmentation", "Crash", "Sunucu]")
+    lines = [l.strip()[:200] for l in text.splitlines() if any(k in l for k in keys)]
+    return lines[-limit:]
+
+
 def reap_loop():
     while True:
         time.sleep(5)
@@ -228,6 +244,9 @@ def reap_loop():
                 proc = m["proc"]
                 if proc.poll() is not None:
                     log("match ended", code, "exit", proc.returncode)
+                    recent.append({"code": code, "exit": proc.returncode, "seconds": int(now - m["created"]),
+                                   "state": m["state"], "players": m["players"], "version": m["version"],
+                                   "errors": error_lines(os.path.join(LOGS, "match-%s.log" % code))})
                     del matches[code]
                     continue
                 too_old = now - m["created"] > MATCH_MAX_AGE
@@ -294,7 +313,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/status":
             with lock:
                 self.reply(200, {"ok": True, "version": current_build.get("version"), "maxMatches": MAX_MATCHES,
-                                 "matches": [public_view(m) for m in matches.values()]})
+                                 "matches": [public_view(m) for m in matches.values()],
+                                 "recent": list(recent)})
             return
         mm = re.fullmatch(r"/room/(\d{6})", path)
         if mm:

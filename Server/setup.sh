@@ -12,6 +12,8 @@ BASE=/opt/zootopia
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y python3 curl tar ca-certificates ufw
+# Libraries a Unity Linux player may load even when started with -nographics (harmless when unused).
+apt-get install -y libgl1 libglu1-mesa libx11-6 libxext6 libxcursor1 libxrandr2 libxinerama1 libxi6 || true
 
 id zoo >/dev/null 2>&1 || useradd --system --create-home --home-dir "$BASE" --shell /usr/sbin/nologin zoo
 mkdir -p "$BASE/builds" "$BASE/logs"
