@@ -202,7 +202,8 @@ public static class FakePhoneTest
         if (!squad) Check(B.damageTotal < 200, "absurd damage clamped: total " + B.damageTotal);
         Console.WriteLine("== B dies to A");
         B.Rel(x => { x.Byte(4); x.UShort(A.id); x.Byte(5); });
-        ok = RunUntil(3, ps, () => B.placement >= 0 && A.killLog.Exists(s => s.StartsWith(A.id + ">" + B.id)));
+        string killer = squad ? "65535" : A.id.ToString();   // a teammate can't be credited
+        ok = RunUntil(3, ps, () => B.placement >= 0 && A.killLog.Exists(s => s.StartsWith(killer + ">" + B.id)));
         B.flags = 1;
         Check(ok, "B placement " + B.placement + ", A's kill log " + string.Join(" ", A.killLog.ToArray()));
         Console.WriteLine("== bots vs A for a while");
