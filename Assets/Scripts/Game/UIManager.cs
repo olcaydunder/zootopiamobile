@@ -130,6 +130,7 @@ public class UIManager : MonoBehaviour
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (gunsmith != null) gunsmith.Hide();
         if (matchPrep != null) matchPrep.Hide();
+        if (career != null) career.Hide();
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
@@ -161,10 +162,7 @@ public class UIManager : MonoBehaviour
 
         // Profile (top-left)
         var prof = Theme.Box(t, "Profile", new Vector2(0f, 1f), new Vector2(300f, -70f), new Vector2(540f, 110f), Theme.Panel, true).transform;
-        var avatar = UIUtil.CreateImage(prof, "Avatar", new Vector2(0f, 0.5f), new Vector2(66f, 0f), new Vector2(84f, 84f), new Color(0.85f, 0.25f, 0.2f), false);
-        avatar.raycastTarget = false;
-        var initial = UIUtil.CreateText(avatar.transform, "Z", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(84f, 84f), 52, TextAnchor.MiddleCenter);
-        initial.fontStyle = FontStyle.Bold;
+        lobbyRankIcon = Icons.Create(prof, Icons.Rank(0), new Vector2(0f, 0.5f), new Vector2(66f, 0f), new Vector2(96f, 96f));
         lobbyNameText = UIUtil.CreateText(prof, "", new Vector2(0f, 0.5f), new Vector2(300f, 20f), new Vector2(360f, 44f), 32, TextAnchor.MiddleLeft);
         lobbyNameText.fontStyle = FontStyle.Bold;
         lobbyLevelText = UIUtil.CreateText(prof, "", new Vector2(0f, 0.5f), new Vector2(300f, -16f), new Vector2(360f, 30f), 22, TextAnchor.MiddleLeft);
@@ -177,9 +175,7 @@ public class UIManager : MonoBehaviour
 
         // Coins + settings (top-right)
         var coins = Theme.Box(t, "Coins", new Vector2(1f, 1f), new Vector2(-420f, -70f), new Vector2(300f, 80f), Theme.Panel, false).transform;
-        var coinIcon = UIUtil.CreateImage(coins, "Coin", new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(46f, 46f), Theme.Accent, true);
-        coinIcon.raycastTarget = false;
-        UIUtil.CreateText(coinIcon.transform, "A", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46f, 46f), 28, TextAnchor.MiddleCenter).color = new Color(0.35f, 0.25f, 0.02f);
+        Icons.Create(coins, "currency", new Vector2(0f, 0.5f), new Vector2(44f, 0f), new Vector2(58f, 58f));
         lobbyCoinsText = UIUtil.CreateText(coins, "", new Vector2(0f, 0.5f), new Vector2(170f, 0f), new Vector2(200f, 60f), 34, TextAnchor.MiddleLeft);
         lobbyCoinsText.fontStyle = FontStyle.Bold;
         UIUtil.CreateButton(t, "AYARLAR", new Vector2(1f, 1f), new Vector2(-140f, -70f), new Vector2(220f, 80f), Theme.Panel, false, 28, out unused)
@@ -205,8 +201,11 @@ public class UIManager : MonoBehaviour
         lobbySkinText = UIUtil.CreateText(ct, "", new Vector2(0f, 0f), new Vector2(200f, 36f), new Vector2(360f, 40f), 22, TextAnchor.MiddleLeft);
         lobbySkinText.color = Theme.TextDim;
 
-        var stats = Theme.Box(t, "Stats", new Vector2(0f, 0.5f), new Vector2(260f, -210f), new Vector2(440f, 170f), Theme.Panel, false).transform;
-        var sTitle = UIUtil.CreateText(stats, "KARİYER", new Vector2(0f, 1f), new Vector2(200f, -32f), new Vector2(360f, 40f), 26, TextAnchor.MiddleLeft);
+        var statsTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, -210f), new Vector2(440f, 170f), Theme.Panel, false, 20, out unused);
+        statsTile.onClick.AddListener(OpenCareer);
+        var stats = statsTile.transform;
+        UIUtil.CreateImage(stats, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 170f), new Color(0.75f, 0.45f, 1f), false).raycastTarget = false;
+        var sTitle = UIUtil.CreateText(stats, "KARİYER  •  ÖDÜLLER", new Vector2(0f, 1f), new Vector2(200f, -32f), new Vector2(360f, 40f), 26, TextAnchor.MiddleLeft);
         sTitle.fontStyle = FontStyle.Bold;
         lobbyStatsText = UIUtil.CreateText(stats, "", new Vector2(0f, 0f), new Vector2(200f, 62f), new Vector2(380f, 100f), 24, TextAnchor.MiddleLeft);
         lobbyStatsText.color = Theme.TextDim;
@@ -252,6 +251,7 @@ public class UIManager : MonoBehaviour
 
         gunsmith = GunsmithScreen.Create(canvas.transform);
         matchPrep = MatchPrepScreen.Create(canvas.transform);
+        career = CareerScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -272,6 +272,12 @@ public class UIManager : MonoBehaviour
         }
         if (lobbyStartLabel != null)
             lobbyStartLabel.text = "BAŞLAT  •  " + selectedMode.ToString().ToUpper();
+    }
+
+    private void OpenCareer()
+    {
+        HideAll();
+        career.Open(ShowLobby);
     }
 
     private void OpenGunsmith()
@@ -500,12 +506,16 @@ public class UIManager : MonoBehaviour
         var t = resultPanel.transform;
         var c = new Vector2(0.5f, 0.5f);
 
-        resultTitle = UIUtil.CreateText(t, "", c, new Vector2(0f, 200f), new Vector2(1500f, 140f), 96, TextAnchor.MiddleCenter);
+        resultTitle = UIUtil.CreateText(t, "", c, new Vector2(0f, 330f), new Vector2(1500f, 140f), 96, TextAnchor.MiddleCenter);
         resultTitle.fontStyle = FontStyle.Bold;
-        resultDetails = UIUtil.CreateText(t, "", c, new Vector2(0f, 30f), new Vector2(1400f, 160f), 40, TextAnchor.MiddleCenter);
+        resultDetails = UIUtil.CreateText(t, "", c, new Vector2(0f, 190f), new Vector2(1400f, 120f), 38, TextAnchor.MiddleCenter);
+        resultLevel = UIUtil.CreateText(t, "", c, new Vector2(0f, 95f), new Vector2(1400f, 50f), 36, TextAnchor.MiddleCenter);
+        resultLevel.fontStyle = FontStyle.Bold;
+        resultLevel.color = Theme.Accent;
+        resultRewards = UIUtil.CreateRect(t, "Rewards", c, new Vector2(0f, -70f), new Vector2(1400f, 220f));
 
         Text unused;
-        UIUtil.CreateButton(t, "LOBİYE DÖN", c, new Vector2(0f, -180f), new Vector2(420f, 120f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 40, out unused)
+        UIUtil.CreateButton(t, "LOBİYE DÖN", c, new Vector2(0f, -330f), new Vector2(420f, 120f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 40, out unused)
             .onClick.AddListener(() => GameManager.Instance.JoinLobby());
     }
 
@@ -533,6 +543,10 @@ public class UIManager : MonoBehaviour
     private SettingsScreen settingsScreen;
     private Image crossH, crossV;
     private MatchPrepScreen matchPrep;
+    private CareerScreen career;
+    private Image lobbyRankIcon;
+    private RectTransform resultRewards;
+    private Text resultLevel;
 
     private void BuildSettings()
     {
@@ -590,7 +604,7 @@ public class UIManager : MonoBehaviour
     private void RefreshShop()
     {
         var p = GameManager.Instance.profile;
-        shopCoinsText.text = "Altın: " + p.coins + "   (maç kazanarak ve öldürerek kazanılır)";
+        shopCoinsText.text = "Kredi: " + p.coins + "   (maç kazanarak ve öldürerek kazanılır)";
         for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
         {
             string skin = ModelLibrary.ShopSkins[i];
@@ -608,7 +622,7 @@ public class UIManager : MonoBehaviour
             }
             else
             {
-                status = ModelLibrary.ShopPrices[i] + " altın";
+                status = ModelLibrary.ShopPrices[i] + " Kredi";
                 color = p.coins >= ModelLibrary.ShopPrices[i] ? new Color(0.55f, 0.4f, 0.12f, 1f) : new Color(0.25f, 0.25f, 0.28f, 1f);
             }
             shopLabels[i].text = ModelLibrary.ShopNames[i] + "\n" + status;
@@ -625,7 +639,7 @@ public class UIManager : MonoBehaviour
         {
             if (!p.BuySkin(skin, ModelLibrary.ShopPrices[index]))
             {
-                shopCoinsText.text = "Yetersiz altın! Gereken: " + ModelLibrary.ShopPrices[index];
+                shopCoinsText.text = "Yetersiz Kredi! Gereken: " + ModelLibrary.ShopPrices[index];
                 return;
             }
             Sfx.Play(SoundBank.Pickup, 0.6f);
@@ -698,8 +712,9 @@ public class UIManager : MonoBehaviour
         HideAll();
         var p = GameManager.Instance.profile;
         lobbyNameText.text = p.playerName;
-        lobbyLevelText.text = "SEVİYE " + p.level + "   •   XP " + p.xp + " / " + p.XpForNextLevel;
-        lobbyXpFill.sizeDelta = new Vector2(360f * Mathf.Clamp01((float)p.xp / Mathf.Max(1, p.XpForNextLevel)), 8f);
+        lobbyLevelText.text = p.RankName.ToUpper() + "  •  SV " + p.level + (p.IsMaxLevel ? "" : "   •   " + p.xp + " / " + p.XpForNextLevel + " XP");
+        lobbyXpFill.sizeDelta = new Vector2(360f * (p.IsMaxLevel ? 1f : Mathf.Clamp01((float)p.xp / Mathf.Max(1, p.XpForNextLevel))), 8f);
+        Icons.Set(lobbyRankIcon, Icons.Rank(p.RankIndex));
         lobbyCoinsText.text = p.coins.ToString("N0");
         float winRate = p.matches > 0 ? 100f * p.wins / p.matches : 0f;
         lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nToplam öldürme " + p.totalKills;
@@ -743,7 +758,36 @@ public class UIManager : MonoBehaviour
         resultTitle.text = won ? "ZAFER! #1" : "#" + place + " / " + teams;
         resultTitle.color = won ? new Color(1f, 0.85f, 0.3f) : Color.white;
         resultDetails.text = (won ? "Ayakta kalan son kişi sensin!" : "Elendin. Bir dahaki sefere!") +
-                             "\nÖldürme: " + kills + "     +" + xp + " XP     +" + coins + " Altın";
+                             "\nÖldürme: " + kills + "     +" + xp + " XP     +" + coins + " Kredi";
+
+        // Levels gained and their rewards.
+        for (int i = resultRewards.childCount - 1; i >= 0; i--)
+            Destroy(resultRewards.GetChild(i).gameObject);
+        var p = GameManager.Instance.profile;
+        var got = p.lastRewards;
+        if (got.Count == 0)
+        {
+            resultLevel.text = p.RankName.ToUpper() + "  •  SV " + p.level + (p.IsMaxLevel ? "" : "  •  " + p.xp + " / " + p.XpForNextLevel + " XP");
+            resultLevel.color = Theme.TextDim;
+        }
+        else
+        {
+            bool promoted = Progression.RankIndex(p.lastLevelBefore) != p.RankIndex;
+            resultLevel.text = (promoted ? "RÜTBE YÜKSELDİ: " + p.RankName.ToUpper() : "SEVİYE ATLADIN") + "  •  SV " + p.level;
+            resultLevel.color = Theme.Accent;
+            int shown = Mathf.Min(got.Count, 6);
+            float x0 = -(shown - 1) * 105f;
+            for (int i = 0; i < shown; i++)
+            {
+                var g = got[got.Count - shown + i];
+                var view = RewardView.Create(resultRewards, g.reward, new Vector2(0.5f, 0.5f), new Vector2(x0 + i * 210f, 30f), 140f);
+                var label = UIUtil.CreateText(resultRewards, g.reward.Name + (g.duplicate ? "\n(yedeğe eklendi)" : ""), new Vector2(0.5f, 0.5f), new Vector2(x0 + i * 210f, -78f), new Vector2(200f, 60f), 20, TextAnchor.UpperCenter);
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.color = g.duplicate ? Theme.TextDim : Color.white;
+                if (promoted && i == shown - 1)
+                    Icons.Create(view, Icons.Rank(p.RankIndex), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(56f, 56f));
+            }
+        }
         resultPanel.SetActive(true);
     }
 

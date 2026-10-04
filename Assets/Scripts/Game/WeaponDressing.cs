@@ -56,6 +56,36 @@ public static class WeaponDressing
         return sum;
     }
 
+    /// <summary>1 inside a paw print (pad + four toes), tiled 4 times per texture, soft edge.</summary>
+    private static float PawMask(int x, int y, int size)
+    {
+        float best = 0f;
+        float k = size / 256f;
+        for (int p = 0; p < 4; p++)
+        {
+            float cx = (p == 0 ? 64f : p == 1 ? 192f : p == 2 ? 96f : 210f) * k;
+            float cy = (p == 0 ? 60f : p == 1 ? 100f : p == 2 ? 190f : 222f) * k;
+            float ang = (p * 47f - 30f) * Mathf.Deg2Rad;
+            float dx = Mathf.Repeat(x - cx + size * 0.5f, size) - size * 0.5f;
+            float dy = Mathf.Repeat(y - cy + size * 0.5f, size) - size * 0.5f;
+            float rx = (dx * Mathf.Cos(ang) + dy * Mathf.Sin(ang)) / k;
+            float ry = (-dx * Mathf.Sin(ang) + dy * Mathf.Cos(ang)) / k;
+            // main pad
+            float pad = 1f - (rx * rx / (22f * 22f) + (ry + 4f) * (ry + 4f) / (17f * 17f));
+            float m = Mathf.Clamp01(pad * 6f);
+            // toes
+            for (int t = 0; t < 4; t++)
+            {
+                float tx = t == 0 ? -24f : t == 1 ? -9f : t == 2 ? 9f : 24f;
+                float ty = t == 0 || t == 3 ? 20f : 31f;
+                float d = ((rx - tx) * (rx - tx) + (ry - ty) * (ry - ty)) / (8.5f * 8.5f);
+                m = Mathf.Max(m, Mathf.Clamp01((1f - d) * 6f));
+            }
+            best = Mathf.Max(best, m);
+        }
+        return best;
+    }
+
     public static Texture2D Pattern(CamoDef camo)
     {
         Texture2D tex;
@@ -120,6 +150,46 @@ public static class WeaponDressing
                             col = Color.white;
                             glow = 1f;
                         }
+                        break;
+                    }
+                    case 6: // bold stripes (racing / parachute panels), thin dark separators
+                    {
+                        float u = x / (float)size * 4f;
+                        float f = u - Mathf.Floor(u);
+                        int band = Mathf.FloorToInt(u);
+                        col = band % 2 == 0 ? camo.a : camo.b;
+                        if (f < 0.04f || f > 0.96f)
+                            col = camo.c;
+                        break;
+                    }
+                    case 7: // checker
+                    {
+                        bool odd = ((x / 32) + (y / 32)) % 2 == 1;
+                        col = odd ? camo.b : camo.a;
+                        col = Color.Lerp(col, camo.c, (n2[i] - 0.5f) * 0.15f);
+                        break;
+                    }
+                    case 8: // soft vertical gradient
+                    {
+                        float t = Mathf.Clamp01(y / (float)size + (n1[i] - 0.5f) * 0.2f);
+                        col = Color.Lerp(camo.a, camo.b, t);
+                        col = Color.Lerp(col, camo.c, Mathf.Clamp01((0.25f - t) * 2f) * 0.5f);
+                        break;
+                    }
+                    case 9: // paw prints
+                    {
+                        float paw = PawMask(x, y, size);
+                        col = Color.Lerp(Color.Lerp(camo.a, camo.c, n1[i] * 0.5f), camo.b, paw);
+                        glow = paw * 0.6f;
+                        break;
+                    }
+                    case 10: // flames rising from the bottom
+                    {
+                        float v = y / (float)size;
+                        float edge = 0.45f + (n1[(i + size * 37) % (size * size)] - 0.5f) * 0.6f + Mathf.Sin(x / (float)size * Mathf.PI * 2f * 3f) * 0.08f;
+                        float heat = Mathf.Clamp01((edge - v) * 4f);
+                        col = Color.Lerp(camo.a, Color.Lerp(camo.b, camo.c, heat), Mathf.Clamp01(heat * 1.5f));
+                        glow = heat;
                         break;
                     }
                     default: // blotches

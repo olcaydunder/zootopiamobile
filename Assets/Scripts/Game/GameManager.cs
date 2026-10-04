@@ -106,7 +106,7 @@ public class GameManager : MonoBehaviour
             PlayerPrefs.SetInt("zm_gift1", 1);
             profile.coins += 1500;
             profile.Save();
-            uiManager.Toast("Hoş geldin hediyesi: 1500 altın!");
+            uiManager.Toast("Hoş geldin hediyesi: 1500 Kredi!");
         }
         uiManager.ShowLobby();
     }
@@ -347,8 +347,10 @@ public class GameManager : MonoBehaviour
         int place = won ? 1 : AliveEnemyTeams() + 1;
         int teams = (PlayersPerMatch - 1) / TeamSize() + 1;
         int kills = player.kills;
-        int xp = kills * 40 + (won ? 200 : Mathf.Max(0, (teams - place) * 6));
-        int coins = kills * 10 + (won ? 100 : 0);
+        // XP: taking part + kills + placement (up to 300) + the win.
+        float placeShare = teams > 1 ? (float)(teams - place) / (teams - 1) : 1f;
+        int xp = 100 + kills * 60 + Mathf.RoundToInt(300f * placeShare) + (won ? 400 : 0);
+        int coins = 20 + kills * 10 + Mathf.RoundToInt(60f * placeShare) + (won ? 100 : 0);
 
         profile.AddMatchResult(won, kills, xp, coins);
         uiManager.ShowResult(won, place, teams, kills, xp, coins);

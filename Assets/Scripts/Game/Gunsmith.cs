@@ -85,7 +85,46 @@ public static class Gunsmith
         new CamoDef { id = "ice", name = "Buz Kristali", price = 900, rarity = "Epik", a = new Color(0.85f, 0.95f, 1f), b = new Color(0.45f, 0.75f, 0.95f), c = new Color(0.2f, 0.4f, 0.7f), pattern = 3, gloss = 0.85f, glow = new Color(0.4f, 0.85f, 1f, 0.9f) },
         new CamoDef { id = "dragon", name = "Kızıl Ejder", price = 1500, rarity = "Efsanevi", a = new Color(0.08f, 0.07f, 0.09f), b = new Color(0.2f, 0.05f, 0.06f), c = new Color(0.55f, 0.04f, 0.06f), pattern = 3, gloss = 0.7f, glow = new Color(1f, 0.15f, 0.08f, 1.6f) },
         new CamoDef { id = "nebula", name = "Mor Nebula", price = 2000, rarity = "Mitik", a = new Color(0.2f, 0.06f, 0.35f), b = new Color(0.65f, 0.15f, 0.7f), c = new Color(0.1f, 0.05f, 0.2f), pattern = 5, gloss = 0.8f, glow = new Color(0.9f, 0.35f, 1f, 1.4f) },
+        // Sıradan
+        new CamoDef { id = "snow", name = "Kar Örtüsü", price = 150, rarity = "Sıradan", a = new Color(0.9f, 0.92f, 0.94f), b = new Color(0.62f, 0.66f, 0.7f), c = new Color(0.78f, 0.8f, 0.83f), pattern = 0, gloss = 0.2f },
+        new CamoDef { id = "jungle", name = "Cengel", price = 150, rarity = "Sıradan", a = new Color(0.12f, 0.24f, 0.12f), b = new Color(0.3f, 0.42f, 0.14f), c = new Color(0.07f, 0.1f, 0.06f), pattern = 0, gloss = 0.2f },
+        new CamoDef { id = "slate", name = "Arduvaz", price = 150, rarity = "Sıradan", a = new Color(0.3f, 0.33f, 0.36f), b = new Color(0.2f, 0.22f, 0.25f), c = new Color(0.42f, 0.45f, 0.48f), pattern = 2, gloss = 0.25f },
+        new CamoDef { id = "dune", name = "Kum Fırtınası", price = 150, rarity = "Sıradan", a = new Color(0.82f, 0.7f, 0.5f), b = new Color(0.7f, 0.56f, 0.36f), c = new Color(0.55f, 0.42f, 0.28f), pattern = 2, gloss = 0.2f },
+        // Nadir
+        new CamoDef { id = "navy", name = "Lacivert Dijital", price = 250, rarity = "Nadir", a = new Color(0.12f, 0.17f, 0.3f), b = new Color(0.22f, 0.3f, 0.48f), c = new Color(0.06f, 0.08f, 0.15f), pattern = 2, gloss = 0.35f },
+        new CamoDef { id = "rust", name = "Pas", price = 250, rarity = "Nadir", a = new Color(0.45f, 0.22f, 0.1f), b = new Color(0.65f, 0.35f, 0.15f), c = new Color(0.25f, 0.13f, 0.07f), pattern = 0, gloss = 0.15f },
+        new CamoDef { id = "zebra", name = "Zebra", price = 300, rarity = "Nadir", a = new Color(0.92f, 0.92f, 0.9f), b = new Color(0.06f, 0.06f, 0.06f), c = new Color(0.85f, 0.85f, 0.82f), pattern = 1, gloss = 0.4f },
+        new CamoDef { id = "olive", name = "Zeytin Dijital", price = 250, rarity = "Nadir", a = new Color(0.36f, 0.38f, 0.2f), b = new Color(0.25f, 0.26f, 0.13f), c = new Color(0.5f, 0.5f, 0.3f), pattern = 2, gloss = 0.3f },
+        new CamoDef { id = "crimson", name = "Kızıl Çizgi", price = 300, rarity = "Nadir", a = new Color(0.12f, 0.1f, 0.1f), b = new Color(0.75f, 0.1f, 0.12f), c = new Color(0.25f, 0.06f, 0.07f), pattern = 1, gloss = 0.5f },
+        new CamoDef { id = "arctic", name = "Arktik Dijital", price = 300, rarity = "Nadir", a = new Color(0.85f, 0.9f, 0.95f), b = new Color(0.5f, 0.65f, 0.8f), c = new Color(0.3f, 0.4f, 0.55f), pattern = 2, gloss = 0.4f },
+        // Epik
+        new CamoDef { id = "carbon", name = "Karbon Fiber", price = 700, rarity = "Epik", a = new Color(0.12f, 0.12f, 0.13f), b = new Color(0.05f, 0.05f, 0.06f), c = new Color(0.3f, 0.3f, 0.33f), pattern = 4, gloss = 0.9f, glow = new Color(0.6f, 0.7f, 0.9f, 0.1f) },
+        new CamoDef { id = "emerald", name = "Zümrüt", price = 850, rarity = "Epik", a = new Color(0.03f, 0.18f, 0.1f), b = new Color(0.05f, 0.35f, 0.2f), c = new Color(0.2f, 1f, 0.55f), pattern = 3, gloss = 0.8f, glow = new Color(0.2f, 1f, 0.5f, 0.9f) },
+        new CamoDef { id = "toxic", name = "Zehir", price = 850, rarity = "Epik", a = new Color(0.1f, 0.12f, 0.05f), b = new Color(0.2f, 0.25f, 0.05f), c = new Color(0.65f, 1f, 0.1f), pattern = 3, gloss = 0.6f, glow = new Color(0.6f, 1f, 0.1f, 1f) },
+        new CamoDef { id = "copper", name = "Bakır", price = 700, rarity = "Epik", a = new Color(0.85f, 0.5f, 0.3f), b = new Color(0.6f, 0.3f, 0.15f), c = new Color(1f, 0.7f, 0.5f), pattern = 4, gloss = 0.9f, glow = new Color(1f, 0.55f, 0.3f, 0.12f) },
+        new CamoDef { id = "sunset", name = "Gün Batımı", price = 900, rarity = "Epik", a = new Color(0.9f, 0.35f, 0.2f), b = new Color(1f, 0.7f, 0.25f), c = new Color(0.35f, 0.1f, 0.35f), pattern = 5, gloss = 0.7f, glow = new Color(1f, 0.5f, 0.2f, 0.7f) },
+        // Efsanevi
+        new CamoDef { id = "lava", name = "Lav Akıntısı", price = 1500, rarity = "Efsanevi", a = new Color(0.08f, 0.05f, 0.04f), b = new Color(0.25f, 0.06f, 0.02f), c = new Color(1f, 0.45f, 0.05f), pattern = 3, gloss = 0.6f, glow = new Color(1f, 0.4f, 0.05f, 1.8f) },
+        new CamoDef { id = "obsidian", name = "Obsidyen", price = 1500, rarity = "Efsanevi", a = new Color(0.06f, 0.04f, 0.1f), b = new Color(0.3f, 0.1f, 0.45f), c = new Color(0.02f, 0.02f, 0.04f), pattern = 5, gloss = 0.95f, glow = new Color(0.6f, 0.3f, 1f, 1.1f) },
+        new CamoDef { id = "aurora", name = "Kutup Işığı", price = 1600, rarity = "Efsanevi", a = new Color(0.03f, 0.1f, 0.18f), b = new Color(0.15f, 0.9f, 0.6f), c = new Color(0.02f, 0.04f, 0.1f), pattern = 5, gloss = 0.8f, glow = new Color(0.2f, 1f, 0.7f, 1.4f) },
+        // Mitik
+        new CamoDef { id = "galaxy", name = "Galaksi", price = 2500, rarity = "Mitik", a = new Color(0.05f, 0.05f, 0.2f), b = new Color(0.3f, 0.5f, 1f), c = new Color(0.02f, 0.01f, 0.06f), pattern = 5, gloss = 0.9f, glow = new Color(0.4f, 0.6f, 1f, 1.6f) },
+        new CamoDef { id = "phoenix", name = "Anka Kuşu", price = 2500, rarity = "Mitik", a = new Color(0.3f, 0.04f, 0.02f), b = new Color(0.7f, 0.15f, 0.03f), c = new Color(1f, 0.8f, 0.2f), pattern = 3, gloss = 0.85f, glow = new Color(1f, 0.65f, 0.15f, 2f) },
+        new CamoDef { id = "pati", name = "Altın Pati", price = 3000, rarity = "Mitik", a = new Color(1f, 0.8f, 0.35f), b = new Color(0.75f, 0.5f, 0.1f), c = new Color(1f, 0.95f, 0.7f), pattern = 9, gloss = 0.95f, glow = new Color(1f, 0.8f, 0.3f, 0.6f) },
     };
+
+    /// <summary>Icon (Resources/UI/Icons) for an attachment slot.</summary>
+    public static string SlotIcon(AttachmentSlot slot)
+    {
+        switch (slot)
+        {
+            case AttachmentSlot.Optic: return "slot_optic";
+            case AttachmentSlot.Underbarrel: return "slot_underbarrel";
+            case AttachmentSlot.Magazine: return "slot_magazine";
+            case AttachmentSlot.Stock: return "slot_stock";
+            default: return "slot_muzzle";
+        }
+    }
 
     public static AttachmentDef FindAttachment(string id)
     {

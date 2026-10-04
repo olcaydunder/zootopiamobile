@@ -385,7 +385,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
                 var c = camos[i];
                 bool owned = Gunsmith.OwnsCamo(c.id);
                 bool on = loadout[5] == c.id;
-                string status = on ? "KUŞANILDI" : (owned ? "KUŞAN" : c.price + " altın");
+                string status = on ? "KUŞANILDI" : (owned ? "KUŞAN" : c.price + " Kredi");
                 var card = Card(i, camos.Count, width, c.name, c.rarity, status, Theme.Rarity(c.rarity), on, owned || profile.coins >= c.price);
                 if (!string.IsNullOrEmpty(c.id))
                 {
@@ -414,7 +414,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
             var a = options[i];
             bool owned = Gunsmith.OwnsAttachment(a.id);
             bool on = loadout[slotIndex] == a.id;
-            string status = on ? "TAKILI" : (owned ? "TAK" : a.price + " altın");
+            string status = on ? "TAKILI" : (owned ? "TAK" : a.price + " Kredi");
             var card = Card(i + 1, total, cw, a.name, Describe(a), status, Theme.Accent, on, owned || profile.coins >= a.price);
             var captured = a;
             card.GetComponent<Button>().onClick.AddListener(() => ChooseAttachment(w, slot, captured));
@@ -474,7 +474,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         {
             if (!Gunsmith.Buy(profile, a.id, a.price, false))
             {
-                Toast("Yetersiz altın! Gereken: " + a.price, Theme.Bad);
+                Toast("Yetersiz Kredi! Gereken: " + a.price, Theme.Bad);
                 return;
             }
             Sfx.Play(SoundBank.Pickup, 0.6f);
@@ -493,7 +493,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         {
             if (!Gunsmith.Buy(profile, c.id, c.price, true))
             {
-                Toast("Yetersiz altın! Gereken: " + c.price, Theme.Bad);
+                Toast("Yetersiz Kredi! Gereken: " + c.price, Theme.Bad);
                 return;
             }
             Sfx.Play(SoundBank.Pickup, 0.6f);

@@ -7,7 +7,22 @@ public class ZootopiaTextureImport : AssetPostprocessor
 {
     private void OnPreprocessTexture()
     {
-        if (!assetPath.Replace('\\', '/').Contains("Resources/Textures/"))
+        string path = assetPath.Replace('\\', '/');
+        if (path.Contains("Resources/UI/Icons/"))
+        {
+            // UI icons: crisp, transparent edges, no mipmaps, high-quality compression.
+            var ui = (TextureImporter)assetImporter;
+            ui.textureType = TextureImporterType.Default;
+            ui.alphaIsTransparency = true;
+            ui.mipmapEnabled = false;
+            ui.npotScale = TextureImporterNPOTScale.None;
+            ui.wrapMode = TextureWrapMode.Clamp;
+            ui.filterMode = FilterMode.Bilinear;
+            ui.maxTextureSize = 256;
+            ui.textureCompression = TextureImporterCompression.CompressedHQ;
+            return;
+        }
+        if (!path.Contains("Resources/Textures/"))
             return;
         var ti = (TextureImporter)assetImporter;
         ti.textureType = assetPath.EndsWith("_nor.jpg") ? TextureImporterType.NormalMap : TextureImporterType.Default;

@@ -258,6 +258,10 @@ public class ErrorReporter : MonoBehaviour
                 if (!string.IsNullOrEmpty(gs) && ModelLibrary.Prefab(ModelLibrary.GunPath(w) + "_" + gs) == null)
                     Check("ZM-C-13", "Silah modeli eksik: " + w + " " + gs, "Standart model kullanılıyor.");
 
+        foreach (var icon in new[] { "rank_00", "rank_21", "token_revive", "currency", "rarity_frame" })
+            if (Icons.Get(icon) == null)
+                Check("ZM-C-14", "Arayüz ikonu eksik: " + icon, "Rütbe/ödül ekranlarında boş kutu görünür.");
+
         if (!MapData.Loaded)
             Check("ZM-C-10", "Çekmeköy harita verisi yüklenemedi (Resources/Map).", "Yedek ada haritası kullanılıyor.");
         if (CityBuilder.LastError != null)
