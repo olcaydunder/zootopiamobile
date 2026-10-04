@@ -5,15 +5,20 @@
   Quaternius SoldierMale rig onto the Mixamo skeleton (world-space rotation deltas with
   rest-direction alignment), and exports FBX the same way as the other character models.
 
-blender --background --python convert_character.py -- in.glb source_rig.fbx out.fbx [decimate_ratio]
-(or: python3 convert_character.py -- ... with the bpy module)
+blender --background --python convert_character.py -- in.glb source_rig.fbx out.fbx [decimate_ratio] [height_m]
+(or: python3 convert_character.py -- ... with the bpy module, e.g. `pip install bpy` in a Python 3.11 venv)
+
+decimate_ratio >= 1 keeps the mesh as is. height_m rescales the model to that standing height first
+(for sources authored in centimetres). Mixamo bone names with or without the colon ("mixamorigHips",
+"mixamorig:Hips_01") are recognised; the exported skeleton uses "mixamorig:<Bone>" so CharacterRig finds the hand.
 """
-import bpy, sys, math
+import bpy, sys, math, os, tempfile
 from mathutils import Matrix, Vector, Quaternion
 
 args = sys.argv[sys.argv.index("--") + 1:]
 SRC_GLB, RIG_FBX, OUT = args[0], args[1], args[2]
 RATIO = float(args[3]) if len(args) > 3 else 0.3
+HEIGHT = float(args[4]) if len(args) > 4 else 0.0
 
 MAP = {  # mixamo suffix -> Quaternius bone
     "Hips": "Body", "Spine": "Hips", "Spine1": "Abdomen", "Spine2": "Torso", "Neck": "Neck", "Head": "Head",
@@ -54,10 +59,14 @@ for a in list(bpy.data.actions):
     bpy.data.actions.remove(a)
 
 # 2) flatten the hierarchy and apply transforms
+S = Matrix()
+if HEIGHT > 0:
+    zs = [(o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices]
+    S = Matrix.Scale(HEIGHT / (max(zs) - min(zs)), 4)
 for o in meshes + [arm]:
     mw = o.matrix_world.copy()
     o.parent = None
-    o.matrix_world = mw
+    o.matrix_world = S @ mw
 for o in list(scene.objects):
     if o.type == "EMPTY":
         bpy.data.objects.remove(o, do_unlink=True)
@@ -79,7 +88,7 @@ print("height", max((o.matrix_world @ v.co).z for o in meshes for v in o.data.ve
 # 3) decimate + base-colour-only materials
 for o in meshes:
     tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
-    if tris > 2500:
+    if tris > 2500 and RATIO < 1:
         d = o.modifiers.new("Decimate", "DECIMATE")
         d.ratio = RATIO
         bpy.context.view_layer.objects.active = o
@@ -110,6 +119,31 @@ for m in bpy.data.materials:
     for n in list(nt.nodes):
         if n.type == "TEX_IMAGE" and not any(l.to_node == bsdf and l.to_socket.name == "Base Color" for l in n.outputs["Color"].links):
             nt.nodes.remove(n)
+# Re-encode the remaining base-colour textures at <= 1K (the packed originals would otherwise be embedded
+# unchanged): JPEG when fully opaque, PNG when the alpha channel is used.
+tmpdir = tempfile.mkdtemp()
+for m in bpy.data.materials:
+    if not m.use_nodes:
+        continue
+    for n in m.node_tree.nodes:
+        if n.type != "TEX_IMAGE" or n.image is None or n.image.size[0] == 0:
+            continue
+        img = n.image
+        if max(img.size) > 1024:
+            img.scale(min(1024, img.size[0]), min(1024, img.size[1]))
+        import numpy as np
+        px = np.empty(len(img.pixels), dtype=np.float32)
+        img.pixels.foreach_get(px)
+        opaque = img.channels < 4 or float(px[3::4].min()) > 0.99
+        fmt = "JPEG" if opaque else "PNG"
+        # texture named "<Model>_<material>" so it is unique among the project's textures (Unity matches by name)
+        tex_name = os.path.splitext(os.path.basename(OUT))[0] + "_" + "".join(c if c.isalnum() else "_" for c in m.name)
+        path = os.path.join(tmpdir, tex_name + (".jpg" if opaque else ".png"))
+        scene.render.image_settings.file_format = fmt
+        scene.render.image_settings.quality = 90
+        scene.render.image_settings.color_mode = "RGB" if opaque else "RGBA"
+        img.save_render(path, scene=scene)
+        n.image = bpy.data.images.load(path)
 print("tris after", sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes))
 
 # 4) retarget the game's clips from the Quaternius rig
@@ -122,6 +156,8 @@ Ws, Wt = src.matrix_world.copy(), arm.matrix_world.copy()
 def mixname(suffix):
     for b in arm.data.bones:
         n = b.name.split(":")[-1]
+        if n.startswith("mixamorig"):
+            n = n[len("mixamorig"):]
         base = n.rsplit("_", 1)[0] if n.rsplit("_", 1)[-1].isdigit() else n
         if base == suffix:
             return b.name
@@ -136,9 +172,34 @@ print("mapped", len(tmap), "of", len(MAP))
 def rest_dir(armobj, b):
     W = armobj.matrix_world
     return ((W @ b.tail_local) - (W @ b.head_local)).normalized()
+
+# Where each target bone "points": towards the next joint of its chain. glTF imports often leave bone tails
+# along an arbitrary axis, so the head -> child-head direction is used instead of head -> tail.
+NEXT = {"Spine": ["Spine1", "Spine2", "Neck"], "Spine1": ["Spine2", "Neck"], "Spine2": ["Neck", "Head"], "Neck": ["Head"],
+        "Head": ["HeadTop_End"], "LeftShoulder": ["LeftArm"], "LeftArm": ["LeftForeArm"], "LeftForeArm": ["LeftHand"],
+        "LeftHand": ["LeftHandMiddle1", "LeftHandIndex1"], "RightShoulder": ["RightArm"], "RightArm": ["RightForeArm"],
+        "RightForeArm": ["RightHand"], "RightHand": ["RightHandMiddle1", "RightHandIndex1"], "LeftUpLeg": ["LeftLeg"],
+        "LeftLeg": ["LeftFoot"], "LeftFoot": ["LeftToeBase"], "RightUpLeg": ["RightLeg"], "RightLeg": ["RightFoot"],
+        "RightFoot": ["RightToeBase"]}
+def chain_dir(armobj, b, suffix):
+    W = armobj.matrix_world
+    for nxt in NEXT.get(suffix, []):
+        n = mixname(nxt)
+        if n:
+            d = (W @ armobj.data.bones[n].head_local) - (W @ b.head_local)
+            if d.length > 1e-5:
+                return d.normalized()
+    if suffix == "Head":    # no head-top joint: the head points straight up like the source's
+        return Vector((0, 0, 1))
+    return rest_dir(armobj, b)
+suffix_of = {mixname(s): s for s in MAP if mixname(s)}
 corr = {}
 for tn, sn in tmap.items():
-    corr[tn] = rest_dir(arm, arm.data.bones[tn]).rotation_difference(rest_dir(src, src.data.bones[sn])).to_matrix()
+    if suffix_of[tn] in ("Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "LeftFoot", "RightFoot"):
+        # upright torso/head and flat feet are the same in both rest poses: copy the world delta as is
+        corr[tn] = Matrix.Identity(3)
+        continue
+    corr[tn] = chain_dir(arm, arm.data.bones[tn], suffix_of[tn]).rotation_difference(rest_dir(src, src.data.bones[sn])).to_matrix()
 
 hips_t = mixname("Hips")
 hips_h_t = (Wt @ arm.data.bones[hips_t].head_local).z - zmin
@@ -230,6 +291,9 @@ for a in bpy.data.actions:
     track.strips.new(a.name, 0, a)
     track.mute = True
 arm.name = "CharacterArmature"
+for b in arm.data.bones:   # "mixamorigRightHand" -> "mixamorig:RightHand" (CharacterRig looks for "RightHand" after ':')
+    if b.name.startswith("mixamorig") and not b.name.startswith("mixamorig:"):
+        b.name = "mixamorig:" + b.name[len("mixamorig"):]
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.export_scene.fbx(filepath=OUT, use_selection=False, object_types={"ARMATURE", "MESH"},
                          apply_scale_options="FBX_SCALE_ALL", add_leaf_bones=False, bake_anim=True,

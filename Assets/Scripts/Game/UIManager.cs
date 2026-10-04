@@ -674,13 +674,17 @@ public class UIManager : MonoBehaviour
         shopCoinsText = UIUtil.CreateText(box, "", c, new Vector2(0f, 185f), new Vector2(1100f, 44f), 28, TextAnchor.MiddleCenter);
         shopCoinsText.color = new Color(1f, 0.85f, 0.3f);
 
+        // Grid sized to the number of characters: 5 columns, rows share the space between the header and the footer.
+        const int shopCols = 5;
+        int shopRows = (ModelLibrary.ShopSkins.Length + shopCols - 1) / shopCols;
+        float cellH = Mathf.Min(130f, 330f / Mathf.Max(1, shopRows));
         for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
         {
             int index = i;
-            float x = (i % 3 - 1) * 390f;
-            float y = i < 3 ? 75f : -75f;
+            float x = (i % shopCols - (shopCols - 1) * 0.5f) * 236f;
+            float y = 150f - cellH * 0.5f - (i / shopCols) * cellH;
             Text label;
-            var b = UIUtil.CreateButton(box, "", c, new Vector2(x, y), new Vector2(360f, 130f), new Color(0.2f, 0.25f, 0.35f, 1f), false, 30, out label);
+            var b = UIUtil.CreateButton(box, "", c, new Vector2(x, y), new Vector2(224f, cellH - 10f), new Color(0.2f, 0.25f, 0.35f, 1f), false, 24, out label);
             b.onClick.AddListener(() => ShopClicked(index));
             shopLabels.Add(label);
             shopButtons.Add(b.GetComponent<Image>());

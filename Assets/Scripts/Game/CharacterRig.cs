@@ -334,6 +334,7 @@ public class CharacterRig : MonoBehaviour
         }
 
         ModelLibrary.ShareMaterials(model, true);
+        ModelLibrary.ApplyVariant(model, skin);
 
         // Normalise height to 1.8 m with the feet at the bottom of the CharacterController.
         model.transform.localPosition = Vector3.zero;

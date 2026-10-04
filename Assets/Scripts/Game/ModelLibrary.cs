@@ -8,12 +8,32 @@ using UnityEngine;
 public static class ModelLibrary
 {
     public const string PlayerSkin = "SoldierMale";
-    public static readonly string[] EnemySkins = { "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher" };
+    public static readonly string[] EnemySkins = {
+        "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher",
+        "Operator", "OperatorDesert", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked" };
     /// <summary>Characters the player can pick (all free).</summary>
-    public static readonly string[] ShopSkins = { "SoldierMale", "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
-    public static readonly string[] ShopNames = { "Asker", "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
-    public static readonly string[] ShopRoles = { "Dengeli piyade", "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci" };
-    public static readonly int[] ShopPrices = { 0, 0, 0, 0, 0, 0, 0 };
+    public static readonly string[] ShopSkins = {
+        "SoldierMale", "Operator", "OperatorDesert", "OperatorNight", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
+        "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
+    public static readonly string[] ShopNames = {
+        "Asker", "Operatör", "Çöl Operatörü", "Gece Operatörü", "Piyade", "Orman Piyadesi", "Paralı Asker", "Kent Komandosu", "Maskeli",
+        "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
+    public static readonly string[] ShopRoles = {
+        "Dengeli piyade", "Özel harekât", "Çöl harekâtı", "Gece baskını", "Hücum piyadesi", "Orman keşifçisi", "Ağır zırhlı", "Şehir çatışması", "Hızlı baskıncı",
+        "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci" };
+    public static readonly int[] ShopPrices = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    /// <summary>
+    /// Colour variants: same model and animations as the base character, with the textures in
+    /// Resources/Models/Characters/Variants/&lt;skin&gt;/&lt;texture name&gt; swapped in (see ApplyVariant).
+    /// </summary>
+    private static readonly Dictionary<string, string> VariantBase = new Dictionary<string, string>
+    {
+        { "OperatorDesert", "Operator" },
+        { "OperatorNight", "Operator" },
+        { "InfantryWoodland", "Infantry" },
+        { "MercenaryUrban", "Mercenary" },
+    };
 
     // ----- Weapon model variants ("" = the standard model) -----
 
@@ -91,7 +111,49 @@ public static class ModelLibrary
 
     public static string CharacterPath(string skin)
     {
+        string baseSkin;
+        if (skin != null && VariantBase.TryGetValue(skin, out baseSkin))
+            skin = baseSkin;
         return "Models/Characters/" + skin;
+    }
+
+    private static readonly Dictionary<string, Material> variantMaterials = new Dictionary<string, Material>();
+
+    /// <summary>
+    /// For colour-variant skins: swaps each material's texture for the variant's texture of the same name
+    /// (Resources/Models/Characters/Variants/&lt;skin&gt;/). Call after ShareMaterials. No-op for normal skins.
+    /// </summary>
+    public static void ApplyVariant(GameObject root, string skin)
+    {
+        if (skin == null || !VariantBase.ContainsKey(skin))
+            return;
+        foreach (var r in root.GetComponentsInChildren<Renderer>())
+        {
+            var mats = r.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (mats[i] == null || mats[i].mainTexture == null)
+                    continue;
+                string key = skin + "/" + mats[i].mainTexture.name;
+                Material m;
+                if (!variantMaterials.TryGetValue(key, out m) || m == null)
+                {
+                    var tex = Resources.Load<Texture2D>("Models/Characters/Variants/" + key);
+                    if (tex == null)
+                        continue;
+                    m = new Material(mats[i]);
+                    m.name = mats[i].name + "_" + skin;
+                    m.mainTexture = tex;
+                    m.enableInstancing = true;
+                    variantMaterials[key] = m;
+                }
+                mats[i] = m;
+                changed = true;
+            }
+            if (changed)
+                r.sharedMaterials = mats;
+        }
     }
 
     public static string PropPath(string prop)

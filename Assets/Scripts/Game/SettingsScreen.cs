@@ -274,7 +274,11 @@ public class SettingsScreen : MonoBehaviour
         Note("AK-19 Taktik tüfek – \"low-poly AK-19\", D_U (sketchfab.com/DU1701)");
         Note("Gölge Avcı keskin nişancı – \"Sniper\", PSICOPATO (sketchfab.com/emily.archeo)");
         Note("Taktik kask ve yelek – \"Tactical Helmet with Headset\", \"Tactical Plate Carrier Vest\", Exactly (sketchfab.com/txyrm70)");
-        Note("Lisans: creativecommons.org/licenses/by/4.0 – modeller oyun için küçültüldü ve yeniden boyandı.");
+        Note("Operatör (Çöl/Gece) – \"Soldier Full Tactical Gear (LowPolyGameReady)\", DanlyVostok (skfb.ly/pMDAV)");
+        Note("Piyade, Orman Piyadesi – \"Ukrainian Soldier\", doctortex (skfb.ly/ot9Ny)");
+        Note("Paralı Asker, Kent Komandosu – \"Terrorista\", jeferson (skfb.ly/6xsAy)");
+        Note("Maskeli – \"terrorist\", DJMaesen (skfb.ly/6AnKG)");
+        Note("Lisans: creativecommons.org/licenses/by/4.0 – modeller oyun için küçültüldü, yeniden boyandı ve animasyonları aktarıldı.");
         Header("CC0 VE HARİTA");
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");
         Note("Zemin, cephe, asfalt, kiremit, beton dokuları: Poly Haven (CC0) – Rob Tuytel, Amal Kumar, Stephan Seeliger, Dimitrios Savva, Rico Cilliers, Jenelle van Heerden");

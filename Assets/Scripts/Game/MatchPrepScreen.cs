@@ -37,6 +37,7 @@ public class MatchPrepScreen : MonoBehaviour
     private readonly List<Text> weaponNames = new List<Text>();
     private RectTransform primarySkinRow, pistolSkinRow;
     private Text charTitle, charRole, weaponTitle, modeText;
+    private ScrollRect charScroll;
     private readonly Image[] statFill = new Image[6];
     private readonly Text[] statValue = new Text[6];
 
@@ -74,13 +75,28 @@ public class MatchPrepScreen : MonoBehaviour
         var left = UIUtil.CreateRect(t, "Characters", new Vector2(0f, 0.5f), new Vector2(330f, -20f), new Vector2(600f, 860f));
         var ct = UIUtil.CreateText(left, "KARAKTER", new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(560f, 50f), 34, TextAnchor.MiddleLeft);
         ct.fontStyle = FontStyle.Bold;
+        // Scrolling 2-column grid (there are more characters than fit the panel).
+        var charView = UIUtil.CreateRect(left, "CharView", new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(590f, 660f));
+        charView.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);   // catches drags between buttons
+        charView.gameObject.AddComponent<RectMask2D>();
+        int charRows = (ModelLibrary.ShopSkins.Length + 1) / 2;
+        var charContent = UIUtil.CreateRect(charView, "Content", new Vector2(0.5f, 1f), Vector2.zero, new Vector2(590f, charRows * 120f));
+        charContent.pivot = new Vector2(0.5f, 1f);
+        charContent.anchoredPosition = Vector2.zero;
+        charScroll = charView.gameObject.AddComponent<ScrollRect>();
+        charScroll.content = charContent;
+        charScroll.viewport = charView;
+        charScroll.horizontal = false;
+        charScroll.vertical = true;
+        charScroll.movementType = ScrollRect.MovementType.Clamped;
+        charScroll.scrollSensitivity = 40f;
         for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
         {
             int index = i;
             float x = (i % 2 == 0) ? -145f : 145f;
-            float y = 300f - (i / 2) * 120f;
+            float y = -60f - (i / 2) * 120f;
             Text label;
-            var b = UIUtil.CreateButton(left, "", new Vector2(0.5f, 0.5f), new Vector2(x, y), new Vector2(280f, 106f), Theme.Panel, false, 24, out label);
+            var b = UIUtil.CreateButton(charContent, "", new Vector2(0.5f, 1f), new Vector2(x, y), new Vector2(280f, 106f), Theme.Panel, false, 24, out label);
             b.onClick.AddListener(() => SelectCharacter(index));
             var accent = UIUtil.CreateImage(b.transform, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 106f), Theme.Accent, false);
             accent.raycastTarget = false;
@@ -196,7 +212,25 @@ public class MatchPrepScreen : MonoBehaviour
             charNames[i].GetComponent<Shadow>().enabled = !sel;
         }
         charTitle.text = ModelLibrary.ShopNames[index].ToUpper();
+        ScrollToCharacter(index);
         charRole.text = ModelLibrary.ShopRoles[index];
+    }
+
+    /// <summary>Scrolls the character grid so the selected row is visible.</summary>
+    private void ScrollToCharacter(int index)
+    {
+        if (charScroll == null)
+            return;
+        float contentH = charScroll.content.rect.height, viewH = charScroll.viewport.rect.height;
+        if (contentH <= viewH)
+            return;
+        float rowTop = (index / 2) * 120f, rowBottom = rowTop + 120f;
+        float top = (1f - charScroll.verticalNormalizedPosition) * (contentH - viewH);
+        if (rowTop < top)
+            top = rowTop;
+        else if (rowBottom > top + viewH)
+            top = rowBottom - viewH;
+        charScroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(top / (contentH - viewH));
     }
 
     private void SelectPrimary(int index)

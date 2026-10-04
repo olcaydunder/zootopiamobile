@@ -27,6 +27,25 @@ re-oriented; the character got the game's animations retargeted onto its Mixamo 
 | Armour loot: helmet (`Models/Props/ArmorHelmet.fbx`) | [Tactical Helmet with Headset (Game-Ready)](https://sketchfab.com/3d-models/tactical-helmet-with-headset-game-ready-82adf376164f4d99a4) | [Exactly](https://sketchfab.com/txyrm70) | CC-BY 4.0 |
 | Armour loot: vest (`Models/Props/ArmorVest.fbx`) | [Tactical Plate Carrier Vest – Game Ready](https://sketchfab.com/3d-models/tactical-plate-carrier-vest-game-ready-3b51e6329dbb4b0aa14) | [Exactly](https://sketchfab.com/txyrm70) | CC-BY 4.0 |
 
+### Soldier characters (CC-BY 4.0)
+
+Realistic, textured soldier characters (6–10k triangles, 1K base-colour texture each) in `Models/Characters`.
+The Mixamo-rigged GLB copies were taken from [DevWolf11/Cam-Strike](https://github.com/DevWolf11/Cam-Strike)
+(`assets/models/`, whose README credits them as CC BY 4.0), converted with `Tools/blender/convert_character.py`
+(1.8 m tall, decimated, base colour only, the game's Idle/Run/Shoot/Hit/Death clips retargeted from SoldierMale).
+The colour variants are the same models with recoloured clothing textures (`Tools/blender/recolor_variants.py`,
+`Models/Characters/Variants/`, swapped in by `ModelLibrary.ApplyVariant`).
+
+| In game | File | Original | Author | License |
+| --- | --- | --- | --- | --- |
+| Operatör, Çöl Operatörü, Gece Operatörü | `Operator.fbx` (+ `Variants/OperatorDesert`, `Variants/OperatorNight`) | [Soldier Full Tactical Gear (LowPolyGameReady)](https://skfb.ly/pMDAV) | DanlyVostok | CC-BY 4.0 |
+| Piyade, Orman Piyadesi | `Infantry.fbx` (+ `Variants/InfantryWoodland`) | [Ukrainian Soldier](https://skfb.ly/ot9Ny) | [doctortex](https://sketchfab.com/doctortex) | CC-BY 4.0 |
+| Paralı Asker, Kent Komandosu | `Mercenary.fbx` (+ `Variants/MercenaryUrban`) | [Terrorista](https://skfb.ly/6xsAy) | [jeferson](https://sketchfab.com/djotagame) | CC-BY 4.0 |
+| Maskeli | `Masked.fbx` | [terrorist](https://skfb.ly/6AnKG) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+
+Changes: decimated, textures reduced to 1K base colour, rescaled, re-rigged/retargeted animations, recoloured variants.
+Not used from that repo: three Mixamo characters (Adobe licence, no redistribution) and `militia.glb` (no CC licence stated).
+
 The same credits are shown in the game under Ayarlar → Künye.
 
 Not used (license or IP reasons): Adam Smasher (Cyberpunk 2077), Warthog (Halo), Warden (Valorant), Vantage (Apex Legends),
