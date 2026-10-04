@@ -27,4 +27,5 @@ public interface IPlayerInput
     bool ConsumeAirAction();
     bool ConsumeAim();
     bool ConsumeDoor();
+    bool ConsumeAbility();
 }

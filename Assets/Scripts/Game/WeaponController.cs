@@ -8,6 +8,8 @@ public class WeaponController : MonoBehaviour
     public int reserveAmmo;
     public bool isReloading;
     public bool playerOwned;
+    /// <summary>Class of whoever holds the gun (passives like Gözcü's bonus on marked enemies).</summary>
+    public ClassAbility owner;
 
     private float nextShotTime;
     private Renderer modelRenderer;
@@ -132,11 +134,11 @@ public class WeaponController : MonoBehaviour
             {
                 end = hit.point;
                 IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
-                bool body = target != null && !target.IsDead;
-                if (body && target.Team != shooterTeam)
+                bool body = target != null && !target.IsDead && !(target is IStructure);
+                if (target != null && !target.IsDead && target.Team != shooterTeam)
                 {
-                    bool head = hit.point.y - target.transform.position.y > 0.55f;
-                    float damage = weaponData.damage * (head ? 2f : 1f);
+                    bool head = body && hit.point.y - target.transform.position.y > 0.55f;
+                    float damage = weaponData.damage * (head ? 2f : 1f) * (owner != null ? owner.DamageMultiplier(target) : 1f);
                     var hitPlayer = target as PlayerController;
                     if (hitPlayer != null)
                         hitPlayer.MarkHitFrom(transform.position);

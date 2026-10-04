@@ -13,7 +13,7 @@ public enum BotAir
 /// picks the nearest visible enemy, closes distance and shoots with human-like reaction time,
 /// inaccuracy and the odd grenade.
 /// </summary>
-public class BotAgent : MonoBehaviour, IDamageable
+public partial class BotAgent : MonoBehaviour, IDamageable
 {
     public int team;
     public string botName = "Bot";
@@ -55,7 +55,7 @@ public class BotAgent : MonoBehaviour, IDamageable
 
     public int Team { get { return team; } }
     public bool IsDead { get { return isDead; } }
-    public bool IsAirborne { get { return air != BotAir.None; } }
+    public bool IsAirborne { get { return air != BotAir.None && !launchGlide; } }
     public string DisplayName { get { return botName; } }
     public Vector3 AimPoint { get { return transform.position + Vector3.up * 0.4f; } }
 
@@ -122,6 +122,7 @@ public class BotAgent : MonoBehaviour, IDamageable
         wanderTarget = transform.position;
         thinkTimer = Random.Range(0f, 0.4f);
         nextGrenadeTime = Time.time + Random.Range(20f, 60f);
+        InitAbility();
     }
 
     // ----- Drop from the plane -----
@@ -163,6 +164,8 @@ public class BotAgent : MonoBehaviour, IDamageable
 
     private void UpdateAir()
     {
+        if (UpdateLaunch())
+            return;
         float dt = Time.deltaTime;
         if (air == BotAir.Plane)
         {
@@ -185,7 +188,7 @@ public class BotAgent : MonoBehaviour, IDamageable
 
         // Glide far enough to reach landing spots away from the flight path.
         float horizontalMax = air == BotAir.Freefall ? 30f : 15f;
-        float vertical = air == BotAir.Freefall ? -32f : -6f;
+        float vertical = air == BotAir.Freefall ? -32f * (Ability != null && Ability.cls == PlayerClass.Airborne ? 1.15f : 1f) : -6f;
         Vector3 desired = Vector3.ClampMagnitude(toGoal * 0.6f, horizontalMax) + Vector3.up * vertical;
         airVelocity = Vector3.Lerp(airVelocity, desired, dt * 2f);
 
@@ -207,6 +210,7 @@ public class BotAgent : MonoBehaviour, IDamageable
             if (World.IsBlocked(next.x, next.z))
                 transform.position = World.RandomOpenPoint(new Vector3(next.x, 0f, next.z), 14f);
             air = BotAir.None;
+            launchGlide = false;
             controller.enabled = true;
             rig.pose = RigPose.Normal;
             weapon.gameObject.SetActive(true);
@@ -237,6 +241,7 @@ public class BotAgent : MonoBehaviour, IDamageable
             thinkTimer = 0.3f;
             Think(gm);
             Door.PushOpenNear(transform.position, 2f);   // walk through doorways
+            AbilityThink(gm);
         }
 
         if (target != null && (target.IsDead || target.IsAirborne))
@@ -261,6 +266,8 @@ public class BotAgent : MonoBehaviour, IDamageable
             verticalVelocity = -2f;
         verticalVelocity += Gravity * Time.deltaTime;
 
+        move *= SpeedBoostFactor;
+
         // Stay out of deep water.
         Vector3 ahead = transform.position + move * 1.5f;
         if (move.sqrMagnitude > 0.01f && World.HeightAt(ahead.x, ahead.z) < -1.2f &&
@@ -277,7 +284,7 @@ public class BotAgent : MonoBehaviour, IDamageable
             {
                 stepDistance = 0f;
                 var p = PlayerController.LocalPlayer;
-                if (p != null && team != 0 && Vector3.Distance(p.transform.position, transform.position) < 28f)
+                if (p != null && team != 0 && !ClassAbility.IsSilent(this) && Vector3.Distance(p.transform.position, transform.position) < 28f)
                     Sfx.PlayAt(SoundBank.Footstep, transform.position - Vector3.up * 0.8f, 0.8f, Random.Range(0.85f, 1.1f));
             }
         }
@@ -303,6 +310,8 @@ public class BotAgent : MonoBehaviour, IDamageable
             float d = Vector3.Distance(transform.position, c.transform.position);
             if (d >= bestDist)
                 continue;
+            if (ClassAbility.IsStealthed(c) && d > 7f)
+                continue;   // Gölge: only seen up close
 
             if (HasLineOfSight(eye, c))
             {
@@ -500,7 +509,8 @@ public class BotAgent : MonoBehaviour, IDamageable
         nextShotTime = Time.time + weapon.weaponData.fireRate * 2.2f + Random.Range(0f, 0.2f);
 
         bool killed;
-        weapon.TryFire(origin, aim, team, ~0, accuracy, out killed);
+        if (weapon.TryFire(origin, aim, team, ~0, accuracy, out killed) && Ability != null)
+            Ability.EndStealth();
     }
 
     private void TryGrenade()
@@ -555,6 +565,16 @@ public class BotAgent : MonoBehaviour, IDamageable
     private void Die(int attackerTeam)
     {
         isDead = true;
+        if (Ability != null)
+            Ability.EndStealth();
+        if (air != BotAir.None)
+        {
+            // Shot down while gliding after a launch: fall to the ground.
+            air = BotAir.None;
+            launchGlide = false;
+            launchTargetY = 0f;
+            transform.position = new Vector3(transform.position.x, World.GroundHeight(transform.position.x, transform.position.z) + 0.9f, transform.position.z);
+        }
         controller.enabled = false;     // corpse no longer blocks shots or movement
         weapon.gameObject.SetActive(false);
         rig.pose = RigPose.Dead;

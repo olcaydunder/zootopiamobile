@@ -23,7 +23,7 @@ public class TouchControls : MonoBehaviour
     }
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
-    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued;
+    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued;
     private Image aimImage;
 
     private Canvas canvas;
@@ -47,6 +47,10 @@ public class TouchControls : MonoBehaviour
     private GameObject swapButton;
     private GameObject vehicleButton;
     private GameObject doorButton;
+    private Image abilityImage, abilityShade;
+    private Text abilityTimer, abilityCharges, abilityName;
+    private GameObject abilityLevel;
+    private string abilityIconShown;
     private Text doorLabel;
     private GameObject airButton;
 
@@ -68,6 +72,7 @@ public class TouchControls : MonoBehaviour
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
     public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
+    public bool ConsumeAbility() { bool v = abilityQueued; abilityQueued = false; return v; }
     public bool ConsumeDoor() { bool v = doorQueued; doorQueued = false; return v; }
     public bool ConsumeAim() { bool v = aimQueued; aimQueued = false; return v; }
 
@@ -119,6 +124,26 @@ public class TouchControls : MonoBehaviour
         aim.onClick.AddListener(() => aimQueued = true);
         aimImage = aim.GetComponent<Image>();
 
+        // Class ability: the class badge with a cooldown ring, seconds left, level-2 and charge badges.
+        var abilityBtn = UIUtil.CreateButton(g, "", new Vector2(1f, 0f), new Vector2(-250f, 700f), new Vector2(140f, 140f), Color.white, true, 20, out unused);
+        abilityBtn.onClick.AddListener(() => abilityQueued = true);
+        abilityImage = abilityBtn.GetComponent<Image>();
+        abilityShade = UIUtil.CreateImage(abilityBtn.transform, "Cooldown", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(140f, 140f), new Color(0f, 0f, 0f, 0.62f), true);
+        abilityShade.raycastTarget = false;
+        abilityShade.type = Image.Type.Filled;
+        abilityShade.fillMethod = Image.FillMethod.Radial360;
+        abilityShade.fillOrigin = 2;
+        abilityShade.fillClockwise = false;
+        abilityTimer = UIUtil.CreateText(abilityBtn.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(140f, 60f), 40, TextAnchor.MiddleCenter);
+        abilityTimer.fontStyle = FontStyle.Bold;
+        var lv = UIUtil.CreateImage(abilityBtn.transform, "Lv2", new Vector2(1f, 1f), new Vector2(-14f, -14f), new Vector2(46f, 46f), new Color(0.6f, 0.35f, 1f), true);
+        lv.raycastTarget = false;
+        UIUtil.CreateText(lv.transform, "II", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(46f, 46f), 24, TextAnchor.MiddleCenter).fontStyle = FontStyle.Bold;
+        abilityLevel = lv.gameObject;
+        abilityCharges = UIUtil.CreateText(abilityBtn.transform, "", new Vector2(0.5f, 0f), new Vector2(0f, 4f), new Vector2(100f, 30f), 22, TextAnchor.MiddleCenter);
+        abilityCharges.fontStyle = FontStyle.Bold;
+        abilityName = UIUtil.CreateText(abilityBtn.transform, "", new Vector2(0.5f, 0f), new Vector2(0f, -18f), new Vector2(220f, 30f), 20, TextAnchor.MiddleCenter);
+
         var swap = UIUtil.CreateButton(g, "DEĞİŞ", new Vector2(0.5f, 0f), new Vector2(0f, 330f), new Vector2(260f, 56f), ButtonColor, false, 20, out swapLabel);
         swap.onClick.AddListener(() => swapQueued = true);
         swapButton = swap.gameObject;
@@ -157,6 +182,7 @@ public class TouchControls : MonoBehaviour
         RegisterHud("vehicle", "BİN / İN", vehicle);
         RegisterHud("air", "ATLA", airBtn);
         RegisterHud("door", "KAPI", doorBtn);
+        RegisterHud("ability", "SINIF", abilityBtn);
 
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
@@ -199,6 +225,8 @@ public class TouchControls : MonoBehaviour
         if (showVehicle)
             vehicleLabel.text = player.state == PlayerState.Driving ? "İN" : "BİN";
 
+        UpdateAbility(player);
+
         Door door = onFoot ? Door.Nearest(player.transform.position, PlayerController.DoorReach) : null;
         bool showDoor = door != null;
         if (doorButton.activeSelf != showDoor)
@@ -221,6 +249,28 @@ public class TouchControls : MonoBehaviour
             swapButton.SetActive(hasOther);
         if (hasOther)
             swapLabel.text = "Değiş: " + player.OtherWeaponName;
+    }
+
+    private void UpdateAbility(PlayerController player)
+    {
+        var a = player.Ability;
+        if (a == null || a.Def == null)
+            return;
+        if (abilityIconShown != a.Def.icon)
+        {
+            abilityIconShown = a.Def.icon;
+            var s = Icons.Get(a.Def.icon);
+            abilityImage.sprite = s != null ? s : UIUtil.Circle;
+            abilityImage.color = s != null ? Color.white : a.Def.color;
+            abilityName.text = a.Def.ability;
+        }
+        float ready = a.Readiness;
+        abilityShade.fillAmount = 1f - ready;
+        abilityTimer.text = a.Charges > 0 ? "" : Mathf.CeilToInt(a.SecondsLeft).ToString();
+        if (abilityLevel.activeSelf != a.IsLevel2)
+            abilityLevel.SetActive(a.IsLevel2);
+        abilityCharges.text = a.MaxCharges > 1 ? "x" + a.Charges : "";
+        abilityImage.rectTransform.localScale = Vector3.one * (a.StealthActive ? 0.92f + 0.08f * Mathf.Sin(Time.time * 8f) : 1f);
     }
 
     // ----- Custom layout (HUD editor) -----
@@ -283,7 +333,7 @@ public class TouchControls : MonoBehaviour
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
-        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = false;
+        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

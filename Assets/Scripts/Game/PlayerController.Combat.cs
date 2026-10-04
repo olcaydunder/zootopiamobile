@@ -133,8 +133,9 @@ public partial class PlayerController
         }
 
         inventory.medkits--;
-        health = Mathf.Min(maxHealth, health + 40f);
-        if (ui != null) ui.Toast("+40 can");
+        float amount = Ability != null && Ability.cls == PlayerClass.Medic ? 52f : 40f;   // Sahra Hekimi: +30%
+        health = Mathf.Min(maxHealth, health + amount);
+        if (ui != null) ui.Toast("+" + Mathf.RoundToInt(amount) + " can");
         Sfx.Play(SoundBank.Pickup, 0.4f, 0.7f);
         return true;
     }
@@ -157,6 +158,9 @@ public partial class PlayerController
         bool fire = tc != null && tc.FireHeld;
         bool aim = tc != null && tc.ConsumeAim();
         bool door = tc != null && tc.ConsumeDoor();
+        bool ability = tc != null && tc.ConsumeAbility();
+        if (ability)
+            TryUseAbility();
 
         if (door)
         {
@@ -236,6 +240,8 @@ public partial class PlayerController
             if (currentWeapon.TryFire(origin, cam.forward, Team, Physics.DefaultRaycastLayers, extraSpread, out killed))
             {
                 lastFireTime = Time.time;
+                if (Ability != null)
+                    Ability.EndStealth();   // shooting gives you away
                 pitch -= currentWeapon.weaponData.Recoil;
                 transform.Rotate(0f, Random.Range(-0.3f, 0.3f) * currentWeapon.weaponData.Recoil, 0f);
                 Shake(0.08f + currentWeapon.weaponData.Recoil * 0.04f);

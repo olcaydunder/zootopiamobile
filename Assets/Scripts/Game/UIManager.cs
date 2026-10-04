@@ -73,6 +73,12 @@ public class UIManager : MonoBehaviour
     private RectTransform nextZoneRing;
     private RectTransform planeLine;
     private readonly List<RectTransform> allyDots = new List<RectTransform>();
+    private readonly List<RectTransform> markDots = new List<RectTransform>();
+    private readonly List<Image> stationDots = new List<Image>();
+    private readonly List<Image> markedIcons = new List<Image>();
+    private readonly List<Image> footArrows = new List<Image>();
+    private readonly Dictionary<BotAgent, Vector3> botLastPos = new Dictionary<BotAgent, Vector3>();
+    private Text upgradeText;
 
     // Overlays: settings, shop, pause
     private GameObject settingsPanel;
@@ -434,6 +440,25 @@ public class UIManager : MonoBehaviour
             damageArrowTimes.Add(-10f);
         }
 
+        // Class abilities: marked enemies (red diamonds over their heads), K9 footstep arrows, upgrade progress.
+        for (int i = 0; i < 10; i++)
+        {
+            var m = UIUtil.CreateImage(t, "Marked", c, Vector2.zero, new Vector2(24f, 24f), new Color(1f, 0.2f, 0.15f, 0.95f), false);
+            m.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            m.raycastTarget = false;
+            m.enabled = false;
+            markedIcons.Add(m);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            var a = UIUtil.CreateImage(t, "Footstep", c, Vector2.zero, new Vector2(70f, 12f), new Color(1f, 0.6f, 0.15f, 0f), false);
+            a.raycastTarget = false;
+            footArrows.Add(a);
+        }
+        upgradeText = UIUtil.CreateText(t, "", c, new Vector2(0f, -220f), new Vector2(800f, 50f), 34, TextAnchor.MiddleCenter);
+        upgradeText.fontStyle = FontStyle.Bold;
+        upgradeText.color = new Color(0.75f, 0.55f, 1f);
+
         // Knocked-down overlay.
         downedGroup = UIUtil.CreateStretch(t, "Downed").gameObject;
         var dg = downedGroup.transform;
@@ -490,6 +515,19 @@ public class UIManager : MonoBehaviour
             var dot = UIUtil.CreateImage(mapRect, "Ally", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(11f, 11f), new Color(0.3f, 1f, 0.45f), true);
             dot.raycastTarget = false;
             allyDots.Add(dot.rectTransform);
+        }
+
+        for (int i = 0; i < UpgradeStation.Count; i++)
+        {
+            var s = Icons.Create(mapRect, "upgrade_station", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
+            stationDots.Add(s);
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            var d = UIUtil.CreateImage(mapRect, "Marked", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f), new Color(1f, 0.2f, 0.15f), false);
+            d.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            d.raycastTarget = false;
+            markDots.Add(d.rectTransform);
         }
 
         var marker = UIUtil.CreateImage(mapRect, "Player", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(14f, 14f), new Color(1f, 0.85f, 0.2f), true);
@@ -966,6 +1004,7 @@ public class UIManager : MonoBehaviour
         touchControls.UpdateContext(player, vehicleNearby);
 
         UpdateMinimap(gm, player);
+        UpdateAbilityHud(gm, player);
 
         if (toastText.text.Length > 0 && Time.time > toastUntil)
             toastText.text = "";
@@ -1077,5 +1116,85 @@ public class UIManager : MonoBehaviour
         }
         for (; dot < allyDots.Count; dot++)
             allyDots[dot].gameObject.SetActive(false);
+
+        // Upgrade stations the player has not used yet.
+        for (int i = 0; i < stationDots.Count; i++)
+        {
+            var st = i < UpgradeStation.All.Count ? UpgradeStation.All[i] : null;
+            bool show = st != null && !st.UsedBy(player);
+            if (stationDots[i].enabled != show)
+                stationDots[i].enabled = show;
+            if (show)
+                stationDots[i].rectTransform.anchoredPosition = MapPos(st.transform.position);
+        }
+
+        // Enemies marked by the team's abilities.
+        var marked = Marks.MarkedFor(0);
+        for (int i = 0; i < markDots.Count; i++)
+        {
+            bool show = i < marked.Count;
+            if (markDots[i].gameObject.activeSelf != show)
+                markDots[i].gameObject.SetActive(show);
+            if (show)
+                markDots[i].anchoredPosition = MapPos(marked[i].transform.position);
+        }
+    }
+
+    /// <summary>Markers over marked enemies, K9 footstep arrows and the upgrade-station progress.</summary>
+    private void UpdateAbilityHud(GameManager gm, PlayerController player)
+    {
+        var cam = Camera.main;
+        var hudRect = (RectTransform)hudPanel.transform;
+        var marked = Marks.MarkedFor(0);
+        for (int i = 0; i < markedIcons.Count; i++)
+        {
+            bool show = false;
+            if (cam != null && i < marked.Count)
+            {
+                Vector3 sp = cam.WorldToScreenPoint(marked[i].AimPoint + Vector3.up * 0.9f);
+                Vector2 local;
+                if (sp.z > 0f && RectTransformUtility.ScreenPointToLocalPointInRectangle(hudRect, sp, null, out local))
+                {
+                    markedIcons[i].rectTransform.anchoredPosition = local;
+                    float pulse = 1f + 0.15f * Mathf.Sin(Time.time * 8f);
+                    markedIcons[i].rectTransform.localScale = Vector3.one * pulse;
+                    show = true;
+                }
+            }
+            if (markedIcons[i].enabled != show)
+                markedIcons[i].enabled = show;
+        }
+
+        // K9 Eğitmeni passive: arrows toward enemies moving within 25 m.
+        int arrow = 0;
+        bool k9 = player.Ability != null && player.Ability.cls == PlayerClass.K9 && player.state == PlayerState.Ground && cam != null;
+        foreach (var bot in gm.bots)
+        {
+            if (bot == null)
+                continue;
+            Vector3 last;
+            bool moved = botLastPos.TryGetValue(bot, out last) && (bot.transform.position - last).sqrMagnitude > 0.0004f;
+            botLastPos[bot] = bot.transform.position;
+            if (!k9 || arrow >= footArrows.Count || bot.isDead || bot.team == 0 || bot.IsAirborne || !moved || ClassAbility.IsSilent(bot) || ClassAbility.IsStealthed(bot))
+                continue;
+            Vector3 to = bot.transform.position - player.transform.position;
+            if (to.sqrMagnitude > 25f * 25f)
+                continue;
+            to.y = 0f;
+            Vector3 fwd = cam.transform.forward;
+            fwd.y = 0f;
+            float angle = Vector3.SignedAngle(fwd, to, Vector3.up);
+            float rad = angle * Mathf.Deg2Rad;
+            var a = footArrows[arrow++];
+            a.rectTransform.anchoredPosition = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad)) * 235f;
+            a.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -angle);
+            a.color = new Color(1f, 0.6f, 0.15f, 0.55f + 0.3f * (1f - to.magnitude / 25f));
+        }
+        for (; arrow < footArrows.Count; arrow++)
+            if (footArrows[arrow].color.a > 0f)
+                footArrows[arrow].color = new Color(1f, 0.6f, 0.15f, 0f);
+
+        var st = UpgradeStation.PlayerCharging();
+        upgradeText.text = st != null ? "GÜÇLENDİRİLİYOR  %" + Mathf.RoundToInt(Mathf.Clamp01(st.PlayerProgress) * 100f) : "";
     }
 }

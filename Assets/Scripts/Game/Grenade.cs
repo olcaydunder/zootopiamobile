@@ -89,6 +89,7 @@ public class Grenade : MonoBehaviour
                 var hitPlayer = c as PlayerController;
                 if (hitPlayer != null)
                     hitPlayer.MarkHitFrom(pos);
+                damage *= ClassAbility.ExplosionTaken(c);   // Kalkan Ustası takes less
                 bool killed = c.TakeDamage(damage, team);
                 if (killed && !self && thrower is PlayerController)
                     gm.OnPlayerKill();

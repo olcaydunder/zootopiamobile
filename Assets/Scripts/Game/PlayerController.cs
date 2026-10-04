@@ -72,7 +72,8 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
     public int Team { get { return 0; } }
     public bool IsDead { get { return isDead; } }
-    public bool IsAirborne { get { return state == PlayerState.Plane || state == PlayerState.Freefall || state == PlayerState.Parachute; } }
+    /// <summary>In the drop (plane, skydive, parachute). A Paraşütçü launch glide does not count: you can be shot.</summary>
+    public bool IsAirborne { get { return (state == PlayerState.Plane || state == PlayerState.Freefall || state == PlayerState.Parachute) && !launchGlide; } }
     public string DisplayName { get { return GameManager.Instance != null ? GameManager.Instance.profile.playerName : "Oyuncu"; } }
     public Vector3 AimPoint { get { return transform.position + controller.center + Vector3.up * (controller.height * 0.5f - 0.5f); } }
 
@@ -200,7 +201,8 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
         if (boostRemaining > 0f && health < maxHealth)
         {
-            float heal = Mathf.Min(boostRemaining, 3f * Time.deltaTime);
+            float rate = Ability != null && Ability.cls == PlayerClass.Medic ? 6f : 3f;   // Sahra Hekimi: drinks work twice as fast
+            float heal = Mathf.Min(boostRemaining, rate * Time.deltaTime);
             boostRemaining -= heal;
             health = Mathf.Min(maxHealth, health + heal);
         }
@@ -319,6 +321,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         state = PlayerState.Ground;
         isVaulting = false;
         isSwimming = false;
+        InitAbility();
         controller.enabled = false;
         transform.position = spawnPosition;
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);

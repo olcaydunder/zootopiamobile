@@ -144,6 +144,7 @@ public class GameManager : MonoBehaviour
         Physics.SyncTransforms();
 
         plane = AirPlane.Launch();
+        UpgradeStation.SpawnAll();
 
         player.SetLobbyView(false);
         player.ResetForRound(new Vector3(0f, World.HeightAt(0f, 0f) + 0.95f, 0f));
@@ -274,6 +275,9 @@ public class GameManager : MonoBehaviour
         }
         bots.Clear();
         Door.ResetAll();
+        AbilityFx.ClearAll();
+        UpgradeStation.ClearAll();
+        Marks.Clear();
 
         foreach (var v in vehicles)
         {

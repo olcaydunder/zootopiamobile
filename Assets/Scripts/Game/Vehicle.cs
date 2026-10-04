@@ -226,7 +226,7 @@ public class Vehicle : MonoBehaviour, IDamageable
     {
         // The jeep itself is indestructible; the driver takes part of the hit.
         if (driver != null && attackerTeam != Team)
-            return driver.TakeDamage(amount * 0.6f, attackerTeam);
+            return driver.TakeDamage(amount * 0.6f * ClassAbility.VehicleTaken(driver), attackerTeam);
         return false;
     }
 

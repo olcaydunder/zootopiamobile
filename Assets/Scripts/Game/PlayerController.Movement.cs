@@ -28,7 +28,7 @@ public partial class PlayerController
         Vector3 move = transform.right * input.x + transform.forward * input.y;
         move = Vector3.ClampMagnitude(move, 1f);
 
-        float speed = isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : moveSpeed);
+        float speed = (isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : moveSpeed)) * SpeedBoostFactor;
         if (currentWeapon != null && currentWeapon.weaponData != null)
             speed *= Mathf.Clamp(0.85f + 0.15f * currentWeapon.weaponData.mobilityMul, 0.75f, 1.15f);
         if (aimingDownSights)
@@ -47,7 +47,8 @@ public partial class PlayerController
             if (stepDistance > stride)
             {
                 stepDistance = 0f;
-                Sfx.Play(SoundBank.Footstep, isCrouching ? 0.08f : 0.22f, Random.Range(0.85f, 1.1f));
+                float vol = (isCrouching ? 0.08f : 0.22f) * (Ability != null && Ability.cls == PlayerClass.Shadow ? 0.3f : 1f);
+                Sfx.Play(SoundBank.Footstep, vol, Random.Range(0.85f, 1.1f));
             }
         }
         rig.crouched = isCrouching;
@@ -124,6 +125,8 @@ public partial class PlayerController
 
     private void UpdateAir(IPlayerInput tc)
     {
+        if (UpdateLaunch())
+            return;
         float dt = Time.deltaTime;
         Vector2 input = MoveInput(tc);
         Vector3 fwd = transform.forward;
@@ -136,7 +139,7 @@ public partial class PlayerController
         Vector3 target;
         if (state == PlayerState.Freefall)
         {
-            float dive = input.y > 0.5f ? -40f : -30f;
+            float dive = (input.y > 0.5f ? -40f : -30f) * (Ability != null && Ability.cls == PlayerClass.Airborne ? 1.15f : 1f);   // Paraşütçü
             target = fwd * (input.y * 22f) + right * (input.x * 12f) + Vector3.up * dive;
             if (action || HeightAboveGround < 45f)
                 OpenParachute();
@@ -180,6 +183,7 @@ public partial class PlayerController
             position = World.RandomOpenPoint(new Vector3(position.x, 0f, position.z).normalized * (World.IslandRadius - 15f), 8f);
         transform.position = position;
         state = PlayerState.Ground;
+        launchGlide = false;
         controller.enabled = true;
         velocity = Vector3.zero;
         rig.pose = RigPose.Normal;
@@ -262,6 +266,10 @@ public partial class PlayerController
     {
         EndVault();
         StopSwim();
+        if (Ability != null)
+            Ability.EndStealth();
+        if (state == PlayerState.Parachute || state == PlayerState.Freefall)
+            Land(new Vector3(transform.position.x, World.GroundHeight(transform.position.x, transform.position.z) + 0.95f, transform.position.z));
         isDowned = true;
         health = maxHealth;            // now bleed-out health
         boostRemaining = 0f;
