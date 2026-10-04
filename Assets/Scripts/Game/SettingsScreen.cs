@@ -211,6 +211,7 @@ public class SettingsScreen : MonoBehaviour
         Segments("SOL OYUN KOLU MODU", new[] { "SABİT POZİSYON", "SOL KONTROL" }, () => GameSettings.JoystickMode, v => GameSettings.JoystickMode = v);
         Segments("SOL ATEŞ DÜĞMESİNİ GÖSTER", new[] { "AÇIK", "KAPALI" }, () => GameSettings.LeftFireButton ? 0 : 1, v => GameSettings.LeftFireButton = v == 0);
         Slider("DÜĞME GÖRÜNÜRLÜĞÜ", 30f, 100f, 5f, () => GameSettings.ButtonOpacity * 100f, v => GameSettings.ButtonOpacity = v / 100f, "0'%'");
+        ActionRow("DÜĞME YERLEŞİMİ (HUD)", "DÜZENLE", () => HudEditorScreen.Open(transform.parent));
 
         Header("HİSSİYAT");
         Segments("TİTREŞİM", new[] { "AÇIK", "KAPALI" }, () => GameSettings.Vibration ? 0 : 1, v => GameSettings.Vibration = v == 0);
@@ -334,6 +335,17 @@ public class SettingsScreen : MonoBehaviour
         t.rectTransform.pivot = new Vector2(0f, 0.5f);
         right = UIUtil.CreateRect(row, "Right", new Vector2(1f, 0.5f), new Vector2(-330f, 0f), new Vector2(640f, 64f));
         return row;
+    }
+
+    private void ActionRow(string label, string buttonText, System.Action action)
+    {
+        RectTransform right;
+        LabeledRow(label, out right);
+        Text text;
+        var b = UIUtil.CreateButton(right, buttonText, new Vector2(1f, 0.5f), new Vector2(-130f, 0f), new Vector2(260f, 56f), Cyan, false, 28, out text);
+        text.color = new Color(0.08f, 0.12f, 0.14f);
+        text.GetComponent<Shadow>().enabled = false;
+        b.onClick.AddListener(() => action());
     }
 
     private void Segments(string label, string[] options, System.Func<int> get, System.Action<int> set, bool small = false)

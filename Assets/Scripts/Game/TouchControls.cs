@@ -103,14 +103,14 @@ public class TouchControls : MonoBehaviour
         var fireL = UIUtil.CreateButton(g, "ATEŞ", Vector2.zero, new Vector2(250f, 560f), new Vector2(130f, 130f), FireColor, true, 22, out unused);
         leftFire = fireL.gameObject.AddComponent<HoldButton>();
 
-        UIUtil.CreateButton(g, "ZIPLA", new Vector2(1f, 0f), new Vector2(-470f, 130f), new Vector2(130f, 130f), ButtonColor, true, 22, out unused)
-            .onClick.AddListener(() => jumpQueued = true);
-        UIUtil.CreateButton(g, "EĞİL", new Vector2(1f, 0f), new Vector2(-470f, 300f), new Vector2(120f, 120f), ButtonColor, true, 22, out unused)
-            .onClick.AddListener(() => crouchQueued = true);
-        UIUtil.CreateButton(g, "DOLDUR", new Vector2(1f, 0f), new Vector2(-230f, 500f), new Vector2(130f, 130f), ButtonColor, true, 20, out unused)
-            .onClick.AddListener(() => reloadQueued = true);
-        UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel)
-            .onClick.AddListener(() => grenadeQueued = true);
+        var jump = UIUtil.CreateButton(g, "ZIPLA", new Vector2(1f, 0f), new Vector2(-470f, 130f), new Vector2(130f, 130f), ButtonColor, true, 22, out unused);
+        jump.onClick.AddListener(() => jumpQueued = true);
+        var crouch = UIUtil.CreateButton(g, "EĞİL", new Vector2(1f, 0f), new Vector2(-470f, 300f), new Vector2(120f, 120f), ButtonColor, true, 22, out unused);
+        crouch.onClick.AddListener(() => crouchQueued = true);
+        var reload = UIUtil.CreateButton(g, "DOLDUR", new Vector2(1f, 0f), new Vector2(-230f, 500f), new Vector2(130f, 130f), ButtonColor, true, 20, out unused);
+        reload.onClick.AddListener(() => reloadQueued = true);
+        var grenade = UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel);
+        grenade.onClick.AddListener(() => grenadeQueued = true);
 
         var aim = UIUtil.CreateButton(g, "NİŞAN", new Vector2(1f, 0f), new Vector2(-660f, 470f), new Vector2(115f, 115f), ButtonColor, true, 20, out unused);
         aim.onClick.AddListener(() => aimQueued = true);
@@ -134,6 +134,22 @@ public class TouchControls : MonoBehaviour
         airBtn.onClick.AddListener(() => airQueued = true);
         airButton = airBtn.gameObject;
 
+        // Everything the player may move or resize in the HUD editor.
+        RegisterHud("stick", "HAREKET", stickBase);
+        RegisterHud("sprint", "KOŞ", sprint);
+        RegisterHud("fireR", "ATEŞ", fireR);
+        RegisterHud("fireL", "SOL ATEŞ", fireL);
+        RegisterHud("jump", "ZIPLA", jump);
+        RegisterHud("crouch", "EĞİL", crouch);
+        RegisterHud("reload", "DOLDUR", reload);
+        RegisterHud("grenade", "BOMBA", grenade);
+        RegisterHud("aim", "NİŞAN", aim);
+        RegisterHud("swap", "DEĞİŞ", swap);
+        RegisterHud("medkit", "İLK YARDIM", medkit);
+        RegisterHud("drink", "İÇECEK", drink);
+        RegisterHud("vehicle", "BİN / İN", vehicle);
+        RegisterHud("air", "ATLA", airBtn);
+
         vehicleButton.SetActive(false);
         airButton.SetActive(false);
         foreach (var feel in GetComponentsInChildren<ButtonFeel>(true))
@@ -144,6 +160,7 @@ public class TouchControls : MonoBehaviour
     /// <summary>Applies the control options from the settings screen.</summary>
     public void ApplySettings()
     {
+        ApplyLayout();
         if (leftFire != null)
             leftFire.gameObject.SetActive(GameSettings.LeftFireButton);
         if (group != null)
@@ -188,6 +205,55 @@ public class TouchControls : MonoBehaviour
             swapButton.SetActive(hasOther);
         if (hasOther)
             swapLabel.text = "Değiş: " + player.OtherWeaponName;
+    }
+
+    // ----- Custom layout (HUD editor) -----
+
+    /// <summary>A touch control as built by default; the HUD editor draws its preview from this.</summary>
+    public class HudControl
+    {
+        public string key, label;
+        public RectTransform rect;
+        public Vector2 anchor, basePos, size;
+        public Color color;
+        public bool round;
+    }
+
+    private readonly List<HudControl> hudControls = new List<HudControl>();
+    public List<HudControl> HudControls { get { return hudControls; } }
+
+    private void RegisterHud(string key, string label, Component c)
+    {
+        var rect = (RectTransform)c.transform;
+        var img = c.GetComponent<Image>();
+        hudControls.Add(new HudControl
+        {
+            key = key,
+            label = label,
+            rect = rect,
+            anchor = rect.anchorMin,
+            basePos = rect.anchoredPosition,
+            size = rect.sizeDelta,
+            color = img != null ? img.color : ButtonColor,
+            round = img != null && img.sprite != null
+        });
+    }
+
+    /// <summary>Moves and resizes the controls to the saved custom layout.</summary>
+    public void ApplyLayout()
+    {
+        foreach (var c in hudControls)
+        {
+            var e = HudLayout.Get(c.key);
+            Vector2 pos = c.basePos + e.offset;
+            c.rect.localScale = new Vector3(e.scale, e.scale, 1f);
+            if (c.key == "stick")
+                stickHome = pos;          // the floating stick returns here
+            else if (c.key == "fireR")
+                rightFireHome = pos;      // the following fire button returns here
+            else
+                c.rect.anchoredPosition = pos;
+        }
     }
 
     public void ResetState()
