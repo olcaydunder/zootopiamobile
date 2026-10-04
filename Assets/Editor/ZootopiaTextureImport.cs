@@ -5,6 +5,9 @@ using UnityEngine;
 /// 1K max, mipmaps, trilinear, repeat, compressed (ETC2/ASTC on Android).</summary>
 public class ZootopiaTextureImport : AssetPostprocessor
 {
+    /// <summary>Bump when these rules change so Unity re-imports the affected assets.</summary>
+    public override uint GetVersion() { return 3; }
+
     private void OnPreprocessTexture()
     {
         string path = assetPath.Replace('\\', '/');
@@ -32,5 +35,14 @@ public class ZootopiaTextureImport : AssetPostprocessor
         ti.filterMode = FilterMode.Trilinear;
         ti.wrapMode = TextureWrapMode.Repeat;
         ti.textureCompression = TextureImporterCompression.Compressed;
+    }
+
+    /// <summary>Vehicle models keep their Blender material names ("Paint" is swapped for camouflage).</summary>
+    private void OnPreprocessModel()
+    {
+        if (!assetPath.Replace('\\', '/').Contains("Models/Vehicles/"))
+            return;
+        var mi = (ModelImporter)assetImporter;
+        mi.materialName = ModelImporterMaterialName.BasedOnMaterialName;
     }
 }

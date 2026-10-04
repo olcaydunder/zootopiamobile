@@ -17,6 +17,18 @@ public partial class PlayerController
         }
         if (CheckSwim())
         {
+            // Climb into a boat (or anything) right next to you.
+            if (tc != null && tc.ConsumeVehicle())
+            {
+                var gm = GameManager.Instance;
+                Vehicle near = gm != null ? gm.NearestVehicle(transform.position, 4.5f) : null;
+                if (near != null)
+                {
+                    StopSwim();
+                    EnterVehicle(near);
+                    return;
+                }
+            }
             UpdateSwim(tc);
             return;
         }
@@ -210,25 +222,47 @@ public partial class PlayerController
         if (isCrouching)
             SetCrouch(false);
         rig.pose = RigPose.Driving;
+        rig.SetVisible(!v.def.hideDriver);
         currentWeapon.gameObject.SetActive(false);
-        camTarget = 7f;
+        camTarget = v.def.camDistance;
         lookYaw = 0f;
+        Sfx.Play(SoundBank.Reload, 0.4f, 0.7f);
+    }
+
+    /// <summary>Thrown out (the vehicle was destroyed).</summary>
+    public void ForceExitVehicle()
+    {
+        ExitVehicle();
     }
 
     private void ExitVehicle()
     {
         if (vehicle == null)
             return;
-        transform.position = vehicle.ExitPosition();
-        transform.rotation = Quaternion.Euler(0f, vehicle.Yaw, 0f);
-        vehicle.SetDriver(null);
+        var v = vehicle;
+        transform.position = v.ExitPosition();
+        transform.rotation = Quaternion.Euler(0f, v.Yaw, 0f);
+        v.SetDriver(null);
         vehicle = null;
+        rig.SetVisible(true);
+        cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        if (v.def.flying && v.HeightAboveGround > 4f)
+        {
+            // Jumping out of a flying helicopter: skydive, the parachute opens on its own.
+            state = PlayerState.Freefall;
+            airVelocity = v.transform.forward * Mathf.Max(0f, v.speed) * 0.6f;
+            rig.pose = RigPose.Freefall;
+            rig.parachuteCamo = Cosmetics.EquippedParachuteCamo;
+            camTarget = 6f;
+            wind.Play();
+            Sfx.Play(SoundBank.Whoosh, 0.6f);
+            return;
+        }
         state = PlayerState.Ground;
         controller.enabled = true;
         rig.pose = RigPose.Normal;
         currentWeapon.gameObject.SetActive(true);
         camTarget = 3.6f;
-        cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
     private void UpdateDriving(GameManager gm, IPlayerInput tc)
@@ -247,9 +281,21 @@ public partial class PlayerController
             return;
         }
 
-        vehicle.Drive(MoveInput(tc), Time.deltaTime);
+        if (vehicle.Destroyed)
+        {
+            ExitVehicle();
+            return;
+        }
+        vehicle.Drive(MoveInput(tc), tc != null ? tc.VerticalAxis : 0f, Time.deltaTime);
         transform.position = vehicle.SeatPosition;
         transform.rotation = Quaternion.Euler(0f, vehicle.Yaw, 0f);
+
+        if (vehicle.def.cannon)
+        {
+            vehicle.AimTurret(playerCamera.transform.forward, Time.deltaTime);
+            if (tc != null && tc.FireHeld && vehicle.FireCannon(this))
+                Haptics.Tap(60);
+        }
 
         if (vehicle.transform.position.y < -5f)
             TakeDamage(9999f, -1);

@@ -36,6 +36,18 @@ public class LocalPlayerInput : IPlayerInput
         }
     }
 
+    public float VerticalAxis
+    {
+        get
+        {
+            var tc = Touch;
+            float v = tc != null ? tc.VerticalAxis : 0f;
+            if (Input.GetKey(KeyCode.Space)) v = 1f;
+            if (Input.GetKey(KeyCode.LeftControl)) v = -1f;
+            return v;
+        }
+    }
+
     public bool SprintHeld
     {
         get { var tc = Touch; return Input.GetKey(KeyCode.LeftShift) || (tc != null && tc.SprintOn); }

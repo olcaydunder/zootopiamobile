@@ -76,6 +76,7 @@ public class UIManager : MonoBehaviour
     private readonly List<RectTransform> markDots = new List<RectTransform>();
     private readonly List<Image> stationDots = new List<Image>();
     private readonly List<Image> airdropDots = new List<Image>();
+    private readonly List<Image> vehicleDots = new List<Image>();
     private readonly List<Vector3> supplyScratch = new List<Vector3>();
     private readonly List<Image> markedIcons = new List<Image>();
     private readonly List<Image> footArrows = new List<Image>();
@@ -524,6 +525,12 @@ public class UIManager : MonoBehaviour
         {
             var s = Icons.Create(mapRect, "upgrade_station", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             stationDots.Add(s);
+        }
+        for (int i = 0; i < 24; i++)
+        {
+            var vi = Icons.Create(mapRect, "veh_offroad", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 13f));
+            vi.color = new Color(1f, 1f, 1f, 0.85f);
+            vehicleDots.Add(vi);
         }
         for (int i = 0; i < 4; i++)
             airdropDots.Add(Icons.Create(mapRect, "airdrop_crate", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24f, 24f)));
@@ -990,14 +997,19 @@ public class UIManager : MonoBehaviour
         }
         else
         {
-            weaponText.text = player.state == PlayerState.Driving ? "Cip" : "";
+            weaponText.text = player.state == PlayerState.Driving && player.vehicle != null ? player.vehicle.DisplayName : "";
             ammoText.text = "";
         }
 
         if (player.IsAirborne)
             altitudeText.text = (player.state == PlayerState.Plane ? "Uçakta  " : "") + "Yükseklik " + Mathf.Max(0, Mathf.RoundToInt(player.HeightAboveGround)) + " m";
         else if (player.state == PlayerState.Driving && player.vehicle != null)
-            altitudeText.text = Mathf.RoundToInt(Mathf.Abs(player.vehicle.speed) * 3.6f) + " km/s";
+        {
+            var veh = player.vehicle;
+            altitudeText.text = Mathf.RoundToInt(Mathf.Abs(veh.speed) * 3.6f) + " km/s" +
+                (veh.def.flying ? "   •   " + Mathf.RoundToInt(veh.HeightAboveGround) + " m" : "") +
+                "   •   Araç %" + Mathf.CeilToInt(veh.Health01 * 100f);
+        }
         else
             altitudeText.text = "";
 
@@ -1133,6 +1145,34 @@ public class UIManager : MonoBehaviour
             if (show)
                 stationDots[i].rectTransform.anchoredPosition = MapPos(st.transform.position);
         }
+
+        // Empty vehicles (and the tank drop).
+        int vd = 0;
+        foreach (var v in gm.vehicles)
+        {
+            if (vd >= vehicleDots.Count)
+                break;
+            if (v == null || v.Destroyed || v.driver != null)
+                continue;
+            var img = vehicleDots[vd++];
+            if (img.sprite == null || img.sprite.name != v.def.icon)
+                Icons.Set(img, v.def.icon);
+            img.color = v.def.cannon || v.def.flying ? new Color(1f, 0.8f, 0.3f, 1f) : new Color(1f, 1f, 1f, 0.85f);
+            Place(img, v.transform.position);
+        }
+        foreach (var drop in TankDrop.Active)
+        {
+            if (drop == null || vd >= vehicleDots.Count)
+                continue;
+            var img = vehicleDots[vd++];
+            if (img.sprite == null || img.sprite.name != "veh_tank")
+                Icons.Set(img, "veh_tank");
+            img.color = new Color(1f, 0.5f, 0.2f, 0.6f + 0.4f * Mathf.Sin(Time.time * 6f));
+            Place(img, drop.Target);
+        }
+        for (; vd < vehicleDots.Count; vd++)
+            if (vehicleDots[vd].enabled)
+                vehicleDots[vd].enabled = false;
 
         // Air drops: on the way (smoke) and landed but not opened.
         int ad = 0;

@@ -14,6 +14,8 @@ public interface IPlayerInput
     /// <summary>Desktop mouse-look axes this frame (raw), zero on mobile or when not held.</summary>
     Vector2 MouseLook { get; }
     bool SprintHeld { get; }
+    /// <summary>Helicopter climb (+1) / descend (-1).</summary>
+    float VerticalAxis { get; }
     bool FireHeld { get; }
 
     bool ConsumeJump();

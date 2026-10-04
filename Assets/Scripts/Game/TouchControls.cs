@@ -19,8 +19,23 @@ public class TouchControls : MonoBehaviour
 
     public bool FireHeld
     {
-        get { return (rightFire != null && rightFire.Held) || (leftFire != null && leftFire.Held); }
+        get { return (rightFire != null && rightFire.Held) || (leftFire != null && leftFire.Held) || (cannonFire != null && cannonFire.Held); }
     }
+
+    /// <summary>Helicopter: +1 while YÜKSEL is held, -1 for ALÇAL.</summary>
+    public float VerticalAxis
+    {
+        get
+        {
+            if (climbButton != null && climbButton.Held) return 1f;
+            if (descendButton != null && descendButton.Held) return -1f;
+            return 0f;
+        }
+    }
+
+    private HoldButton cannonFire, climbButton, descendButton;
+    private GameObject cannonObj, climbObj, descendObj;
+    private Image cannonReady;
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
     private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued, airdropQueued, boostQueued;
@@ -174,6 +189,25 @@ public class TouchControls : MonoBehaviour
         vehicle.onClick.AddListener(() => vehicleQueued = true);
         vehicleButton = vehicle.gameObject;
 
+        // Vehicle controls: tank cannon, helicopter climb / descend (shown only while driving those).
+        var cannon = UIUtil.CreateButton(root, "TOP", new Vector2(1f, 0f), new Vector2(-230f, 260f), new Vector2(200f, 200f), new Color(0.9f, 0.45f, 0.15f, 0.65f), true, 36, out unused);
+        cannonFire = cannon.gameObject.AddComponent<HoldButton>();
+        cannonObj = cannon.gameObject;
+        cannonReady = UIUtil.CreateImage(cannon.transform, "Reload", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(200f, 200f), new Color(0f, 0f, 0f, 0.55f), true);
+        cannonReady.raycastTarget = false;
+        cannonReady.type = Image.Type.Filled;
+        cannonReady.fillMethod = Image.FillMethod.Radial360;
+        cannonReady.fillOrigin = 2;
+        var climb = UIUtil.CreateButton(root, "YÜKSEL", new Vector2(1f, 0f), new Vector2(-230f, 400f), new Vector2(170f, 120f), new Color(0.3f, 0.6f, 1f, 0.55f), false, 26, out unused);
+        climbButton = climb.gameObject.AddComponent<HoldButton>();
+        climbObj = climb.gameObject;
+        var descend = UIUtil.CreateButton(root, "ALÇAL", new Vector2(1f, 0f), new Vector2(-230f, 250f), new Vector2(170f, 120f), new Color(0.3f, 0.6f, 1f, 0.4f), false, 26, out unused);
+        descendButton = descend.gameObject.AddComponent<HoldButton>();
+        descendObj = descend.gameObject;
+        cannonObj.SetActive(false);
+        climbObj.SetActive(false);
+        descendObj.SetActive(false);
+
         var doorBtn = UIUtil.CreateButton(root, "KAPI", new Vector2(1f, 0f), new Vector2(-470f, 590f), new Vector2(150f, 80f), new Color(0.55f, 0.4f, 0.25f, 0.65f), false, 24, out doorLabel);
         doorBtn.onClick.AddListener(() => doorQueued = true);
         doorButton = doorBtn.gameObject;
@@ -198,6 +232,9 @@ public class TouchControls : MonoBehaviour
         RegisterHud("vehicle", "BİN / İN", vehicle);
         RegisterHud("air", "ATLA", airBtn);
         RegisterHud("door", "KAPI", doorBtn);
+        RegisterHud("cannon", "TOP", cannon);
+        RegisterHud("climb", "YÜKSEL", climb);
+        RegisterHud("descend", "ALÇAL", descend);
         RegisterHud("ability", "SINIF", abilityBtn);
         RegisterHud("tokenAirdrop", "İKMAL", airdropTok);
         RegisterHud("tokenBoost", "GÜÇLEN", boostTok);
@@ -237,7 +274,19 @@ public class TouchControls : MonoBehaviour
         if (showAir)
             airLabel.text = player.state == PlayerState.Plane ? "ATLA" : "PARAŞÜT";
 
-        bool showVehicle = player.state == PlayerState.Driving || (onFoot && vehicleNearby);
+        bool showVehicle = player.state == PlayerState.Driving || (player.state == PlayerState.Ground && !player.isDowned && vehicleNearby);
+        var veh = player.state == PlayerState.Driving ? player.vehicle : null;
+        bool tank = veh != null && veh.def.cannon;
+        bool heli = veh != null && veh.def.flying;
+        if (cannonObj.activeSelf != tank)
+            cannonObj.SetActive(tank);
+        if (tank)
+            cannonReady.fillAmount = 1f - veh.CannonReady01;
+        if (climbObj.activeSelf != heli)
+        {
+            climbObj.SetActive(heli);
+            descendObj.SetActive(heli);
+        }
         if (vehicleButton.activeSelf != showVehicle)
             vehicleButton.SetActive(showVehicle);
         if (showVehicle)

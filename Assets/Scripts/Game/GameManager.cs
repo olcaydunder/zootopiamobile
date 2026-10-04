@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
     public readonly List<BotAgent> bots = new List<BotAgent>();
     public readonly List<IDamageable> Combatants = new List<IDamageable>();
     public readonly List<Vehicle> vehicles = new List<Vehicle>();
+    private bool tankDropped;
     public AirPlane plane;
 
     public SafeZoneController safeZone;
@@ -212,11 +213,8 @@ public class GameManager : MonoBehaviour
             bot.BoardPlane(plane, jumpAt, landing, false);
         }
 
-        for (int v = 0; v < World.VehicleSpots.Count; v++)
-        {
-            float yaw = v < World.VehicleYaws.Count ? World.VehicleYaws[v] : Random.Range(0f, 360f);
-            vehicles.Add(Vehicle.Spawn(World.VehicleSpots[v], yaw, JeepColors[Random.Range(0, JeepColors.Length)]));
-        }
+        VehicleSpawns.SpawnAll(vehicles);
+        tankDropped = false;
 
         lootSystem.SpawnLoot(70);
         safeZone.Init(Vector3.zero, MapData.Loaded ? MapData.PlayHalf * 1.42f + 10f : World.IslandRadius * 1.15f);
@@ -278,6 +276,7 @@ public class GameManager : MonoBehaviour
         Door.ResetAll();
         AbilityFx.ClearAll();
         UpgradeStation.ClearAll();
+        VehicleSpawns.ClearPads();
         Marks.Clear();
 
         foreach (var v in vehicles)
@@ -431,15 +430,29 @@ public class GameManager : MonoBehaviour
         return teams.Count;
     }
 
+    private void Update()
+    {
+        // The tank comes down once per match, when the zone starts its second phase.
+        if (currentState == GameState.InGame && !tankDropped && safeZone != null && safeZone.active && safeZone.Phase >= 2)
+        {
+            tankDropped = true;
+            Vector3 p = World.RandomOpenPoint(safeZone.center, safeZone.radius * 0.5f);
+            TankDrop.Launch(new Vector3(p.x, World.GroundHeight(p.x, p.z), p.z));
+            if (uiManager != null)
+                uiManager.Toast("TANK İKMALİ İNİYOR!  Haritada işaretli");
+        }
+    }
+
     public Vehicle NearestVehicle(Vector3 position, float maxDistance)
     {
         Vehicle best = null;
         float bestDist = maxDistance;
         foreach (var v in vehicles)
         {
-            if (v == null || v.driver != null)
+            if (v == null || v.driver != null || v.Destroyed)
                 continue;
-            float d = Vector3.Distance(position, v.transform.position);
+            // Measured from the vehicle's edge, so long vehicles and helicopters are easy to board.
+            float d = Vector3.Distance(position, v.transform.position) - (v.def != null ? v.def.ccRadius * 1.4f : 0f);
             if (d < bestDist)
             {
                 best = v;
