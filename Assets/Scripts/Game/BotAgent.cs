@@ -128,6 +128,38 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         InitAbility();
     }
 
+    // ----- 5v5 -----
+
+    /// <summary>Stands the bot on the ground (5v5 start: no plane).</summary>
+    public void PlaceAt(Vector3 ground)
+    {
+        air = BotAir.None;
+        controller.enabled = false;
+        transform.position = ground + Vector3.up * 0.95f;
+        controller.enabled = true;
+        verticalVelocity = 0f;
+        wanderTarget = transform.position;
+    }
+
+    /// <summary>5v5: back in the fight at its team's side with a full gun.</summary>
+    public void Respawn(Vector3 ground)
+    {
+        CancelInvoke("HideCorpse");
+        gameObject.SetActive(true);
+        isDead = false;
+        health = 100f;
+        armor = 40f;
+        grenades = 1;
+        target = null;
+        targetVisible = false;
+        weapon.gameObject.SetActive(true);
+        if (weapon.weaponData != null)
+            weapon.Initialize(weapon.weaponData, weaponModel);
+        rig.ResetPose();
+        rig.pose = RigPose.Normal;
+        PlaceAt(ground);
+    }
+
     // ----- Drop from the plane -----
 
     public void BoardPlane(AirPlane dropPlane, float jumpProgress, Vector3 landing, bool followsPlayer)
@@ -479,17 +511,44 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             return Vector3.zero;
         }
 
-        // Wander.
+        // Wander (5v5: hunt — head for where the other team is).
         wanderTimer -= Time.deltaTime;
         Vector3 toWander = wanderTarget - transform.position;
         toWander.y = 0f;
         if (wanderTimer <= 0f || toWander.magnitude < 2f)
         {
+            if (gm.IsTeamMatch)
+            {
+                wanderTimer = Random.Range(2.5f, 5f);
+                wanderTarget = NearestEnemyArea(gm);
+                return toWander.normalized * 0.9f;
+            }
             wanderTimer = Random.Range(4f, 9f);
             wanderTarget = zone != null ? zone.RandomPointInside(0.7f) : transform.position + Random.insideUnitSphere * 10f;
             return Vector3.zero;
         }
-        return toWander.normalized * 0.75f;
+        return toWander.normalized * (gm.IsTeamMatch ? 1f : 0.75f);
+    }
+
+    private Vector3 NearestEnemyArea(GameManager gm)
+    {
+        IDamageable best = null;
+        float bestDist = float.MaxValue;
+        foreach (var c in gm.Combatants)
+        {
+            if (c == null || c.IsDead || c.Team == team)
+                continue;
+            float d = (c.transform.position - transform.position).sqrMagnitude;
+            if (d < bestDist)
+            {
+                best = c;
+                bestDist = d;
+            }
+        }
+        if (best == null)
+            return gm.safeZone != null ? gm.safeZone.RandomPointInside(0.6f) : transform.position;
+        Vector2 off = Random.insideUnitCircle * 9f;
+        return best.transform.position + new Vector3(off.x, 0f, off.y);
     }
 
     private void TryShoot(GameManager gm)
@@ -587,7 +646,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         var gm = GameManager.Instance;
         if (gm != null)
         {
-            if (gm.lootSystem != null)
+            if (gm.lootSystem != null && !gm.IsTeamMatch)
                 gm.lootSystem.DropDeathCrate(transform.position);
             gm.OnBotEliminated(this, attackerTeam);
         }

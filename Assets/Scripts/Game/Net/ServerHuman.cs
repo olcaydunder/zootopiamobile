@@ -64,6 +64,19 @@ public class ServerHuman : MonoBehaviour, IDamageable
         body.enabled = !IsAirborne;
     }
 
+    /// <summary>5v5: back on the ground (the phone sends its states again from there).</summary>
+    public void Revive(Vector3 position)
+    {
+        dead = false;
+        flags = 0;
+        weapon = -1;
+        health = 100f;
+        armor = 50f;
+        transform.position = position;
+        if (body != null)
+            body.enabled = true;
+    }
+
     public void MarkDead()
     {
         dead = true;

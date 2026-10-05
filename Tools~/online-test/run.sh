@@ -3,7 +3,7 @@
 # downloads the published Linux server (release "son-server"), starts it locally and plays a match
 # against it with two fake phones (FakePhone.cs: lobby, start, bots, crates, doors, shots, hits,
 # kills, deaths, match end). Needs: gh (logged in), mono (mcs), Linux x86_64.
-#   Tools~/online-test/run.sh [solo|squad] [eksioglu|senir|firat]
+#   Tools~/online-test/run.sh [solo|squad|5v5] [eksioglu|senir|firat]
 set -euo pipefail
 MODE=${1:-solo}
 export ZM_MAP=${2:-eksioglu}

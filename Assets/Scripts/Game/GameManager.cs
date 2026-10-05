@@ -14,7 +14,8 @@ public enum MatchMode
 {
     Solo,
     Duo,
-    Squad
+    Squad,
+    Team5    // 5v5 team deathmatch in a small arena
 }
 
 public class GameManager : MonoBehaviour
@@ -131,10 +132,134 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 3; i > 0; i--)
         {
-            uiManager.ShowMatchmaking("Maç hazırlanıyor... " + i);
+            uiManager.ShowMatchmaking((IsTeamMatch ? "5v5 hazırlanıyor... " : "Maç hazırlanıyor... ") + i);
             yield return new WaitForSeconds(1f);
         }
-        BeginRound();
+        if (IsTeamMatch)
+            BeginTeamRound();
+        else
+            BeginRound();
+    }
+
+    // ----- 5v5 -----
+
+    public bool IsTeamMatch { get { return currentMode == MatchMode.Team5; } }
+
+    /// <summary>Offline 5v5: you and 4 bots against 5 bots in the map's arena.</summary>
+    public void BeginTeamRound()
+    {
+        ClearRound();
+        Physics.SyncTransforms();
+        TeamMatch.Setup();
+        MatchTokens.DisableAll();
+        safeZone.InitArena(TeamMatch.Center, TeamMatch.Radius, false);
+
+        player.SetLobbyView(false);
+        player.TeamSpawn(TeamMatch.SpawnPoint(0), TeamMatch.Center, true);
+        Combatants.Add(player);
+        int nameIndex = Random.Range(0, BotNames.Length);
+        for (int i = 0; i < TeamMatch.Size * 2 - 1; i++)
+        {
+            int team = i < TeamMatch.Size - 1 ? 0 : 1;
+            var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], team == 0 ? AllyColor : EnemyColors[0]);
+            bot.PlaceAt(TeamMatch.SpawnPoint(team));
+        }
+        currentState = GameState.InGame;
+        uiManager.ShowBattleHud();
+        uiManager.Toast("5v5  •  " + TeamMatch.ScoreToWin + " öldürmeye ulaşan takım kazanır");
+    }
+
+    /// <summary>Game server 5v5: the bots of each team (the players' stand-ins are added by NetServer).</summary>
+    public void BeginServerTeamRound(int bots0, int bots1)
+    {
+        currentMode = MatchMode.Team5;
+        ClearRound();
+        Physics.SyncTransforms();
+        TeamMatch.Setup();
+        safeZone.InitArena(TeamMatch.Center, TeamMatch.Radius, false);
+        int nameIndex = Random.Range(0, BotNames.Length);
+        for (int i = 0; i < bots0 + bots1; i++)
+        {
+            int team = i < bots0 ? 0 : 1;
+            var bot = SpawnBot(team, BotNames[nameIndex++ % BotNames.Length], EnemyColors[team]);
+            bot.PlaceAt(TeamMatch.SpawnPoint(team));
+        }
+        currentState = GameState.InGame;
+    }
+
+    /// <summary>Phone, online 5v5: the arena; the server says where to spawn (TeamRespawnLocal).</summary>
+    public void BeginOnlineTeamRound(Vector3 arenaCenter, float arenaRadius)
+    {
+        StopAllCoroutines();
+        Time.timeScale = 1f;
+        currentMode = MatchMode.Team5;
+        onlineResultShown = false;
+        ClearRound();
+        Physics.SyncTransforms();
+        TeamMatch.Setup();
+        MatchTokens.DisableAll();
+        safeZone.InitArena(arenaCenter, arenaRadius, true);
+        player.SetLobbyView(false);
+        player.TeamSpawn(new Vector3(arenaCenter.x, World.GroundHeight(arenaCenter.x, arenaCenter.z), arenaCenter.z), arenaCenter, true);
+        Combatants.Add(player);
+        currentState = GameState.InGame;
+        uiManager.ShowBattleHud();
+        uiManager.Toast("ÇEVRİMİÇİ 5v5  •  " + TeamMatch.ScoreToWin + " öldürmeye ulaşan kazanır");
+    }
+
+    /// <summary>Phone: the server put us (back) in the fight here.</summary>
+    public void TeamRespawnLocal(Vector3 ground, bool first)
+    {
+        if (currentState != GameState.InGame || player == null)
+            return;
+        player.TeamSpawn(ground, TeamMatch.Center, first);
+        if (!first)
+            uiManager.Toast("Yeniden doğdun!");
+    }
+
+    private IEnumerator RespawnBotLater(BotAgent bot)
+    {
+        yield return new WaitForSeconds(TeamMatch.RespawnDelay);
+        if (currentState != GameState.InGame || bot == null || !IsTeamMatch)
+            yield break;
+        bot.Respawn(TeamMatch.SpawnPoint(bot.team));
+        if (NetGame.IsServer && NetServer.Instance != null)
+            NetServer.Instance.OnBotRespawned(bot);
+    }
+
+    private IEnumerator RespawnPlayerLater()
+    {
+        for (int s = Mathf.RoundToInt(TeamMatch.RespawnDelay); s > 0; s--)
+        {
+            uiManager.Toast("Öldün  •  " + s + " sn sonra yeniden doğacaksın");
+            yield return new WaitForSeconds(1f);
+            if (currentState != GameState.InGame)
+                yield break;
+        }
+        player.TeamSpawn(TeamMatch.SpawnPoint(0), TeamMatch.Center, false);
+        uiManager.Toast("Yeniden doğdun!");
+    }
+
+    private void TeamScore(int team)
+    {
+        if (team < 0 || team > 1 || NetGame.InOnlineMatch)
+            return;
+        TeamMatch.Score[team]++;
+    }
+
+    private void EndTeamMatch()
+    {
+        currentState = GameState.EndGame;
+        safeZone.Stop();
+        int winner = TeamMatch.Winner;
+        StartCoroutine(TeamResultLater(winner == 0, winner < 0));
+    }
+
+    private IEnumerator TeamResultLater(bool won, bool draw)
+    {
+        uiManager.Toast(won ? "TAKIMIN KAZANDI!  " : draw ? "BERABERE  " : "TAKIMIN KAYBETTİ  ");
+        yield return new WaitForSeconds(2f);
+        GiveResult(won, won ? 1 : 2, 2);
     }
 
     public void BeginRound()
@@ -409,10 +534,19 @@ public class GameManager : MonoBehaviour
 
     public void OnBotEliminated(BotAgent bot, int attackerTeam)
     {
+        if (IsTeamMatch && currentState == GameState.InGame)
+            StartCoroutine(RespawnBotLater(bot));
         if (NetGame.IsServer)
         {
             if (NetServer.Instance != null)
                 NetServer.Instance.OnBotEliminated(bot);
+            return;
+        }
+        if (IsTeamMatch)
+        {
+            if (attackerTeam >= 0 && attackerTeam != bot.team)
+                TeamScore(attackerTeam);
+            uiManager.AddKillFeed(bot.botName + (attackerTeam < 0 ? " arenanın dışında öldü" : " vuruldu"));
             return;
         }
         string how = attackerTeam < 0 ? " bölgede elendi" : " elendi";
@@ -426,7 +560,14 @@ public class GameManager : MonoBehaviour
             return;
         if (NetGame.InOnlineMatch)
         {
-            NetClient.Instance.OnLocalDeath();   // the server sends the placement, then the result shows
+            NetClient.Instance.OnLocalDeath();   // the server sends the placement (5v5: a respawn), then the result shows
+            return;
+        }
+        if (IsTeamMatch)
+        {
+            if (player.lastDamageTeam >= 0 && player.lastDamageTeam != 0)
+                TeamScore(player.lastDamageTeam);
+            StartCoroutine(RespawnPlayerLater());
             return;
         }
         // Dirilme Jetonu: once per match, before the late zone phases.
@@ -471,7 +612,7 @@ public class GameManager : MonoBehaviour
 
     private void CheckForWin()
     {
-        if (currentState != GameState.InGame || player == null || player.isDead)
+        if (currentState != GameState.InGame || player == null || player.isDead || IsTeamMatch)
             return;
         if (AliveEnemyTeams() == 0)
             StartCoroutine(EndAfterDelay(true, 1.5f));
@@ -496,7 +637,7 @@ public class GameManager : MonoBehaviour
         int coins = 20 + kills * 10 + Mathf.RoundToInt(60f * placeShare) + (won ? 100 : 0);
 
         profile.AddMatchResult(won, kills, xp, coins);
-        Missions.OnMatchEnd(won, place, kills, false);
+        Missions.OnMatchEnd(won, place, kills, IsTeamMatch);
         uiManager.ShowResult(won, place, teams, kills, xp, coins);
     }
 
@@ -504,7 +645,7 @@ public class GameManager : MonoBehaviour
 
     public int TeamSize()
     {
-        return currentMode == MatchMode.Solo ? 1 : currentMode == MatchMode.Duo ? 2 : 4;
+        return NetProtocol.TeamSize(currentMode);
     }
 
     public int AliveCount()
@@ -545,6 +686,9 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
+        // Offline 5v5: first to 40 kills, or the one ahead when the time is up.
+        if (IsTeamMatch && currentState == GameState.InGame && !NetGame.Online && TeamMatch.Over)
+            EndTeamMatch();
         // The tank comes down once per match, when the zone starts its second phase.
         if (currentState == GameState.InGame && !tankDropped && !NetGame.Online && safeZone != null && safeZone.active && safeZone.Phase >= 2)
         {

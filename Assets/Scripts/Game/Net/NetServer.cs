@@ -47,7 +47,13 @@ public sealed class NetServer : MonoBehaviour
         public BotAgent agent;
         public ServerHuman human;
         public Peer peer;
+        public double respawnAt;   // 5v5: when this dead player comes back (0 = not waiting)
     }
+
+    private bool Tdm { get { return args.mode == MatchMode.Team5; } }
+    private int MaxPlayers { get { return Tdm ? TeamMatch.Size * 2 : NetProtocol.MaxHumans; } }
+    private readonly int[] teamScore = new int[2];
+    private double nextScoreSend;
 
     private const double PeerTimeout = 15.0;
     private const double LobbyTimeout = 10.0;
@@ -222,7 +228,7 @@ public sealed class NetServer : MonoBehaviour
                 why = "Bu oda başka bir haritada: " + MapCatalog.CurrentInfo.name;
             else if (phase == Phase.Playing || phase == Phase.Ended)
                 why = "Bu maç başladı";
-            else if (peers.Count >= NetProtocol.MaxHumans)
+            else if (peers.Count >= MaxPlayers)
                 why = "Oda dolu";
             if (why != null)
             {
@@ -264,7 +270,7 @@ public sealed class NetServer : MonoBehaviour
             {
                 if (phase == Phase.Waiting)
                     StartCountdown(QuickCountdown);
-                else if (phase == Phase.Countdown && peers.Count >= NetProtocol.MaxHumans)
+                else if (phase == Phase.Countdown && peers.Count >= MaxPlayers)
                     countdownEnds = System.Math.Min(countdownEnds, now + FullCountdown);
             }
             SendLobbyToAll(now);
@@ -476,6 +482,14 @@ public sealed class NetServer : MonoBehaviour
                     nextSnapshot = System.Math.Max(nextSnapshot + NetProtocol.TickInterval, now - NetProtocol.TickInterval);
                     SendSnapshot(now);
                 }
+                if (Tdm)
+                {
+                    foreach (var e in entities)
+                        if (e.respawnAt > 0 && now >= e.respawnAt && e.peer != null && !e.peer.gone)
+                            RespawnHuman(e);
+                    if (now >= nextScoreSend)
+                        BroadcastScore();
+                }
                 if (now >= nextEndCheck)
                 {
                     nextEndCheck = now + 0.5;
@@ -542,10 +556,33 @@ public sealed class NetServer : MonoBehaviour
         nextEndCheck = now + 5.0;
 
         int teamSize = NetProtocol.TeamSize(args.mode);
-        int humanTeams = (peers.Count + teamSize - 1) / teamSize;
-        int botCount = Mathf.Max(0, GameManager.PlayersPerMatch - humanTeams * teamSize);
-        gm.BeginServerRound(args.mode, humanTeams, botCount);
-        teamCount = humanTeams + (botCount + teamSize - 1) / teamSize;
+        var humanTeam = new int[peers.Count];
+        int botCount;
+        if (Tdm)
+        {
+            // 5v5: a private room is a group — together on one side (more than five: the rest on the other);
+            // a quick match spreads the players over both sides. Bots fill each side to five.
+            var onTeam = new int[2];
+            for (int i = 0; i < peers.Count; i++)
+            {
+                humanTeam[i] = args.privateRoom ? (i < TeamMatch.Size ? 0 : 1) : i % 2;
+                onTeam[humanTeam[i]]++;
+            }
+            int bots0 = Mathf.Max(0, TeamMatch.Size - onTeam[0]), bots1 = Mathf.Max(0, TeamMatch.Size - onTeam[1]);
+            botCount = bots0 + bots1;
+            teamScore[0] = teamScore[1] = 0;
+            gm.BeginServerTeamRound(bots0, bots1);
+            teamCount = 2;
+        }
+        else
+        {
+            for (int i = 0; i < peers.Count; i++)
+                humanTeam[i] = i / teamSize;
+            int humanTeams = (peers.Count + teamSize - 1) / teamSize;
+            botCount = Mathf.Max(0, GameManager.PlayersPerMatch - humanTeams * teamSize);
+            gm.BeginServerRound(args.mode, humanTeams, botCount);
+            teamCount = humanTeams + (botCount + teamSize - 1) / teamSize;
+        }
 
         entities.Clear();
         byId.Clear();
@@ -554,7 +591,7 @@ public sealed class NetServer : MonoBehaviour
         for (int i = 0; i < peers.Count; i++)
         {
             var p = peers[i];
-            var human = ServerHuman.Create(p.id, i / teamSize, p.name, start);
+            var human = ServerHuman.Create(p.id, humanTeam[i], p.name, start);
             gm.Combatants.Add(human);
             var e = new Entity { id = p.id, team = human.team, name = p.name, skin = p.skin, para = p.para, human = human, peer = p };
             p.entity = e;
@@ -620,6 +657,13 @@ public sealed class NetServer : MonoBehaviour
             foreach (var m in lootMessages)
                 p.conn.SendReliable(m);
         }
+        if (Tdm)
+        {
+            // Everyone on the ground at their team's side.
+            foreach (var p in peers)
+                RespawnHuman(p.entity);
+            BroadcastScore();
+        }
         Debug.Log("[Sunucu] maç başladı: " + peers.Count + " oyuncu, " + botCount + " bot, " + teamCount + " takım, " + crateScratch.Count + " sandık");
         Report(true);
     }
@@ -683,6 +727,20 @@ public sealed class NetServer : MonoBehaviour
     {
         if (phase != Phase.Playing)
             return;
+        if (Tdm)
+        {
+            bool anyone = false;
+            foreach (var p in peers)
+                anyone |= !p.gone;
+            if (!anyone)
+                EndMatch(-1);
+            else if (teamScore[0] >= TeamMatch.ScoreToWin || teamScore[1] >= TeamMatch.ScoreToWin || Now - matchStarted >= TeamMatch.Duration)
+            {
+                BroadcastScore();
+                EndMatch(teamScore[0] > teamScore[1] ? 0 : teamScore[1] > teamScore[0] ? 1 : -1);
+            }
+            return;
+        }
         int winner, humansAlive;
         int alive = AliveTeams(out winner, out humansAlive);
         if (alive <= 1)
@@ -902,6 +960,12 @@ public sealed class NetServer : MonoBehaviour
         Vector3 at = h.transform.position;
         h.MarkDead();
         Kill(killer, e, how);
+        if (Tdm)
+        {
+            e.respawnAt = Now + TeamMatch.RespawnDelay;
+            CheckEnd();
+            return;
+        }
         var gm = GameManager.Instance;
         if (!wasInAir && how != NetProtocol.HowLeft && gm.lootSystem != null)
             gm.lootSystem.DropDeathCrate(at);
@@ -925,6 +989,11 @@ public sealed class NetServer : MonoBehaviour
 
     private void Kill(Entity killer, Entity victim, int how)
     {
+        if (Tdm && killer != null && killer.team != victim.team && killer.team >= 0 && killer.team < 2)
+        {
+            teamScore[killer.team]++;
+            nextScoreSend = 0;   // send the new score with the next tick
+        }
         w.Reset();
         w.Byte(NetProtocol.S_Kill);
         w.UShort(killer != null ? killer.id : NetProtocol.NoEntity);
@@ -1159,6 +1228,52 @@ public sealed class NetServer : MonoBehaviour
             byObject.TryGetValue(key, out killer);
         Kill(killer, e, HowCode(HitContext.Weapon));
         CheckEnd();
+    }
+
+    // ----- 5v5 -----
+
+    private void BroadcastScore()
+    {
+        nextScoreSend = Now + 3.0;
+        TeamMatch.Score[0] = teamScore[0];
+        TeamMatch.Score[1] = teamScore[1];
+        w.Reset();
+        w.Byte(NetProtocol.S_Score);
+        w.UShort(teamScore[0]);
+        w.UShort(teamScore[1]);
+        w.Float((float)System.Math.Max(0.0, TeamMatch.Duration - (Now - matchStarted)));
+        Broadcast(w.ToArray(), true, null);
+    }
+
+    /// <summary>A player (back) on the ground at their team's side; every phone is told (that one spawns there).</summary>
+    private void RespawnHuman(Entity e)
+    {
+        if (e == null || e.human == null)
+            return;
+        e.respawnAt = 0;
+        Vector3 at = TeamMatch.SpawnPoint(e.team);
+        e.human.Revive(at + Vector3.up * 0.95f);
+        if (e.peer != null)
+            e.peer.lastSeq = -1;
+        SendRespawn(e.id, at);
+    }
+
+    private void SendRespawn(int id, Vector3 ground)
+    {
+        w.Reset();
+        w.Byte(NetProtocol.S_Respawn);
+        w.UShort(id);
+        w.Float((float)(Now - matchStarted));
+        w.Pos(ground);
+        Broadcast(w.ToArray(), true, null);
+    }
+
+    public void OnBotRespawned(BotAgent bot)
+    {
+        Entity e;
+        if (phase != Phase.Playing || !byObject.TryGetValue(bot, out e))
+            return;
+        SendRespawn(e.id, bot.transform.position - Vector3.up * 0.95f);
     }
 
     // ----- Snapshots -----

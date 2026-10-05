@@ -17,6 +17,9 @@ public static class MapCatalog
         public Color32 signColor;
         public bool signCross;       // the clinic's white medical cross
         public bool sea;             // an island in the sea (otherwise land, or a lake, runs on past the edge)
+        public Vector2 arena;        // 5v5: centre of the small arena (x, z)
+        public float arenaRadius = 80f;
+        public string arenaName;
     }
 
     public static readonly Info[] All =
@@ -26,21 +29,24 @@ public static class MapCatalog
             id = "eksioglu", name = "EKŞİOĞLU", place = "Çekmeköy, İstanbul",
             blurb = "Kliniğin mahallesi: apartmanlar, dar sokaklar, denizle çevrili ada.",
             signTop = "ZOOTOPIA", signBottom = "VETERİNER KLİNİĞİ 7/24",
-            signColor = new Color32(22, 110, 60, 255), signCross = true, sea = true
+            signColor = new Color32(22, 110, 60, 255), signCross = true, sea = true,
+            arena = new Vector2(100f, -120f), arenaRadius = 78f, arenaName = "Apartmanlar"
         },
         new Info
         {
             id = "senir", name = "SENİR KASABASI", place = "Keçiborlu, Isparta",
             blurb = "Burdur Gölü kıyısından arkadaki dağa kadar bütün kasaba: bahçeli evler, tarlalar, ormanlık yamaç.",
             signTop = "SENİR", signBottom = "KASABAMIZA HOŞ GELDİNİZ",
-            signColor = new Color32(24, 78, 140, 255), signCross = false
+            signColor = new Color32(24, 78, 140, 255), signCross = false,
+            arena = new Vector2(-250f, -60f), arenaRadius = 80f, arenaName = "Kasaba sokakları"
         },
         new Info
         {
             id = "firat", name = "FIRAT ÜNİVERSİTESİ", place = "Rektörlük Kampüsü, Elazığ",
             blurb = "Rektörlük, fakülteler, yurtlar ve kampüs yolları; çevresi tepelerle kapalı.",
             signTop = "REKTÖRLÜK", signBottom = "FIRAT ÜNİVERSİTESİ",
-            signColor = new Color32(118, 28, 44, 255), signCross = false
+            signColor = new Color32(118, 28, 44, 255), signCross = false,
+            arena = new Vector2(-110f, 140f), arenaRadius = 80f, arenaName = "Fakülteler"
         },
     };
 

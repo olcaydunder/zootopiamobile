@@ -427,6 +427,37 @@ public sealed class NetClient : MonoBehaviour
                         EmoteQueue.Enqueue(new EmoteEvent { id = from, name = name, emote = emote });
                     break;
                 }
+                case NetProtocol.S_Respawn:
+                {
+                    int id = reader.UShort();
+                    double time = reader.Float();
+                    Vector3 at = reader.Pos();
+                    if (State != Phase.Playing)
+                        break;
+                    if (id == MyId)
+                    {
+                        deathSent = false;
+                        GameManager.Instance.TeamRespawnLocal(at, !spawnedOnce);
+                        spawnedOnce = true;
+                    }
+                    else
+                    {
+                        NetPuppet pup;
+                        if (puppets.TryGetValue(id, out pup) && pup != null)
+                            pup.Revive(time, at + Vector3.up * 0.95f);
+                    }
+                    break;
+                }
+                case NetProtocol.S_Score:
+                {
+                    int s0 = reader.UShort(), s1 = reader.UShort();
+                    float left = reader.Float();
+                    bool second = myServerTeam == 1;
+                    TeamMatch.Score[0] = second ? s1 : s0;   // ours first
+                    TeamMatch.Score[1] = second ? s0 : s1;
+                    TeamMatch.TimeLeft = left;
+                    break;
+                }
                 case NetProtocol.S_Voice:
                 {
                     int speaker = reader.UShort();
@@ -449,7 +480,7 @@ public sealed class NetClient : MonoBehaviour
     {
         LobbyPhase = reader.Byte();
         float left = reader.Float();
-        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 2);
+        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 3);
         PrivateRoom = reader.Bool();
         LeaderId = reader.UShort();
         RoomCode = reader.String();
@@ -499,7 +530,7 @@ public sealed class NetClient : MonoBehaviour
     {
         MyId = reader.UShort();
         myServerTeam = reader.Byte();
-        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 2);
+        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 3);
         Vector3 planeStart = reader.Pos();
         Vector3 planeEnd = reader.Pos();
         float zx = reader.Float();
@@ -516,7 +547,11 @@ public sealed class NetClient : MonoBehaviour
         nextState = 0;
         resultShown = false;
         Revision++;
-        gm.BeginOnlineRound(Mode, planeStart, planeEnd, new Vector3(zx, 0f, zz), zr);
+        spawnedOnce = false;
+        if (Mode == MatchMode.Team5)
+            gm.BeginOnlineTeamRound(new Vector3(zx, 0f, zz), zr);
+        else
+            gm.BeginOnlineRound(Mode, planeStart, planeEnd, new Vector3(zx, 0f, zz), zr);
 
         foreach (var e in infos.Values)
         {
@@ -807,6 +842,14 @@ public sealed class NetClient : MonoBehaviour
         reader.String();
         finished = true;
         var gm = GameManager.Instance;
+        if (Mode == MatchMode.Team5)
+        {
+            // 5v5: the team result, whoever is alive right now.
+            bool teamWon = winner == myServerTeam;
+            gm.uiManager.Toast(teamWon ? "TAKIMIN KAZANDI!" : winner == 255 ? "BERABERE" : "TAKIMIN KAYBETTİ");
+            StartCoroutine(FinishRoutine(teamWon, teamWon ? 1 : 2, 2f, session));
+            return;
+        }
         if (deathSent || gm.player == null || gm.player.isDead)
             return;   // our result is already on its way
         bool won = winner == myServerTeam;
@@ -925,6 +968,7 @@ public sealed class NetClient : MonoBehaviour
             return;
         deathSent = true;
         bool recent = Time.time - lastAttackTime < 15f;
+        bool team5 = Mode == MatchMode.Team5;
         int killer = recent ? lastAttacker : NetProtocol.NoEntity;
         if (conn != null)
         {
@@ -935,7 +979,26 @@ public sealed class NetClient : MonoBehaviour
             conn.SendReliable(w.ToArray());
             conn.Flush(Now, output);
         }
+        if (team5)
+        {
+            // 5v5: the server brings us back (S_Respawn); meanwhile a countdown.
+            StartCoroutine(RespawnCountdown(session));
+            return;
+        }
         StartCoroutine(DeathResultRoutine(session));
+    }
+
+    private bool spawnedOnce;
+
+    private IEnumerator RespawnCountdown(int forSession)
+    {
+        for (int s = Mathf.RoundToInt(TeamMatch.RespawnDelay); s > 0; s--)
+        {
+            if (forSession != session || !deathSent || State != Phase.Playing)
+                yield break;
+            Toast("Öldün  •  " + s + " sn sonra yeniden doğacaksın");
+            yield return new WaitForSecondsRealtime(1f);
+        }
     }
 
     private IEnumerator DeathResultRoutine(int forSession)

@@ -26,12 +26,13 @@ public class Phone
     public static string MapId = Environment.GetEnvironmentVariable("ZM_MAP") ?? "eksioglu";
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(4); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(5); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
     public static V3 Pos(NetReader r) { float x = r.Short() * 0.05f, y = r.Short() * 0.05f, z = r.Short() * 0.05f; return new V3(x, y, z); }
     public List<string> chats = new List<string>(); public int emotes, lastEmote = -1;
+    public Dictionary<int, V3> respawnAt = new Dictionary<int, V3>(); public Dictionary<int, int> respawns = new Dictionary<int, int>(); public int scoreMsgs, score0 = -1, score1 = -1; public float timeLeft;
     public void Rel(params Action<NetWriter>[] parts) { w.Reset(); foreach (var p in parts) p(w); conn.SendReliable(w.ToArray()); }
     public void Unrel(Action<NetWriter> f) { w.Reset(); f(w); conn.SendUnreliable(w.ToArray()); }
 
@@ -82,6 +83,8 @@ public class Phone
             case 35: lastVoiceFrom = r.UShort(); voiceFrames++; break;
             case 36: r.UShort(); r.String(); r.String(); chats.Add(r.String()); break;
             case 37: r.UShort(); r.String(); lastEmote = r.Byte(); emotes++; break;
+            case 38: { int rid = r.UShort(); r.Float(); var at = Pos(r); respawnAt[rid] = at; int c; respawns.TryGetValue(rid, out c); respawns[rid] = c + 1; Ent e; if (ents.TryGetValue(rid, out e)) { e.pos = at; e.flags = 0; e.health = 100; } } break;
+            case 39: score0 = r.UShort(); score1 = r.UShort(); timeLeft = r.Float(); scoreMsgs++; break;
         }
     }
 }
@@ -96,6 +99,66 @@ public static class FakePhoneTest
         while (Phone.Now < end) { foreach (var p in ps) p.Pump(); if (Phone.Now >= nextState) { nextState = Phone.Now + 0.05; foreach (var p in ps) if (p.inMatch && p.flags != 1) p.SendState(); } if (each != null) each(); Thread.Sleep(5); }
     }
     static bool RunUntil(double seconds, Phone[] ps, Func<bool> done) { double end = Phone.Now + seconds; while (Phone.Now < end) { Run(0.05, ps); if (done()) return true; } return false; }
+
+    static int Respawns(Phone p, int id) { int c; p.respawns.TryGetValue(id, out c); return c; }
+
+    /// <summary>5v5: the room's group is one team with 3 bots, 5 bots against; respawns, score, the 40-kill end.</summary>
+    static int TeamDeathmatch(Phone A, Phone B, Phone[] ps)
+    {
+        Console.WriteLine("== 5v5 start (leader)");
+        A.Rel(x => x.Byte(8));
+        bool ok = RunUntil(20, ps, () => A.inMatch && B.inMatch && Respawns(A, A.id) > 0 && Respawns(B, B.id) > 0 && A.scoreMsgs > 0 && A.ents.Count >= 10);
+        Check(ok, "5v5 started on both, spawned on the ground: entities " + A.ents.Count + ", teams " + A.teams);
+        int mine = 0, theirs = 0; foreach (var e in A.ents.Values) if (e.bot) { if (e.team == A.team) mine++; else theirs++; }
+        Check(A.teams == 2 && A.ents.Count == 10, "two teams of five: " + A.ents.Count + " entities, " + A.teams + " teams");
+        Check(A.team == B.team, "the room's group plays together: teams " + A.team + "/" + B.team);
+        Check(mine == 3 && theirs == 5, "bots fill: " + mine + " with us, " + theirs + " against");
+        Check(A.score0 == 0 && A.score1 == 0 && A.timeLeft > 470, "score 0-0, " + A.timeLeft.ToString("F0") + " s on the clock");
+        V3 sa = A.respawnAt[A.id], sb = B.respawnAt[B.id];
+        Check(V3.Dist(sa, sb) < 40f, "teammates spawn together: " + sa + " / " + sb);
+        float enemyDist = 1e9f; foreach (var e in A.ents.Values) if (e.bot && e.team != A.team) enemyDist = Math.Min(enemyDist, V3.Dist(e.pos, sa));
+        Check(enemyDist > 40f && enemyDist < 220f, "enemies start across the arena: nearest " + enemyDist.ToString("F0") + " m");
+        A.pos = new V3(sa.x, sa.y + 0.95f, sa.z); B.pos = new V3(sb.x, sb.y + 0.95f, sb.z); A.flags = 0; B.flags = 0;
+        Run(3, ps);
+        Check(A.snaps >= 45, "snapshots flowing: " + A.snaps);
+
+        Console.WriteLine("== B dies to a bot -> their point, B comes back");
+        int enemyBot = -1; foreach (var e in A.ents.Values) if (e.bot && e.team != A.team) { enemyBot = e.id; break; }
+        B.Rel(x => { x.Byte(4); x.UShort(enemyBot); x.Byte(1); });
+        B.flags = 1;
+        ok = RunUntil(4, ps, () => A.score1 == 1);
+        Check(ok && A.score0 == 0, "score after B's death: " + A.score0 + "-" + A.score1);
+        Check(B.placement < 0, "no placement (no elimination) in 5v5");
+        ok = RunUntil(8, ps, () => Respawns(B, B.id) >= 2);
+        Check(ok, "B respawned at " + (B.respawnAt.ContainsKey(B.id) ? B.respawnAt[B.id].ToString() : "-"));
+        Check(Respawns(A, B.id) >= 2, "A saw B respawn too");
+        { V3 nb = B.respawnAt[B.id]; B.pos = new V3(nb.x, nb.y + 0.95f, nb.z); B.flags = 0; }
+
+        Console.WriteLine("== A hunts the other team to 40");
+        var killedAt = new Dictionary<int, double>(); int firstVictim = -1; 
+        ok = RunUntil(150, ps, () =>
+        {
+            Ent target = null;
+            foreach (var e in A.ents.Values)
+                if (e.bot && e.team != A.team && (e.flags & 1) == 0 && e.health > 0)
+                { double k; if (killedAt.TryGetValue(e.id, out k) && Phone.Now - k < 1.0) continue; target = e; break; }
+            if (target != null)
+            {
+                A.pos = new V3(target.pos.x + 12, target.pos.y + 0.95f, target.pos.z);
+                int before = A.kills;
+                A.Rel(x => { x.Byte(3); x.UShort(target.id); x.UShort(350); x.Byte(0); x.Bool(true); });
+                Run(0.12, ps);
+                if (A.kills > before) { killedAt[target.id] = Phone.Now; if (firstVictim < 0) firstVictim = target.id; }
+            }
+            return A.endWinner != -2;
+        });
+        Check(firstVictim >= 0 && Respawns(A, firstVictim) >= 2, "a killed bot came back (bot #" + firstVictim + ", respawns " + (firstVictim >= 0 ? Respawns(A, firstVictim) : 0) + ")");
+        Check(A.kills >= 40, "A's kills: " + A.kills);
+        Check(ok && A.endWinner == A.team, "match ended, our team won: winner " + A.endWinner + ", score " + A.score0 + "-" + A.score1);
+        Check(A.score0 >= 40 || A.score1 >= 40, "final score " + A.score0 + "-" + A.score1);
+        Check(B.endWinner == A.team, "B got the same result");
+        return fails;
+    }
 
     public static int Main(string[] a)
     {
@@ -132,6 +195,8 @@ public static class FakePhoneTest
         RunUntil(1, ps, () => false);
         Check(B.emotes == 1, "emote spam limited");
         Check(A.voiceFrames == 0, "A does not hear itself");
+        if (mode == "5v5")
+            return TeamDeathmatch(A, B, ps);
         Console.WriteLine("== start (leader)");
         B.Rel(x => x.Byte(8));   // not the leader: ignored
         Run(1, ps); Check(A.lobbyPhase == 0, "non-leader start ignored");

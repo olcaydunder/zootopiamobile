@@ -38,6 +38,8 @@ public class UIManager : MonoBehaviour
     private Text weaponText;
     private Text ammoText;
     private Text aliveText;
+    private GameObject teamScoreBox;
+    private Text teamScoreOurs, teamScoreTheirs, teamScoreTime;
     private Text killsText;
     private Text zoneText;
     private Text zoneWarningText;
@@ -282,19 +284,19 @@ public class UIManager : MonoBehaviour
         lobbyStatsText.color = Theme.TextDim;
 
         // Right: game modes
-        string[] modes = { "SOLO", "DUO", "SQUAD" };
-        string[] subs = { "Tek başına hayatta kal", "1 takım arkadaşıyla", "3 takım arkadaşıyla" };
-        for (int i = 0; i < 3; i++)
+        string[] modes = { "SOLO", "DUO", "SQUAD", "5v5" };
+        string[] subs = { "Tek başına hayatta kal", "1 takım arkadaşıyla", "3 takım arkadaşıyla", "Dar arenada takım savaşı, yeniden doğma" };
+        for (int i = 0; i < modes.Length; i++)
         {
             int index = i;
-            var b = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 190f - i * 118f), new Vector2(480f, 104f), Theme.Panel, false, 20, out unused);
+            var b = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 205f - i * 92f), new Vector2(480f, 84f), Theme.Panel, false, 20, out unused);
             b.onClick.AddListener(() => SelectMode(index));
             var bt = b.transform;
-            var accent = UIUtil.CreateImage(bt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 104f), Theme.Accent, false);
+            var accent = UIUtil.CreateImage(bt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 84f), i == 3 ? new Color(1f, 0.35f, 0.3f) : Theme.Accent, false);
             accent.raycastTarget = false;
-            var mt = UIUtil.CreateText(bt, modes[i], new Vector2(0f, 0.5f), new Vector2(200f, 16f), new Vector2(340f, 50f), 36, TextAnchor.MiddleLeft);
+            var mt = UIUtil.CreateText(bt, modes[i], new Vector2(0f, 0.5f), new Vector2(200f, 13f), new Vector2(340f, 46f), 34, TextAnchor.MiddleLeft);
             mt.fontStyle = FontStyle.Bold;
-            var ms = UIUtil.CreateText(bt, subs[i], new Vector2(0f, 0.5f), new Vector2(200f, -24f), new Vector2(340f, 30f), 22, TextAnchor.MiddleLeft);
+            var ms = UIUtil.CreateText(bt, subs[i], new Vector2(0f, 0.5f), new Vector2(200f, -21f), new Vector2(340f, 28f), 20, TextAnchor.MiddleLeft);
             modeButtons.Add(b.GetComponent<Image>());
             modeAccents.Add(accent);
             modeTitles.Add(mt);
@@ -378,7 +380,12 @@ public class UIManager : MonoBehaviour
             modeSubs[i].GetComponent<Shadow>().enabled = !sel;
         }
         if (lobbyStartLabel != null)
-            lobbyStartLabel.text = "BAŞLAT  •  " + selectedMode.ToString().ToUpper();
+            lobbyStartLabel.text = "BAŞLAT  •  " + ModeLabel(selectedMode);
+    }
+
+    public static string ModeLabel(MatchMode m)
+    {
+        return m == MatchMode.Duo ? "DUO" : m == MatchMode.Squad ? "SQUAD" : m == MatchMode.Team5 ? "5v5" : "SOLO";
     }
 
     private void OpenLoadout()
@@ -478,6 +485,23 @@ public class UIManager : MonoBehaviour
         aliveText = UIUtil.CreateText(t, "", top, new Vector2(-110f, -45f), new Vector2(220f, 50f), 34, TextAnchor.MiddleCenter);
         killsText = UIUtil.CreateText(t, "", top, new Vector2(110f, -45f), new Vector2(220f, 50f), 34, TextAnchor.MiddleCenter);
         zoneText = UIUtil.CreateText(t, "", top, new Vector2(0f, -95f), new Vector2(700f, 44f), 28, TextAnchor.MiddleCenter);
+        // 5v5 score: your team (blue) • time • the other team (red)
+        teamScoreBox = UIUtil.CreateImage(t, "TeamScore", top, new Vector2(0f, -48f), new Vector2(520f, 76f), new Color(0f, 0f, 0f, 0.55f), false).gameObject;
+        teamScoreBox.GetComponent<Image>().raycastTarget = false;
+        var ours = UIUtil.CreateImage(teamScoreBox.transform, "Ours", new Vector2(0f, 0.5f), new Vector2(80f, 0f), new Vector2(150f, 66f), new Color(0.2f, 0.45f, 0.95f, 0.9f), false);
+        ours.raycastTarget = false;
+        teamScoreOurs = UIUtil.CreateText(ours.transform, "0", c, Vector2.zero, new Vector2(150f, 66f), 46, TextAnchor.MiddleCenter);
+        teamScoreOurs.fontStyle = FontStyle.Bold;
+        var theirs = UIUtil.CreateImage(teamScoreBox.transform, "Theirs", new Vector2(1f, 0.5f), new Vector2(-80f, 0f), new Vector2(150f, 66f), new Color(0.9f, 0.25f, 0.2f, 0.9f), false);
+        theirs.raycastTarget = false;
+        teamScoreTheirs = UIUtil.CreateText(theirs.transform, "0", c, Vector2.zero, new Vector2(150f, 66f), 46, TextAnchor.MiddleCenter);
+        teamScoreTheirs.fontStyle = FontStyle.Bold;
+        teamScoreTime = UIUtil.CreateText(teamScoreBox.transform, "", c, new Vector2(0f, 10f), new Vector2(200f, 40f), 32, TextAnchor.MiddleCenter);
+        teamScoreTime.fontStyle = FontStyle.Bold;
+        var goal = UIUtil.CreateText(teamScoreBox.transform, "hedef " + TeamMatch.ScoreToWin, c, new Vector2(0f, -20f), new Vector2(200f, 26f), 18, TextAnchor.MiddleCenter);
+        goal.color = Theme.TextDim;
+        teamScoreBox.SetActive(false);
+
         zoneWarningText = UIUtil.CreateText(t, "BÖLGENİN DIŞINDASIN!", top, new Vector2(0f, -145f), new Vector2(800f, 50f), 34, TextAnchor.MiddleCenter);
         zoneWarningText.color = new Color(1f, 0.35f, 0.3f);
         zoneWarningText.fontStyle = FontStyle.Bold;
@@ -705,7 +729,7 @@ public class UIManager : MonoBehaviour
         zone.raycastTarget = false;
         zoneRing = zone.rectTransform;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             var dot = UIUtil.CreateImage(mapRect, "Ally", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(11f, 11f), new Color(0.3f, 1f, 0.45f), true);
             dot.raycastTarget = false;
@@ -1250,9 +1274,23 @@ public class UIManager : MonoBehaviour
             driveHudKey = int.MinValue;
         }
 
-        aliveText.text = "Kalan: " + gm.AliveCount();
+        bool team = gm.IsTeamMatch;
+        if (teamScoreBox.activeSelf != team)
+        {
+            teamScoreBox.SetActive(team);
+            aliveText.gameObject.SetActive(!team);
+            killsText.rectTransform.anchoredPosition = team ? new Vector2(420f, -45f) : new Vector2(110f, -45f);
+        }
+        if (team)
+        {
+            teamScoreOurs.text = TeamMatch.Score[0].ToString();
+            teamScoreTheirs.text = TeamMatch.Score[1].ToString();
+            teamScoreTime.text = TeamMatch.TimeText;
+        }
+        else
+            aliveText.text = "Kalan: " + gm.AliveCount();
         killsText.text = "Öldürme: " + player.kills;
-        zoneText.text = gm.safeZone != null ? gm.safeZone.StatusText : "";
+        zoneText.text = gm.safeZone != null && !team ? gm.safeZone.StatusText : "";
         zoneWarningText.enabled = gm.safeZone != null && gm.safeZone.active && !player.IsAirborne && gm.safeZone.IsOutside(player.transform.position);
 
         bool vehicleNearby = onFoot && gm.NearestVehicle(player.transform.position, 4.5f) != null;

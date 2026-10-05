@@ -289,8 +289,11 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         }
         lastHitHasSource = false;
 
-        // Duo / Squad: knocked down first while a teammate can still pick you up.
-        if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && gm.AliveAllies() > 0)
+        if (attackerTeam >= 0)
+            lastDamageTeam = attackerTeam;
+
+        // Duo / Squad: knocked down first while a teammate can still pick you up (5v5: straight out, you respawn).
+        if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && !gm.IsTeamMatch && gm.AliveAllies() > 0)
         {
             GoDown();
             return false;
@@ -313,6 +316,28 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             return true;
         }
         return false;
+    }
+
+    /// <summary>Team of whoever hurt the player last (5v5 scoring offline; -1 none).</summary>
+    public int lastDamageTeam = -1;
+
+    /// <summary>5v5: (re)spawn at the team's side with the chosen primary, a pistol, some armour, medkits and grenades.
+    /// Kills are kept between lives.</summary>
+    public void TeamSpawn(Vector3 ground, Vector3 lookAt, bool first)
+    {
+        int keepKills = kills;
+        ResetForRound(ground + Vector3.up * 0.95f);
+        if (!first)
+            kills = keepKills;
+        lastDamageTeam = -1;
+        GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));
+        armor = 50f;
+        inventory.medkits = 2;
+        inventory.grenades = 2;
+        Vector3 d = lookAt - transform.position;
+        d.y = 0f;
+        if (d.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(d);
     }
 
     public void ResetForRound(Vector3 spawnPosition)

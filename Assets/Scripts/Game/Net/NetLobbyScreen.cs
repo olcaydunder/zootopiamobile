@@ -292,7 +292,7 @@ public class NetLobbyScreen : MonoBehaviour
 
     private static string ModeLabel(MatchMode m)
     {
-        return m == MatchMode.Duo ? "DUO" : m == MatchMode.Squad ? "SQUAD" : "SOLO";
+        return m == MatchMode.Duo ? "DUO" : m == MatchMode.Squad ? "SQUAD" : m == MatchMode.Team5 ? "5v5" : "SOLO";
     }
 
     /// <summary>Players should not all be "Oyuncu": the first time, pick an animal name with a number.</summary>

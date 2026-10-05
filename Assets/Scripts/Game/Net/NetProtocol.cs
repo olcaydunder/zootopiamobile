@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 4;   // 3: the hello carries the map; 4: room chat and emotes
+    public const int Version = 5;   // 3: the hello carries the map; 4: room chat and emotes; 5: 5v5
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game
@@ -46,6 +46,8 @@ public static class NetProtocol
     public const byte S_Voice = 35;       // ushort speaker, then the C_Voice payload after its id byte
     public const byte S_Chat = 36;        // ushort id, string name, string account, string text
     public const byte S_Emote = 37;       // ushort id, string name, byte emote
+    public const byte S_Respawn = 38;     // 5v5: ushort id, float server time, Pos (the phone with that id spawns there)
+    public const byte S_Score = 39;       // 5v5: ushort team 0 kills, ushort team 1 kills, float seconds left
 
     // Entity flags (C_State and snapshots)
     public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64;
@@ -59,17 +61,17 @@ public static class NetProtocol
 
     public static string ModeName(MatchMode mode)
     {
-        return mode == MatchMode.Duo ? "duo" : mode == MatchMode.Squad ? "squad" : "solo";
+        return mode == MatchMode.Duo ? "duo" : mode == MatchMode.Squad ? "squad" : mode == MatchMode.Team5 ? "5v5" : "solo";
     }
 
     public static MatchMode ParseMode(string s)
     {
-        return s == "duo" ? MatchMode.Duo : s == "squad" ? MatchMode.Squad : MatchMode.Solo;
+        return s == "duo" ? MatchMode.Duo : s == "squad" ? MatchMode.Squad : s == "5v5" ? MatchMode.Team5 : MatchMode.Solo;
     }
 
     public static int TeamSize(MatchMode mode)
     {
-        return mode == MatchMode.Solo ? 1 : mode == MatchMode.Duo ? 2 : 4;
+        return mode == MatchMode.Solo ? 1 : mode == MatchMode.Duo ? 2 : mode == MatchMode.Team5 ? TeamMatch.Size : 4;
     }
 
     // ----- Packing helpers -----

@@ -84,6 +84,7 @@ public class SafeZoneController : MonoBehaviour
     public void Init(Vector3 startCenterPos, float startRadiusValue)
     {
         remote = false;
+        arena = false;
         center = startCenterPos;
         radius = startRadiusValue;
         initialRadius = startRadiusValue;
@@ -99,6 +100,21 @@ public class SafeZoneController : MonoBehaviour
         UpdateWall();
         DrawRing(ring, center, radius);
         DrawRing(nextRing, nextCenter, nextRadius);
+    }
+
+    /// <summary>5v5: a fixed arena (never shrinks); outside it hurts a lot.</summary>
+    public bool arena;
+
+    public void InitArena(Vector3 c, float r, bool isRemote)
+    {
+        Init(c, r);
+        arena = true;
+        remote = isRemote;
+        finished = true;
+        phase = WaitTimes.Length - 1;
+        nextCenter = center;
+        nextRadius = radius;
+        nextRing.enabled = false;
     }
 
     /// <summary>Online phone: same start as the server; afterwards <see cref="ApplyNet"/> keeps it in step.</summary>
@@ -226,7 +242,7 @@ public class SafeZoneController : MonoBehaviour
 
     private void ApplyDamage(GameManager gm)
     {
-        float dmg = DamagePerSecond[phase] * Time.deltaTime;
+        float dmg = (arena ? 12f : DamagePerSecond[phase]) * Time.deltaTime;
 
         var player = gm.player;
         if (player != null && !player.isDead && !player.IsAirborne && IsOutside(player.transform.position))
@@ -273,6 +289,8 @@ public class SafeZoneController : MonoBehaviour
         {
             if (!active)
                 return "";
+            if (arena)
+                return "Arenanın dışı can yakar";
             if (finished)
                 return "Son bölge!";
             int secs = Mathf.CeilToInt(Mathf.Max(0f, phaseTimer));

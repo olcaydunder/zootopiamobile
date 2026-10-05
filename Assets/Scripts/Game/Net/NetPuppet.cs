@@ -108,6 +108,8 @@ public class NetPuppet : MonoBehaviour, IDamageable
     {
         if (sampleCount > 0 && serverTime <= samples[sampleCount - 1].time)
             return;   // out of order
+        if (reviveTime >= 0 && serverTime < reviveTime)
+            return;   // from before a respawn (still dead there)
         if (sampleCount == samples.Length)
         {
             System.Array.Copy(samples, 1, samples, 0, samples.Length - 1);
@@ -178,6 +180,27 @@ public class NetPuppet : MonoBehaviour, IDamageable
             case WeaponType.Pistol: return WeaponData.CreatePistol();
             default: return WeaponData.CreateRifle();
         }
+    }
+
+    private double reviveTime = -1;
+
+    /// <summary>5v5: back in the fight at <paramref name="position"/> (snapshots older than the respawn are ignored).</summary>
+    public void Revive(double serverTime, Vector3 position)
+    {
+        reviveTime = serverTime;
+        sampleCount = 0;
+        hasSample = false;
+        deadSince = -1f;
+        flags = 0;
+        shownFlags = -1;
+        health = 100f;
+        transform.position = position;
+        if (rig != null)
+        {
+            rig.ResetPose();
+            rig.SetVisible(true);
+        }
+        ApplyFlags(0, (int)WeaponType.Rifle);
     }
 
     /// <summary>The server says this one is out (kill message), before the next snapshot shows it.</summary>
