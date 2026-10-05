@@ -439,6 +439,7 @@ public class TouchControls : MonoBehaviour
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
         drinkQueued = grenadeQueued = tacticalQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = airdropQueued = boostQueued = false;
+        itemsKey = -1;   // item names may have changed in the inventory
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

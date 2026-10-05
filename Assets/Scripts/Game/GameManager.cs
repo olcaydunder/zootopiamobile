@@ -309,7 +309,8 @@ public class GameManager : MonoBehaviour
         int winner = TeamMatch.Winner;
         if (currentMode == MatchMode.FreeForAll)
         {
-            int place = TeamMatch.Place(0);
+            // A tie for the top is not a win: shared first counts as second (same as online).
+            int place = winner == 0 ? 1 : Mathf.Max(2, TeamMatch.Place(0));
             StartCoroutine(ArenaResultLater(winner == 0, false, place, TeamMatch.FfaPlayers));
         }
         else
@@ -703,7 +704,7 @@ public class GameManager : MonoBehaviour
 
         profile.AddMatchResult(won, kills, xp, coins);
         int trophies = profile.AddStats(currentMode, won, place, teams, kills, player.deaths, Time.time - MatchStats.StartTime, MatchStats.Damage, MatchStats.Headshots);
-        Missions.OnMatchEnd(won, place, kills, IsArena);
+        Missions.OnMatchEnd(won, place, kills, currentMode);
         uiManager.ShowResult(won, place, teams, kills, xp, coins, trophies);
     }
 

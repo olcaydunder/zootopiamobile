@@ -403,7 +403,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));
         armor = Mathf.Min(maxArmor, 50f + Gear.StartArmor);
         inventory.medkits = 2;
-        inventory.grenades = 1 + Gear.StartExplosives;
+        inventory.grenades = Mathf.Min(Inventory.MaxGrenades, 1 + Gear.StartExplosives);
         inventory.tacticals = HasTactical ? 1 : 0;
         Vector3 d = lookAt - transform.position;
         d.y = 0f;

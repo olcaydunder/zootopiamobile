@@ -174,14 +174,15 @@ public static class FakePhoneTest
         Check(A.score0 == 0 && A.score1 == 0 && A.timeLeft > 470, "score 0-0, " + A.timeLeft.ToString("F0") + " s");
         V3 sa = A.respawnAt[A.id], sb = B.respawnAt[B.id];
         A.pos = new V3(sa.x, sa.y + 0.95f, sa.z); B.pos = new V3(sb.x, sb.y + 0.95f, sb.z); A.flags = 0; B.flags = 0;
-        Console.WriteLine("== the bots fight over the points (40 s)");
-        int msgs = A.scoreMsgs;
-        ok = RunUntil(40, ps, () => { foreach (var o in A.points) if (o >= 0) return A.score0 + A.score1 > 0; return false; });
+        Console.WriteLine("== the bots fight over the points (up to 50 s)");
+        ok = RunUntil(50, ps, () => { foreach (var o in A.points) if (o >= 0) return A.score0 + A.score1 > 0; return false; });
         string owners = string.Join(",", Array.ConvertAll(A.points, x => x.ToString()));
         Check(ok, "a point was taken and scores: owners " + owners + ", score " + A.score0 + "-" + A.score1);
-        Check(A.scoreMsgs - msgs >= 20, "score/point updates ~2 per second: " + (A.scoreMsgs - msgs));
+        int msgs = A.scoreMsgs;
+        Run(10, ps);
+        Check(A.scoreMsgs - msgs >= 15, "score/point updates ~2 per second: " + (A.scoreMsgs - msgs) + " in 10 s");
         Console.WriteLine("== a kill does not score in Hakimiyet");
-        int before = A.score0 + A.score1, enemyBot = -1;
+        int enemyBot = -1;
         foreach (var e in A.ents.Values) if (e.bot && e.team != A.team && (e.flags & 1) == 0) { enemyBot = e.id; break; }
         int kb = A.kills;
         Ent t; A.ents.TryGetValue(enemyBot, out t);

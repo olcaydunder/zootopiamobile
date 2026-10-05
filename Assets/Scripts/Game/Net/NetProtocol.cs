@@ -17,7 +17,7 @@ public static class NetProtocol
     // Phone -> server
     public const byte C_State = 1;      // ushort seq, Pos, Yaw, sbyte pitch, byte flags, byte weapon+1, byte health, byte armor
     public const byte C_Shot = 2;       // Pos end, byte weapon+1
-    public const byte C_Hit = 3;        // ushort target, ushort damage*10, byte weapon (or HitGrenade), byte head
+    public const byte C_Hit = 3;        // ushort target, ushort damage*10, byte weapon (or HitGrenade), byte flags (1 head, 2 poison: armour does not help)
     public const byte C_Died = 4;       // ushort killer, byte how (weapon+1 / HitGrenade, from the last S_Damage)
     public const byte C_Pickup = 5;     // ushort loot id
     public const byte C_Door = 6;       // ushort door, bool open, Pos from
@@ -36,7 +36,7 @@ public static class NetProtocol
     public const byte S_LootGone = 25;    // ushort id
     public const byte S_Snap = 26;        // see NetServer.SendSnapshots
     public const byte S_Shot = 27;        // ushort shooter, Pos end, byte weapon+1
-    public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, bool head, byte how
+    public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, byte flags (1 head, 2 poison), byte how
     public const byte S_Kill = 29;        // ushort killer, ushort victim, byte how
     public const byte S_Door = 30;        // ushort door, bool open, Pos from
     public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz, byte ThrowKind
@@ -47,7 +47,7 @@ public static class NetProtocol
     public const byte S_Chat = 36;        // ushort id, string name, string account, string text
     public const byte S_Emote = 37;       // ushort id, string name, byte emote
     public const byte S_Respawn = 38;     // arena: ushort id, float server time, Pos (the phone with that id spawns there)
-    public const byte S_Score = 39;       // arena: byte n {ushort score per server team}, float seconds left, byte points {sbyte owner, sbyte progress*100}
+    public const byte S_Score = 39;       // arena: byte n {ushort score per server team}, float seconds left, byte points {byte owner (255 none), sbyte progress*100}
 
     // Entity flags (C_State and snapshots)
     public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64;
@@ -160,7 +160,8 @@ public static class NetProtocol
             case WeaponType.Pistol: baseDamage = 16f; break;
             default: return 0f;
         }
-        return baseDamage * 2f * 1.6f + 1f;
+        // head shot x2, attachments/class x1.6, perks (Keskin Göz x1.24, Son Nefes x1.27)
+        return baseDamage * 2f * 1.6f * 1.575f + 1f;
     }
 
     /// <summary>Furthest a hit of this weapon can land (generous: positions are 50-100 ms old).</summary>

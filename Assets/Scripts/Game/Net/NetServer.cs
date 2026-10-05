@@ -890,7 +890,9 @@ public sealed class NetServer : MonoBehaviour
         int targetId = reader.UShort();
         float damage = reader.UShort() / 10f;
         int weapon = reader.Byte();
-        bool head = reader.Bool();
+        int hitFlags = reader.Byte();
+        bool head = (hitFlags & 1) != 0;
+        bool pierce = (hitFlags & 2) != 0 && weapon == NetProtocol.HitGrenade;
         if (!Playing(p))
             return;
         var me = p.entity;
@@ -918,6 +920,7 @@ public sealed class NetServer : MonoBehaviour
         if (target.agent != null)
         {
             HitContext.Set(me.human, from, head, weapon);
+            HitContext.Pierce = pierce;
             try
             {
                 target.agent.TakeDamage(damage, me.team);
@@ -929,18 +932,18 @@ public sealed class NetServer : MonoBehaviour
         }
         else if (target.peer != null && !target.peer.gone)
         {
-            SendDamage(target.peer, damage, me.id, from, head, weapon);
+            SendDamage(target.peer, damage, me.id, from, head, weapon, pierce);
         }
     }
 
-    private void SendDamage(Peer to, float amount, int attackerId, Vector3 from, bool head, int weapon)
+    private void SendDamage(Peer to, float amount, int attackerId, Vector3 from, bool head, int weapon, bool pierce = false)
     {
         w.Reset();
         w.Byte(NetProtocol.S_Damage);
         w.UShort(Mathf.Clamp(Mathf.RoundToInt(amount * 10f), 1, 65535));
         w.UShort(attackerId);
         w.Pos(from);
-        w.Bool(head);
+        w.Byte((head ? 1 : 0) | (pierce ? 2 : 0));
         w.Byte(HowCode(weapon));
         to.conn.SendReliable(w.ToArray());
     }
@@ -1238,7 +1241,7 @@ public sealed class NetServer : MonoBehaviour
         if (key != null)
             byObject.TryGetValue(key, out attacker);
         Vector3 from = HitContext.Attacker != null ? HitContext.From : human.transform.position;
-        SendDamage(e.peer, amount, attacker != null ? attacker.id : NetProtocol.NoEntity, from, HitContext.Head, HitContext.Weapon);
+        SendDamage(e.peer, amount, attacker != null ? attacker.id : NetProtocol.NoEntity, from, HitContext.Head, HitContext.Weapon, HitContext.Pierce);
     }
 
     public void OnBotEliminated(BotAgent bot)

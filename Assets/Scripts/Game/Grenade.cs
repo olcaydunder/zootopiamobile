@@ -323,7 +323,13 @@ public class Grenade : MonoBehaviour
             if (b == null || b.isDead || b.IsAirborne || (b.team == team && !ReferenceEquals(b, thrower)))
                 continue;
             float d = Vector3.Distance(b.transform.position, pos);
-            if (d < 16f && !Physics.Linecast(pos, b.AimPoint, Physics.DefaultRaycastLayers & ~(1 << PlayerController.IgnoreRaycastLayer), QueryTriggerInteraction.Ignore))
+            if (d >= 16f)
+                continue;
+            // In sight: nothing but the bot itself between the flash and its eyes.
+            RaycastHit hit;
+            bool clear = !Physics.Linecast(pos, b.AimPoint, out hit, Physics.DefaultRaycastLayers & ~(1 << PlayerController.IgnoreRaycastLayer), QueryTriggerInteraction.Ignore)
+                         || ReferenceEquals(hit.collider.GetComponentInParent<IDamageable>(), b);
+            if (clear)
                 b.Blind(seconds * Mathf.Clamp01(1.3f - d / 16f));
         }
     }

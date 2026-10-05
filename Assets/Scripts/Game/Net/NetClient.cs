@@ -772,7 +772,8 @@ public sealed class NetClient : MonoBehaviour
         float amount = reader.UShort() / 10f;
         int attacker = reader.UShort();
         Vector3 from = reader.Pos();
-        bool head = reader.Bool();
+        int hitFlags = reader.Byte();
+        bool head = (hitFlags & 1) != 0;
         int how = reader.Byte();
         var player = GameManager.Instance.player;
         if (State != Phase.Playing || player == null || player.isDead)
@@ -785,7 +786,15 @@ public sealed class NetClient : MonoBehaviour
         }
         player.MarkHitFrom(from);
         player.nextHitHead = head;
-        player.TakeDamage(amount, 1);
+        HitContext.Pierce = (hitFlags & 2) != 0;
+        try
+        {
+            player.TakeDamage(amount, 1);
+        }
+        finally
+        {
+            HitContext.Pierce = false;
+        }
     }
 
     private static readonly string[] HowNames = { "", "TÜFEK", "SMG", "POMPALI", "KESKİN", "TABANCA" };
@@ -947,7 +956,7 @@ public sealed class NetClient : MonoBehaviour
         w.UShort(target.id);
         w.UShort(Mathf.Clamp(Mathf.RoundToInt(amount * 10f), 1, 65535));
         w.Byte(weapon);
-        w.Bool(head);
+        w.Byte((head ? 1 : 0) | (HitContext.Pierce ? 2 : 0));
         conn.SendReliable(w.ToArray());
     }
 

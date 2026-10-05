@@ -85,7 +85,7 @@ public class InventoryScreen : MonoBehaviour
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = 40f;
 
-        var d = Theme.Box(t, "Detail", new Vector2(0.5f, 0.5f), new Vector2(640f, -60f), new Vector2(600f, 860f), Theme.Panel, true);
+        var d = Theme.Box(t, "Detail", new Vector2(0.5f, 0.5f), new Vector2(640f, -100f), new Vector2(600f, 790f), Theme.Panel, true);
         detail = (RectTransform)d.transform;
 
         statusText = UIUtil.CreateText(t, "", new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(1600f, 40f), 24, TextAnchor.MiddleCenter);

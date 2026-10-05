@@ -172,6 +172,16 @@ public class UIManager : MonoBehaviour
         if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
+        ClearVeils();
+    }
+
+    private void ClearVeils()
+    {
+        flashStrength = flashHold = flashFade = 0f;
+        if (flashVeil != null)
+            flashVeil.gameObject.SetActive(false);
+        if (smokeVeil != null)
+            smokeVeil.enabled = false;
     }
 
     // ----- Builders -----
@@ -1188,6 +1198,8 @@ public class UIManager : MonoBehaviour
     {
         HideAll();
         var p = GameManager.Instance.profile;
+        if (GameManager.Instance.player != null)
+            GameManager.Instance.player.ApplyMask();   // a mask may have come from a box, a deal or the wheel
         lobbyNameText.text = p.playerName;
         lobbyLevelText.text = p.RankName.ToUpper() + "  •  SV " + p.level + (p.IsMaxLevel ? "" : "   •   " + p.xp + " / " + p.XpForNextLevel + " XP");
         lobbyXpFill.sizeDelta = new Vector2(360f * (p.IsMaxLevel ? 1f : Mathf.Clamp01((float)p.xp / Mathf.Max(1, p.XpForNextLevel))), 8f);

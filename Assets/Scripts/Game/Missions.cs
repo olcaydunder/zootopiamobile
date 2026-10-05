@@ -141,8 +141,9 @@ public static class Missions
     }
 
     /// <summary>Counts a finished match (called with the result, bots or online).</summary>
-    public static void OnMatchEnd(bool won, int place, int kills, bool team5v5)
+    public static void OnMatchEnd(bool won, int place, int kills, MatchMode mode)
     {
+        bool team5v5 = Modes.Arena(mode);   // every arena mode counts as an "arena match"
         Add(MissionStat.Matches, 1);
         Add(MissionStat.Kills, kills);
         if (won)
@@ -150,7 +151,7 @@ public static class Missions
             Add(MissionStat.Wins, 1);
             PlayerPrefs.SetInt(WinsKey, WinsToday + 1);
         }
-        if (team5v5 ? won : place <= 5)
+        if (Modes.TwoTeams(mode) ? won : mode == MatchMode.FreeForAll ? place <= 3 : place <= 5)
             Add(MissionStat.Top5, 1);
         Add(MissionStat.Damage, Mathf.RoundToInt(MatchStats.Damage));
         Add(MissionStat.Headshots, MatchStats.Headshots);

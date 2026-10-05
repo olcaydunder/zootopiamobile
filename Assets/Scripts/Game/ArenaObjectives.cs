@@ -81,6 +81,24 @@ public class ArenaObjectives : MonoBehaviour
         Instance = null;
     }
 
+    private readonly List<Object> owned = new List<Object>();   // materials and meshes made here
+
+    private void OnDestroy()
+    {
+        foreach (var o in owned)
+            if (o != null)
+                Destroy(o);
+        owned.Clear();
+        if (Instance == this)
+            Instance = null;
+    }
+
+    private Material Mat(Material m)
+    {
+        owned.Add(m);
+        return m;
+    }
+
     /// <summary>The nearest open spot on the ground (no randomness: the server and every phone get the same place).</summary>
     private static Vector3 Ground(Vector3 p)
     {
@@ -128,8 +146,8 @@ public class ArenaObjectives : MonoBehaviour
         var root = new GameObject("Point_" + p.name).transform;
         root.SetParent(transform, false);
         root.position = p.pos;
-        p.discMat = UIUtil.UnlitMaterial(new Color(1f, 1f, 1f, 0.12f));
-        p.ringMat = UIUtil.UnlitMaterial(new Color(1f, 1f, 1f, 0.85f));
+        p.discMat = Mat(UIUtil.UnlitMaterial(new Color(1f, 1f, 1f, 0.12f)));
+        p.ringMat = Mat(UIUtil.UnlitMaterial(new Color(1f, 1f, 1f, 0.85f)));
         AddMesh(root, "Disc", Annulus(p.pos, 0f, PointRadius - 0.3f, 40, 0.06f), p.discMat);
         AddMesh(root, "Ring", Annulus(p.pos, PointRadius - 0.45f, PointRadius, 56, 0.09f), p.ringMat);
         // flag pole with the flag and the letter
@@ -144,7 +162,7 @@ public class ArenaObjectives : MonoBehaviour
         flag.transform.SetParent(root, false);
         flag.transform.localPosition = new Vector3(0.75f, 3.9f, 0f);
         flag.transform.localScale = new Vector3(1.4f, 0.9f, 0.05f);
-        p.flagMat = new Material(MaterialCache.Lit(Neutral));
+        p.flagMat = Mat(new Material(MaterialCache.Lit(Neutral)));
         flag.GetComponent<Renderer>().sharedMaterial = p.flagMat;
         p.flag = flag.transform;
         var label = new GameObject("Letter");
@@ -199,9 +217,9 @@ public class ArenaObjectives : MonoBehaviour
             var root = new GameObject("Base" + t).transform;
             root.SetParent(transform, false);
             Color c = TeamColors[t];
-            baseMats[t] = UIUtil.UnlitMaterial(new Color(c.r, c.g, c.b, 0.85f));
+            baseMats[t] = Mat(UIUtil.UnlitMaterial(new Color(c.r, c.g, c.b, 0.85f)));
             AddMesh(root, "Ring", Annulus(bases[t], BaseRadius - 0.5f, BaseRadius, 56, 0.09f), baseMats[t]);
-            AddMesh(root, "Disc", Annulus(bases[t], 0f, BaseRadius - 0.4f, 40, 0.06f), UIUtil.UnlitMaterial(new Color(c.r, c.g, c.b, 0.15f)));
+            AddMesh(root, "Disc", Annulus(bases[t], 0f, BaseRadius - 0.4f, 40, 0.06f), Mat(UIUtil.UnlitMaterial(new Color(c.r, c.g, c.b, 0.15f))));
         }
         // the bag: a fat sack with a tied neck
         var sack = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -225,8 +243,9 @@ public class ArenaObjectives : MonoBehaviour
         bag = sack.transform;
     }
 
-    private static void AddMesh(Transform parent, string name, Mesh mesh, Material mat)
+    private void AddMesh(Transform parent, string name, Mesh mesh, Material mat)
     {
+        owned.Add(mesh);
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         go.transform.position = Vector3.zero;   // the mesh is in world space
@@ -283,6 +302,8 @@ public class ArenaObjectives : MonoBehaviour
             else
                 MoveBag(gm);
         }
+        else if (Domination && playing)
+            CountInside(gm);   // online phone: who is in each point (for "ÇEKİŞMELİ")
         if (!NetGame.IsServer)
             Show();
     }
@@ -322,6 +343,24 @@ public class ArenaObjectives : MonoBehaviour
                 foreach (var p in points)
                     if (p.owner >= 0)
                         TeamMatch.Score[p.owner]++;
+        }
+    }
+
+    private void CountInside(GameManager gm)
+    {
+        foreach (var p in points)
+        {
+            p.inside0 = p.inside1 = 0;
+            foreach (var c in gm.Combatants)
+            {
+                if (c == null || c.IsDead || c.IsAirborne)
+                    continue;
+                Vector3 d = c.transform.position - p.pos;
+                if (Mathf.Abs(d.y) > 4f || d.x * d.x + d.z * d.z > PointRadius * PointRadius)
+                    continue;
+                if (c.Team == 0) p.inside0++;
+                else p.inside1++;
+            }
         }
     }
 
