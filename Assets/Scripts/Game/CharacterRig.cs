@@ -70,6 +70,9 @@ public class CharacterRig : MonoBehaviour
     public bool showcase;
     private Transform hips, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR;
     private Transform yawBone;          // carries both the legs and the spine (Mixamo: Hips; Quaternius: Body)
+    private Transform headBone, maskMount;   // mount: centre of the head, facing forward, world scale = head size
+    private GameObject mask;
+    private string maskShown = "";
     private bool feetFree;              // feet are not children of the shins (Quaternius rigs): moved along by hand
     private Transform[] posedBones;     // everything PoseBody changes, to undo it if the animator skipped a frame
     private Quaternion[] baseRot, posedRot;
@@ -204,6 +207,28 @@ public class CharacterRig : MonoBehaviour
         var mat = WeaponDressing.CamoMaterial(Cosmetics.FindParachuteCamo(canopyCamoShown), 1.73f, 1.6f);
         canopyCloth.sharedMaterial = mat != null ? mat : canopyDefault;
     }
+
+    /// <summary>Puts an animal mask (Gear "k_…", Resources/Models/Masks) on the head; null or "" takes it off.</summary>
+    public void SetMask(string id)
+    {
+        id = id ?? "";
+        if (id == maskShown)
+            return;
+        maskShown = id;
+        if (mask != null)
+            Destroy(mask);
+        mask = null;
+        if (id.Length == 0 || maskMount == null || NetGame.IsServer)
+            return;
+        mask = ModelLibrary.Spawn("Models/Masks/" + id, maskMount);   // keeps the FBX's own axis rotation
+        if (mask == null)
+            return;
+        ModelLibrary.ShareMaterials(mask, true);
+        if (root != null)
+            ModelLibrary.SetLayer(mask, root.gameObject.layer);
+    }
+
+    public string MaskShown { get { return maskShown; } }
 
     public void SetVisible(bool visible)
     {
@@ -510,6 +535,18 @@ public class CharacterRig : MonoBehaviour
         handL = Pick(b, "Fist.L", "LeftHand");
         upperArmR = Pick(b, "UpperArm.R", "RightArm");
         foreR = Pick(b, "LowerArm.R", "RightForeArm");
+        headBone = Pick(b, "Head");
+        if (headBone != null && root != null)
+        {
+            // Still in the bind pose here (upright head): mount masks at the centre of the head, facing forward,
+            // scaled to the head (bone to top of the model; hats make it a little bigger, which is fine).
+            float top = ModelLibrary.RenderBounds(model).max.y;
+            float headH = Mathf.Clamp(top - headBone.position.y, 0.16f, 0.42f);
+            maskMount = new GameObject("MaskMount").transform;
+            maskMount.SetPositionAndRotation(headBone.position + root.up * headH * 0.48f + root.forward * headH * 0.06f, root.rotation);
+            maskMount.localScale = Vector3.one * (headH * 1.22f / 0.25f);   // the mask shell is 0.25 m tall
+            maskMount.SetParent(headBone, true);
+        }
         if (upLegL != null && shinL != null && footL != null)
         {
             thighLen = Vector3.Distance(upLegL.position, shinL.position);

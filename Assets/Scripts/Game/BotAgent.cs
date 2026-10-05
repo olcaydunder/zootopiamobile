@@ -102,6 +102,8 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             Skins[Random.Range(0, Skins.Length)], Helmets[Random.Range(0, Helmets.Length)], new Color(0.38f, 0.32f, 0.22f), skin);
         rig.weaponHold = weapon.transform;
         rig.footstep = OnStep;
+        if (Random.value < 0.3f)   // some bots wear an animal mask
+            rig.SetMask(Gear.RandomMaskId());
         if (teamId == 0 && !NetGame.IsServer)
         {
             // Green marker over teammates' heads.

@@ -153,6 +153,7 @@ public class UIManager : MonoBehaviour
         if (mapSelect != null) mapSelect.gameObject.SetActive(false);
         if (store != null) store.Hide();
         if (missions != null) missions.Hide();
+        if (inventory != null) inventory.Hide();
         if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -214,7 +215,13 @@ public class UIManager : MonoBehaviour
         friendsBadge.SetActive(false);
         var storeButton = UIUtil.CreateButton(t, "   MAĞAZA", new Vector2(1f, 1f), new Vector2(-950f, -70f), new Vector2(240f, 80f), new Color(0.55f, 0.35f, 0.08f, 0.95f), false, 28, out unused);
         Icons.Create(storeButton.transform, "store", new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(60f, 60f));
-        storeButton.onClick.AddListener(() => { HideAll(); store.Open(StoreScreen.Tab.Boxes, ShowLobby); });
+        storeButton.onClick.AddListener(() => { HideAll(); store.Open(StoreScreen.Tab.Deals, ShowLobby); });
+        var dealDot = UIUtil.CreateImage(storeButton.transform, "Badge", new Vector2(1f, 1f), new Vector2(-6f, -6f), new Vector2(30f, 30f), Theme.Good, true);
+        dealDot.raycastTarget = false;
+        storeBadge = dealDot.gameObject;
+        var invButton = UIUtil.CreateButton(t, "     ENVANTER", new Vector2(1f, 1f), new Vector2(-1205f, -70f), new Vector2(240f, 80f), new Color(0.3f, 0.2f, 0.45f, 0.95f), false, 28, out unused);
+        Icons.Create(invButton.transform, "inventory", new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(60f, 60f));
+        invButton.onClick.AddListener(() => { HideAll(); inventory.Open(InventoryScreen.Tab.Armor, ShowLobby); });
 
         // Missions (bottom-left, under the tiles), with how many are ready to collect.
         var missionsButton = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, -345f), new Vector2(440f, 88f), Theme.Panel, false, 20, out unused);
@@ -361,6 +368,7 @@ public class UIManager : MonoBehaviour
         mapSelect = MapSelectScreen.Create(canvas.transform);
         store = StoreScreen.Create(canvas.transform);
         missions = MissionsScreen.Create(canvas.transform);
+        inventory = InventoryScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -651,6 +659,12 @@ public class UIManager : MonoBehaviour
 
     /// <summary>Join a private room by its code (friend's invite or the friends list).</summary>
     /// <summary>The store in gift mode: what to send to this friend.</summary>
+    public void OpenStore(StoreScreen.Tab tab)
+    {
+        HideAll();
+        store.Open(tab, ShowLobby);
+    }
+
     public void OpenStoreForGift(string personId, string personName)
     {
         HideAll();
@@ -844,6 +858,8 @@ public class UIManager : MonoBehaviour
     private MapSelectScreen mapSelect;
     private StoreScreen store;
     private MissionsScreen missions;
+    private InventoryScreen inventory;
+    private GameObject storeBadge;
     private GameObject missionsBadge;
     private Text missionsBadgeText, lobbyMissionsText;
     private GameObject friendsBadge, inviteBanner;
@@ -1038,6 +1054,7 @@ public class UIManager : MonoBehaviour
         Icons.Set(lobbyClassIcon, cls.icon);
         lobbyClassText.text = "Sınıf: " + cls.name + "  •  jeton ve kamuflaj";
         lobbyCoinsText.text = p.coins.ToString("N0");
+        storeBadge.SetActive(Deals.FreeReady);
         int ready = Missions.ReadyCount();
         missionsBadge.SetActive(ready > 0);
         missionsBadgeText.text = ready.ToString();

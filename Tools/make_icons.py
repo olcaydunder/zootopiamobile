@@ -1,5 +1,5 @@
 """Draws the newer UI icons (SVG → 256x256 PNG) into Assets/Resources/UI/Icons/, in the style of the
-existing set (dark outline, gradients, a highlight): gift crates (bronze / silver / gold, and each one's
+existing set (dark outline, gradients, a highlight): gift crates (wood / bronze / silver / gold / diamond, and each one's
 body and lid for the opening animation, in Resources/UI/Crates at 512 px), character, store, missions, gift, chat, follow. Run:  python3 Tools/make_icons.py   (needs cairosvg)
 """
 import os
@@ -79,6 +79,8 @@ ICONS = {
     "crate_bronze": crate("bronze", "#e0a46a", "#8a4f22", "#f2d36b", "#b07a18", "#ff5a4a"),
     "crate_silver": crate("silver", "#eef3f8", "#8f9cab", "#5aa8ff", "#1f5fc0", "#4ad0ff"),
     "crate_gold": crate("gold", "#ffe680", "#d08a10", "#b04cff", "#5a1fa8", "#ff4ad6"),
+    "crate_wood": crate("wood", "#b98252", "#6a4322", "#8fe07a", "#3c9a30", "#e8ffd8"),
+    "crate_diamond": crate("diamond", "#c8fbff", "#3aa8d8", "#ff6aa0", "#c0205a", "#ffffff"),
     # character: helmeted head and shoulders
     "skin": badge('<path d="M78 196 C 80 158, 104 146, 128 146 C 152 146, 176 158, 178 196 Z" fill="#3c4b38" stroke="%s" stroke-width="8"/>'
                   '<circle cx="128" cy="112" r="34" fill="#e8c09a" stroke="%s" stroke-width="8"/>'
@@ -121,7 +123,9 @@ ICONS = {
 
 CRATE_COLOURS = {"bronze": ("#e0a46a", "#8a4f22", "#f2d36b", "#b07a18", "#ff5a4a"),
                  "silver": ("#eef3f8", "#8f9cab", "#5aa8ff", "#1f5fc0", "#4ad0ff"),
-                 "gold": ("#ffe680", "#d08a10", "#b04cff", "#5a1fa8", "#ff4ad6")}
+                 "gold": ("#ffe680", "#d08a10", "#b04cff", "#5a1fa8", "#ff4ad6"),
+                 "wood": ("#b98252", "#6a4322", "#8fe07a", "#3c9a30", "#e8ffd8"),
+                 "diamond": ("#c8fbff", "#3aa8d8", "#ff6aa0", "#c0205a", "#ffffff")}
 for name, data in ICONS.items():
     path = os.path.join(OUT, name + ".png")
     cairosvg.svg2png(bytestring=data.encode(), write_to=path, output_width=256, output_height=256)

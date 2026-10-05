@@ -3,13 +3,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// MAĞAZA (Kredi only): gift boxes (buy, open the ones you have), characters, camouflages for guns,
+/// MAĞAZA (Kredi only): FIRSATLAR (free daily gift, six daily deals, weekly offers), gift boxes (buy, open
+/// the ones you have), characters, TEÇHİZAT (armour, equipment, perk cards, masks) and camouflages for guns,
 /// vehicles and parachutes. Every paid item can also be bought as a gift for a friend (HEDİYE ET).
 /// Opened for a friend (from the friends screen) every item shows GÖNDER instead.
 /// </summary>
 public class StoreScreen : MonoBehaviour
 {
-    public enum Tab { Boxes, Characters, Camos }
+    public enum Tab { Deals, Boxes, Characters, Gear, Camos }
 
     private Tab tab;
     private System.Action onClose;
@@ -49,11 +50,11 @@ public class StoreScreen : MonoBehaviour
         coinsText.fontStyle = FontStyle.Bold;
         coinsText.color = new Color(1f, 0.85f, 0.3f);
 
-        string[] tabs = { "KUTULAR", "KARAKTERLER", "KAMUFLAJLAR" };
+        string[] tabs = { "FIRSATLAR", "KUTULAR", "KARAKTERLER", "TEÇHİZAT", "KAMUFLAJLAR" };
         for (int i = 0; i < tabs.Length; i++)
         {
             int index = i;
-            var b = UIUtil.CreateButton(t, tabs[i], new Vector2(0.5f, 1f), new Vector2(-340f + i * 340f, -175f), new Vector2(320f, 76f), Theme.Panel, false, 30, out label);
+            var b = UIUtil.CreateButton(t, tabs[i], new Vector2(0.5f, 1f), new Vector2((i - 2) * 340f, -175f), new Vector2(320f, 76f), Theme.Panel, false, 30, out label);
             b.onClick.AddListener(() => Show((Tab)index));
             tabImages.Add(b.GetComponent<Image>());
             tabLabels.Add(label);
@@ -135,8 +136,10 @@ public class StoreScreen : MonoBehaviour
         float h;
         switch (tab)
         {
+            case Tab.Deals: h = Gifting ? BuildBoxes() : BuildDeals(); break;
             case Tab.Boxes: h = BuildBoxes(); break;
             case Tab.Characters: h = BuildCharacters(); break;
+            case Tab.Gear: h = BuildGear(); break;
             default: h = BuildCamos(); break;
         }
         content.sizeDelta = new Vector2(1760f, h);
@@ -153,29 +156,31 @@ public class StoreScreen : MonoBehaviour
         {
             var cr = Shop.Crates[i];
             string id = cr.id;
-            float x = (i - 1) * 570f;
-            var card = UIUtil.CreateImage(content, "Box", c, new Vector2(x, -350f), new Vector2(540f, 680f), new Color(cr.color.r * 0.18f, cr.color.g * 0.18f, cr.color.b * 0.18f, 0.95f), false);
+            float x = (i - (Shop.Crates.Length - 1) * 0.5f) * 350f;
+            var card = UIUtil.CreateImage(content, "Box", c, new Vector2(x, -350f), new Vector2(336f, 680f), new Color(cr.color.r * 0.18f, cr.color.g * 0.18f, cr.color.b * 0.18f, 0.95f), false);
             var o = card.gameObject.AddComponent<Outline>();
             o.effectColor = new Color(cr.color.r, cr.color.g, cr.color.b, 0.7f);
             o.effectDistance = new Vector2(3f, -3f);
             var ct = card.transform;
             var mid = new Vector2(0.5f, 0.5f);
-            Icons.Create(ct, "crate_" + id, mid, new Vector2(0f, 150f), new Vector2(300f, 300f));
-            var n = UIUtil.CreateText(ct, cr.name, mid, new Vector2(0f, -25f), new Vector2(520f, 60f), 44, TextAnchor.MiddleCenter);
+            Icons.Create(ct, "crate_" + id, mid, new Vector2(0f, 170f), new Vector2(250f, 250f));
+            var n = UIUtil.CreateText(ct, cr.name, mid, new Vector2(0f, 10f), new Vector2(320f, 50f), 32, TextAnchor.MiddleCenter);
             n.fontStyle = FontStyle.Bold;
             n.color = Color.Lerp(cr.color, Color.white, 0.3f);
-            var bl = UIUtil.CreateText(ct, cr.blurb, mid, new Vector2(0f, -85f), new Vector2(480f, 70f), 22, TextAnchor.UpperCenter);
+            var rar = UIUtil.CreateText(ct, MapCatalog.TrUpper(cr.rarity), mid, new Vector2(0f, -28f), new Vector2(320f, 30f), 20, TextAnchor.MiddleCenter);
+            rar.color = Theme.Rarity(cr.rarity);
+            var bl = UIUtil.CreateText(ct, cr.blurb, mid, new Vector2(0f, -60f), new Vector2(300f, 110f), 20, TextAnchor.UpperCenter);
             bl.horizontalOverflow = HorizontalWrapMode.Wrap;
             bl.color = Theme.TextDim;
             Text label;
             if (Gifting)
             {
-                var send = UIUtil.CreateButton(ct, "GÖNDER  " + cr.price.ToString("N0"), mid, new Vector2(0f, -190f), new Vector2(440f, 90f), Theme.Accent, false, 34, out label);
+                var send = UIUtil.CreateButton(ct, "GÖNDER  " + cr.price.ToString("N0"), mid, new Vector2(0f, -200f), new Vector2(300f, 84f), Theme.Accent, false, 28, out label);
                 Dark(label);
                 send.onClick.AddListener(() => SendGift("box", id, cr.name));
                 continue;
             }
-            var buy = UIUtil.CreateButton(ct, "SATIN AL  " + cr.price.ToString("N0"), mid, new Vector2(0f, -170f), new Vector2(440f, 84f), Theme.Accent, false, 32, out label);
+            var buy = UIUtil.CreateButton(ct, cr.price.ToString("N0") + " Kredi", mid, new Vector2(0f, -185f), new Vector2(300f, 80f), Theme.Accent, false, 30, out label);
             Dark(label);
             buy.onClick.AddListener(() =>
             {
@@ -189,13 +194,13 @@ public class StoreScreen : MonoBehaviour
                 Rebuild();
             });
             int have = Shop.CrateCount(id);
-            var haveText = UIUtil.CreateText(ct, "Sende: " + have, mid, new Vector2(-120f, -272f), new Vector2(240f, 50f), 30, TextAnchor.MiddleCenter);
+            var haveText = UIUtil.CreateText(ct, "Sende: " + have, mid, new Vector2(0f, -240f), new Vector2(300f, 34f), 24, TextAnchor.MiddleCenter);
             haveText.color = have > 0 ? Theme.Good : Theme.TextDim;
-            var open = UIUtil.CreateButton(ct, "AÇ", mid, new Vector2(70f, -272f), new Vector2(150f, 70f), have > 0 ? Theme.Good : Theme.PanelLight, false, 30, out label);
+            var open = UIUtil.CreateButton(ct, "AÇ", mid, new Vector2(-45f, -295f), new Vector2(200f, 66f), have > 0 ? Theme.Good : Theme.PanelLight, false, 30, out label);
             if (have > 0)
                 Dark(label);
             open.onClick.AddListener(() => OpenBox(id));
-            var gift = UIUtil.CreateButton(ct, "", mid, new Vector2(195f, -272f), new Vector2(84f, 70f), Theme.PanelLight, false, 20, out label);
+            var gift = UIUtil.CreateButton(ct, "", mid, new Vector2(110f, -295f), new Vector2(84f, 66f), Theme.PanelLight, false, 20, out label);
             Icons.Create(gift.transform, "gift", mid, Vector2.zero, new Vector2(60f, 60f));
             gift.onClick.AddListener(() => GiftPanel.ForItem("box", id, cr.name, cr.price, Rebuild));
         }
@@ -211,6 +216,245 @@ public class StoreScreen : MonoBehaviour
         }
         var given = Shop.OpenCrate(Profile, id);
         CrateOpening.Show(id, given, Shop.Crate(id).name, Rebuild);
+    }
+
+    // ----- Deals: free gift, daily deals, weekly offers -----
+
+    private float BuildDeals()
+    {
+        var p = Profile;
+        var top = new Vector2(0.5f, 1f);
+        var mid = new Vector2(0.5f, 0.5f);
+        Text label;
+        var head = UIUtil.CreateText(content, "GÜNLÜK FIRSATLAR", top, new Vector2(-430f, -30f), new Vector2(900f, 44f), 30, TextAnchor.MiddleLeft);
+        head.fontStyle = FontStyle.Bold;
+        head.color = Theme.Accent;
+        var timer = UIUtil.CreateText(content, "Yenilenmesine " + Deals.TimeLeft, top, new Vector2(430f, -30f), new Vector2(900f, 40f), 24, TextAnchor.MiddleRight);
+        timer.color = Theme.TextDim;
+
+        const int cols = 4;
+        const float w = 420f, h = 330f, gap = 13f;
+        float y0 = -64f;
+        // the free gift is the first card
+        {
+            var card = UIUtil.CreateImage(content, "Free", top, new Vector2((0 - (cols - 1) * 0.5f) * (w + gap), y0 - h * 0.5f), new Vector2(w, h), new Color(0.08f, 0.2f, 0.12f, 0.95f), false);
+            var o = card.gameObject.AddComponent<Outline>();
+            o.effectColor = new Color(0.35f, 0.9f, 0.45f, 0.7f);
+            o.effectDistance = new Vector2(3f, -3f);
+            var ct = card.transform;
+            Icons.Create(ct, "free", mid, new Vector2(0f, 60f), new Vector2(170f, 170f));
+            var n = UIUtil.CreateText(ct, "GÜNLÜK HEDİYE", mid, new Vector2(0f, -45f), new Vector2(400f, 44f), 30, TextAnchor.MiddleCenter);
+            n.fontStyle = FontStyle.Bold;
+            if (Deals.FreeReady)
+            {
+                var claim = UIUtil.CreateButton(ct, "ÜCRETSİZ AL", mid, new Vector2(0f, -115f), new Vector2(330f, 74f), Theme.Good, false, 30, out label);
+                Dark(label);
+                claim.onClick.AddListener(() =>
+                {
+                    var given = Deals.ClaimFree(Profile);
+                    if (given.Count == 0)
+                        return;
+                    UiSound.Confirm();
+                    CrateOpening.ShowQuick("wood", given, "GÜNLÜK HEDİYE", Rebuild);
+                    Rebuild();
+                });
+            }
+            else
+            {
+                var later = UIUtil.CreateText(ct, "Alındı  •  yarın yeniden", mid, new Vector2(0f, -115f), new Vector2(400f, 40f), 24, TextAnchor.MiddleCenter);
+                later.color = Theme.TextDim;
+            }
+        }
+        var deals = Deals.Today();
+        for (int i = 0; i < deals.Count; i++)
+        {
+            var d = deals[i];
+            int k = i + 1;
+            float x = (k % cols - (cols - 1) * 0.5f) * (w + gap);
+            float yy = y0 - h * 0.5f - (k / cols) * (h + gap);
+            string rarity = d.reward.Rarity;
+            Color rc = Theme.Rarity(rarity);
+            var card = UIUtil.CreateImage(content, "Deal", top, new Vector2(x, yy), new Vector2(w, h), new Color(rc.r * 0.16f, rc.g * 0.16f, rc.b * 0.16f, 0.95f), false);
+            var ct = card.transform;
+            UIUtil.CreateImage(ct, "Accent", new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(w, 8f), rc, false).raycastTarget = false;
+            RewardView.Create(ct, d.reward, mid, new Vector2(-110f, 40f), 150f);
+            var n = UIUtil.CreateText(ct, d.title, mid, new Vector2(80f, 70f), new Vector2(220f, 80f), 24, TextAnchor.MiddleLeft);
+            n.fontStyle = FontStyle.Bold;
+            n.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var rl = UIUtil.CreateText(ct, MapCatalog.TrUpper(rarity), mid, new Vector2(80f, 18f), new Vector2(220f, 28f), 18, TextAnchor.MiddleLeft);
+            rl.color = rc;
+            var old = UIUtil.CreateText(ct, d.oldPrice.ToString("N0"), mid, new Vector2(80f, -16f), new Vector2(220f, 30f), 22, TextAnchor.MiddleLeft);
+            old.color = new Color(1f, 1f, 1f, 0.4f);
+            UIUtil.CreateImage(old.transform, "Strike", new Vector2(0f, 0.5f), new Vector2(35f, 0f), new Vector2(70f, 3f), new Color(1f, 0.35f, 0.3f, 0.8f), false).raycastTarget = false;
+            var badge = UIUtil.CreateImage(ct, "Off", new Vector2(1f, 1f), new Vector2(-50f, -36f), new Vector2(84f, 44f), Theme.Red, false);
+            badge.raycastTarget = false;
+            UIUtil.CreateText(badge.transform, "-%" + d.Discount, mid, Vector2.zero, new Vector2(84f, 44f), 22, TextAnchor.MiddleCenter).fontStyle = FontStyle.Bold;
+            bool maskOwned = d.reward.kind == RewardKind.Gear && Gear.Find(d.reward.id) != null && Gear.Find(d.reward.id).Cosmetic && Gear.Owns(d.reward.id);
+            if (d.bought || maskOwned)
+            {
+                var done = UIUtil.CreateText(ct, d.bought ? "ALINDI" : "SENDE", mid, new Vector2(0f, -115f), new Vector2(380f, 60f), 30, TextAnchor.MiddleCenter);
+                done.color = Theme.Good;
+                continue;
+            }
+            var buy = UIUtil.CreateButton(ct, d.price.ToString("N0") + " Kredi", mid, new Vector2(0f, -115f), new Vector2(360f, 72f), Theme.Accent, false, 30, out label);
+            Dark(label);
+            var deal = d;
+            buy.onClick.AddListener(() =>
+            {
+                GrantedReward given;
+                if (!Deals.BuyDeal(Profile, deal, out given))
+                {
+                    SetStatus("Yetersiz Kredi: " + deal.price.ToString("N0") + " gerekli.");
+                    return;
+                }
+                UiSound.Confirm();
+                if (given.reward.kind == RewardKind.Crate)
+                    SetStatus(deal.title + " alındı. KUTULAR'dan açabilirsin.");
+                else
+                    CrateOpening.ShowQuick("bronze", new List<GrantedReward> { given }, deal.title, Rebuild);
+                Rebuild();
+            });
+        }
+        int rows = (deals.Count + 1 + cols - 1) / cols;
+        float y = -y0 + rows * (h + gap) + 30f;
+
+        var oh = UIUtil.CreateText(content, "HAFTALIK TEKLİFLER", top, new Vector2(-430f, -y - 22f), new Vector2(900f, 44f), 30, TextAnchor.MiddleLeft);
+        oh.fontStyle = FontStyle.Bold;
+        oh.color = Theme.Accent;
+        var ot = UIUtil.CreateText(content, "Her teklif haftada bir kez  •  " + Missions.TimeLeft(true), top, new Vector2(430f, -y - 22f), new Vector2(900f, 40f), 24, TextAnchor.MiddleRight);
+        ot.color = Theme.TextDim;
+        y += 56f;
+        const float ow = 866f, oh2 = 240f;
+        for (int i = 0; i < Deals.Offers.Length; i++)
+        {
+            var o = Deals.Offers[i];
+            float x = (i % 2 == 0 ? -1f : 1f) * (ow + gap) * 0.5f;
+            if (i == Deals.Offers.Length - 1 && i % 2 == 0)
+                x = 0f;
+            float yy = -y - oh2 * 0.5f - (i / 2) * (oh2 + gap);
+            var card = UIUtil.CreateImage(content, "Offer", top, new Vector2(x, yy), new Vector2(ow, oh2), new Color(o.color.r * 0.2f, o.color.g * 0.2f, o.color.b * 0.2f, 0.96f), false);
+            var edge = card.gameObject.AddComponent<Outline>();
+            edge.effectColor = new Color(o.color.r, o.color.g, o.color.b, 0.6f);
+            edge.effectDistance = new Vector2(3f, -3f);
+            var ct = card.transform;
+            for (int r = 0; r < o.rewards.Length; r++)
+                RewardView.Create(ct, o.rewards[r], new Vector2(0f, 0.5f), new Vector2(90f + r * 150f, 0f), 135f);
+            float tx = 90f + o.rewards.Length * 150f;
+            var title = UIUtil.CreateText(ct, o.title, new Vector2(0f, 0.5f), new Vector2(tx + 180f, 70f), new Vector2(360f, 46f), 32, TextAnchor.MiddleLeft);
+            title.fontStyle = FontStyle.Bold;
+            title.color = Color.Lerp(o.color, Color.white, 0.35f);
+            var bl = UIUtil.CreateText(ct, o.blurb, new Vector2(0f, 0.5f), new Vector2(tx + 180f, 20f), new Vector2(360f, 56f), 20, TextAnchor.UpperLeft);
+            bl.horizontalOverflow = HorizontalWrapMode.Wrap;
+            bl.color = Theme.TextDim;
+            var worth = UIUtil.CreateText(ct, "Değeri " + o.worth.ToString("N0"), new Vector2(0f, 0.5f), new Vector2(tx + 180f, -30f), new Vector2(360f, 30f), 20, TextAnchor.MiddleLeft);
+            worth.color = new Color(1f, 1f, 1f, 0.45f);
+            if (Deals.OfferBought(o))
+            {
+                var done = UIUtil.CreateText(ct, "BU HAFTA ALINDI", new Vector2(0f, 0.5f), new Vector2(tx + 180f, -78f), new Vector2(360f, 44f), 26, TextAnchor.MiddleLeft);
+                done.color = Theme.Good;
+                continue;
+            }
+            var buy = UIUtil.CreateButton(ct, o.price.ToString("N0") + " Kredi", new Vector2(0f, 0.5f), new Vector2(tx + 130f, -80f), new Vector2(260f, 64f), Theme.Accent, false, 26, out label);
+            Dark(label);
+            var offer = o;
+            buy.onClick.AddListener(() =>
+            {
+                var given = new List<GrantedReward>();
+                if (!Deals.BuyOffer(Profile, offer, given))
+                {
+                    SetStatus("Yetersiz Kredi: " + offer.price.ToString("N0") + " gerekli.");
+                    return;
+                }
+                UiSound.Confirm();
+                CrateOpening.ShowQuick("gold", given, offer.title, Rebuild);
+                Rebuild();
+            });
+        }
+        y += ((Deals.Offers.Length + 1) / 2) * (oh2 + gap) + 20f;
+        return y;
+    }
+
+    // ----- Gear: armour, equipment, perk cards, masks -----
+
+    private float BuildGear()
+    {
+        y = 0f;
+        var p = Profile;
+        GearSlot[] order = { GearSlot.Mask, GearSlot.Head, GearSlot.Body, GearSlot.Legs, GearSlot.Explosive, GearSlot.Tactical, GearSlot.Medical, GearSlot.Perk };
+        foreach (var slot in order)
+        {
+            var items = new List<GearDef>();
+            foreach (var g in Gear.OfSlot(slot))
+                if (g.price > 0)
+                    items.Add(g);
+            if (items.Count == 0)
+                continue;
+            var head = UIUtil.CreateText(content, slot == GearSlot.Mask ? "MASKELER" : Gear.SlotNames[(int)slot], new Vector2(0.5f, 1f), new Vector2(0f, -y - 30f), new Vector2(1720f, 44f), 28, TextAnchor.MiddleLeft);
+            head.fontStyle = FontStyle.Bold;
+            head.color = Theme.TextDim;
+            y += 64f;
+            const int cols = 6;
+            const float w = 276f, h = 330f;
+            int k = 0;
+            foreach (var g in items)
+            {
+                float x = (k % cols - (cols - 1) * 0.5f) * (w + 12f);
+                float yy = -y - h * 0.5f - (k / cols) * (h + 12f);
+                k++;
+                var r = new Reward { kind = RewardKind.Gear, id = g.id, amount = 1 };
+                var card = UIUtil.CreateImage(content, "Gear", new Vector2(0.5f, 1f), new Vector2(x, yy), new Vector2(w, h), Theme.Panel, false);
+                var ct = card.transform;
+                var mid = new Vector2(0.5f, 0.5f);
+                RewardView.Create(ct, r, mid, new Vector2(0f, 75f), 150f);
+                var n = UIUtil.CreateText(ct, g.name, mid, new Vector2(0f, -22f), new Vector2(w - 12f, 36f), 22, TextAnchor.MiddleCenter);
+                n.fontStyle = FontStyle.Bold;
+                var rl = UIUtil.CreateText(ct, MapCatalog.TrUpper(g.rarity), mid, new Vector2(0f, -50f), new Vector2(w - 12f, 26f), 18, TextAnchor.MiddleCenter);
+                rl.color = Theme.Rarity(g.rarity);
+                var eff = UIUtil.CreateText(ct, g.Cosmetic ? "Kafana giyilir" : Gear.Describe(g, Mathf.Max(1, Gear.Level(g.id))), mid, new Vector2(0f, -86f), new Vector2(w - 16f, 48f), 17, TextAnchor.UpperCenter);
+                eff.horizontalOverflow = HorizontalWrapMode.Wrap;
+                eff.color = Theme.TextDim;
+                Text label;
+                var gd = g;
+                if (Gifting)
+                {
+                    var send = UIUtil.CreateButton(ct, "GÖNDER " + g.price.ToString("N0"), mid, new Vector2(0f, -135f), new Vector2(w - 30f, 58f), Theme.Accent, false, 22, out label);
+                    Dark(label);
+                    send.onClick.AddListener(() => SendGift("gear", gd.id, gd.name));
+                    continue;
+                }
+                bool owned = Gear.Owns(g.id);
+                if (owned && g.Cosmetic)
+                {
+                    var have = UIUtil.CreateText(ct, "SENDE", mid, new Vector2(-40f, -135f), new Vector2(160f, 50f), 24, TextAnchor.MiddleCenter);
+                    have.color = Theme.Good;
+                }
+                else
+                {
+                    var buy = UIUtil.CreateButton(ct, (owned ? "+3 KART  " : "") + g.price.ToString("N0"), mid, new Vector2(-40f, -135f), new Vector2(180f, 58f), owned ? Theme.PanelLight : Theme.Accent, false, 22, out label);
+                    if (!owned)
+                        Dark(label);
+                    buy.onClick.AddListener(() =>
+                    {
+                        bool had = Gear.Owns(gd.id);
+                        if (!Gear.Buy(gd, Profile))
+                        {
+                            SetStatus("Yetersiz Kredi: " + gd.price.ToString("N0") + " gerekli.");
+                            return;
+                        }
+                        UiSound.Confirm();
+                        SetStatus(had ? gd.name + ": +3 kart. ENVANTER'den yükseltebilirsin." : gd.name + " artık senin! ENVANTER'den kuşan.");
+                        if (gd.Cosmetic && GameManager.Instance.player != null)
+                            GameManager.Instance.player.ApplyMask();
+                        Rebuild();
+                    });
+                }
+                var gift = UIUtil.CreateButton(ct, "", mid, new Vector2(95f, -135f), new Vector2(66f, 58f), Theme.PanelLight, false, 20, out label);
+                Icons.Create(gift.transform, "gift", mid, Vector2.zero, new Vector2(48f, 48f));
+                gift.onClick.AddListener(() => GiftPanel.ForItem("gear", gd.id, gd.name, gd.price, Rebuild));
+            }
+            y += ((k + cols - 1) / cols) * (h + 12f) + 20f;
+        }
+        return y + 20f;
     }
 
     // ----- Characters -----

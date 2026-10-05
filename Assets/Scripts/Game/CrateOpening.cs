@@ -60,6 +60,20 @@ public class CrateOpening : MonoBehaviour
         return c;
     }
 
+    /// <summary>Rewards that did not come from a box tapped open (deals, offers, the wheel, the daily gift):
+    /// the box bursts open by itself right away.</summary>
+    public static CrateOpening ShowQuick(string crateId, List<GrantedReward> given, string title, System.Action closed)
+    {
+        var c = Show(crateId, given, title, closed);
+        c.needed = 1;
+        foreach (var d in c.dots)
+            d.gameObject.SetActive(false);
+        c.tapText.text = "";
+        c.opened = true;
+        c.StartCoroutine(c.Open());
+        return c;
+    }
+
     // ----- Textures -----
 
     private static Texture2D Rays()

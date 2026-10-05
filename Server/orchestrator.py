@@ -438,8 +438,8 @@ def can_talk(a, b):
         q_one("SELECT 1 FROM follows WHERE follower=? AND target=?", (b, a)) is not None
 
 
-GIFT_KINDS = ("credits", "box", "skin", "camo")
-GIFT_DAILY = {"credits": 3000, "box": 5, "skin": 5, "camo": 10}   # per sender per day (credits: total amount)
+GIFT_KINDS = ("credits", "box", "skin", "camo", "gear")
+GIFT_DAILY = {"credits": 3000, "box": 5, "skin": 5, "camo": 10, "gear": 5}   # per sender per day (credits: total amount)
 
 
 def record_match_end(m, now, errors):

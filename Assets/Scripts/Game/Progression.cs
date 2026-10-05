@@ -17,7 +17,8 @@ public enum RewardKind
     Attachment,
     Token,
     Skin,      // a character (id = skin)
-    Crate      // an unopened gift box (id = crate id)
+    Crate,     // an unopened gift box (id = crate id)
+    Gear       // inventory item cards (id = Gear id, amount = cards): armour, equipment, perks, masks
 }
 
 /// <summary>One level's reward.</summary>
@@ -37,6 +38,12 @@ public struct Reward
                 case RewardKind.Token: return Progression.TokenNames[amount];
                 case RewardKind.Skin: return Shop.SkinName(id) + " (Karakter)";
                 case RewardKind.Crate: return Shop.Crate(id).name;
+                case RewardKind.Gear:
+                {
+                    var g = global::Gear.Find(id);
+                    string n = g != null ? g.name : id;
+                    return g != null && g.Cosmetic ? n + " (Maske)" : n + (amount > 1 ? " x" + amount : "") + " kart";
+                }
                 case RewardKind.Attachment:
                 {
                     var a = Gunsmith.FindAttachment(id);
@@ -66,6 +73,7 @@ public struct Reward
                 case RewardKind.Attachment: return "Nadir";
                 case RewardKind.Skin: return Shop.SkinRarity(id);
                 case RewardKind.Crate: return Shop.Crate(id).rarity;
+                case RewardKind.Gear: { var g = global::Gear.Find(id); return g != null ? g.rarity : "Sıradan"; }
                 default: return "Sıradan";
             }
         }
@@ -82,6 +90,7 @@ public struct Reward
                 case RewardKind.Token: return Progression.TokenIcons[amount];
                 case RewardKind.Skin: return "skin";
                 case RewardKind.Crate: return "crate_" + id;
+                case RewardKind.Gear: return "gear_" + id;
                 case RewardKind.Attachment:
                 {
                     var a = Gunsmith.FindAttachment(id);

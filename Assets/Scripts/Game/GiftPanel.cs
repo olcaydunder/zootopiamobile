@@ -158,17 +158,17 @@ public class GiftPanel : MonoBehaviour
         for (int i = 0; i < Shop.Crates.Length; i++)
         {
             var cr = Shop.Crates[i];
-            var b = UIUtil.CreateButton(list, "", c, new Vector2(-360f + i * 360f, -290f), new Vector2(340f, 190f), Theme.Panel, false, 20, out label);
-            Icons.Create(b.transform, "crate_" + cr.id, new Vector2(0f, 0.5f), new Vector2(90f, 0f), new Vector2(150f, 150f));
-            var n = UIUtil.CreateText(b.transform, cr.name, new Vector2(0f, 0.5f), new Vector2(250f, 30f), new Vector2(170f, 70f), 26, TextAnchor.MiddleLeft);
+            var b = UIUtil.CreateButton(list, "", c, new Vector2((i - (Shop.Crates.Length - 1) * 0.5f) * 214f, -300f), new Vector2(204f, 220f), Theme.Panel, false, 20, out label);
+            Icons.Create(b.transform, "crate_" + cr.id, new Vector2(0.5f, 1f), new Vector2(0f, -62f), new Vector2(110f, 110f));
+            var n = UIUtil.CreateText(b.transform, cr.name, new Vector2(0.5f, 0f), new Vector2(0f, 72f), new Vector2(196f, 60f), 20, TextAnchor.MiddleCenter);
             n.fontStyle = FontStyle.Bold;
             n.horizontalOverflow = HorizontalWrapMode.Wrap;
-            var pr = UIUtil.CreateText(b.transform, cr.price.ToString("N0") + " Kredi", new Vector2(0f, 0.5f), new Vector2(250f, -40f), new Vector2(170f, 34f), 22, TextAnchor.MiddleLeft);
+            var pr = UIUtil.CreateText(b.transform, cr.price.ToString("N0") + " Kredi", new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(196f, 30f), 20, TextAnchor.MiddleCenter);
             pr.color = new Color(1f, 0.85f, 0.3f);
             string id = cr.id, nm = cr.name;
             b.onClick.AddListener(() => Send(personId, personName, "box", id, 0, nm, msg => status.text = msg));
         }
-        var more = UIUtil.CreateButton(list, "KARAKTER YA DA KAMUFLAJ SEÇ  ›", c, new Vector2(0f, -470f), new Vector2(760f, 90f), new Color(0.16f, 0.45f, 0.95f, 0.95f), false, 30, out label);
+        var more = UIUtil.CreateButton(list, "KARAKTER, TEÇHİZAT YA DA KAMUFLAJ SEÇ  ›", c, new Vector2(0f, -470f), new Vector2(760f, 90f), new Color(0.16f, 0.45f, 0.95f, 0.95f), false, 30, out label);
         more.onClick.AddListener(() =>
         {
             string id = personId, nm = personName;

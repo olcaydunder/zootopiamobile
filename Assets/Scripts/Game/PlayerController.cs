@@ -257,6 +257,15 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         if (old != null)
             old.Teardown();
         currentSkin = skin;
+        rig.SetMask(Gear.MaskId);
+        SetLayerRecursively(gameObject, IgnoreRaycastLayer);
+    }
+
+    /// <summary>Shows the equipped mask (inventory).</summary>
+    public void ApplyMask()
+    {
+        if (rig != null)
+            rig.SetMask(Gear.MaskId);
         SetLayerRecursively(gameObject, IgnoreRaycastLayer);
     }
 
