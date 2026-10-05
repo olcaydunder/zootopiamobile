@@ -139,7 +139,7 @@ public static class Missions
         Add(MissionStat.Kills, kills);
         if (won)
             Add(MissionStat.Wins, 1);
-        if (place <= 5 || team5v5 && won)
+        if (team5v5 ? won : place <= 5)
             Add(MissionStat.Top5, 1);
         Add(MissionStat.Damage, Mathf.RoundToInt(MatchStats.Damage));
         Add(MissionStat.Headshots, MatchStats.Headshots);

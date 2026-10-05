@@ -12,6 +12,8 @@ The models were taken from the CC0 copies in [Karnak19/bagarre](https://github.c
 decompressed with gltf-transform, the shared animation clips merged into each character, and converted to FBX with Blender.
 
 Everything else (terrain, sea, sky, trees, rocks, houses, jeep, plane, sounds, effects) is generated in code.
+Footstep sounds (asphalt, grass, gravel, floors, water; several variations each) are synthesised in
+`Footsteps.cs`; gun attachments are code-built parts placed on points measured from each gun model (`GunAnchors.cs`).
 
 ## Sketchfab models (CC-BY 4.0 – attribution required)
 

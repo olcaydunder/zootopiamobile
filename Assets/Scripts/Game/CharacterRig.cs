@@ -69,6 +69,12 @@ public class CharacterRig : MonoBehaviour
     /// <summary>Menu showcase (lobby): the gun held at the ready across the body, whatever the camera does.</summary>
     public bool showcase;
     private Transform hips, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR;
+    private Transform yawBone;          // carries both the legs and the spine (Mixamo: Hips; Quaternius: Body)
+    private bool feetFree;              // feet are not children of the shins (Quaternius rigs): moved along by hand
+    private Transform[] posedBones;     // everything PoseBody changes, to undo it if the animator skipped a frame
+    private Quaternion[] baseRot, posedRot;
+    private Vector3[] basePos, posedPos;
+    private bool posedValid;
     private float thighLen, shinLen, upperArmLen, foreArmLen;
     private Quaternion gripRel = Quaternion.identity;   // right hand in the one-handed aim clip, relative to the body
     private bool gripRelKnown;
@@ -230,6 +236,7 @@ public class CharacterRig : MonoBehaviour
         speed = 0f;
         crouchK = hipYaw = aimK = 0f;
         lastRunPhase = -1;
+        posedValid = false;
         SetVisible(true);
     }
 
@@ -513,13 +520,62 @@ public class CharacterRig : MonoBehaviour
             upperArmLen = Vector3.Distance(upperArmR.position, foreR.position);
             foreArmLen = Vector3.Distance(foreR.position, rightHand.position);
         }
+        yawBone = CommonAncestor(upLegL, spine) ?? hips;
+        feetFree = footL != null && shinL != null && !footL.IsChildOf(shinL);
+        posedBones = new[] { yawBone, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR, rightHand };
+        baseRot = new Quaternion[posedBones.Length];
+        posedRot = new Quaternion[posedBones.Length];
+        basePos = new Vector3[posedBones.Length];
+        posedPos = new Vector3[posedBones.Length];
+    }
+
+    private Transform CommonAncestor(Transform a, Transform b)
+    {
+        if (a == null || b == null)
+            return null;
+        for (var t = a.parent; t != null && t != transform; t = t.parent)
+            if (b.IsChildOf(t))
+                return t;
+        return null;
+    }
+
+    /// <summary>The animator normally rewrites every bone each frame. When it didn't (paused, culled), last frame's pose
+    /// would be posed again on top of itself: put the clean animated pose back first.</summary>
+    private void BeginPose()
+    {
+        for (int i = 0; i < posedBones.Length; i++)
+        {
+            var t = posedBones[i];
+            if (t == null)
+                continue;
+            if (posedValid && t.localRotation == posedRot[i] && t.localPosition == posedPos[i])
+            {
+                t.localRotation = baseRot[i];
+                t.localPosition = basePos[i];
+            }
+            baseRot[i] = t.localRotation;
+            basePos[i] = t.localPosition;
+        }
+    }
+
+    private void EndPose()
+    {
+        for (int i = 0; i < posedBones.Length; i++)
+        {
+            var t = posedBones[i];
+            if (t == null)
+                continue;
+            posedRot[i] = t.localRotation;
+            posedPos[i] = t.localPosition;
+        }
+        posedValid = true;
     }
 
     private bool CanPose
     {
         get
         {
-            return hips != null && spine != null && chest != null && upperArmR != null && foreR != null && rightHand != null &&
+            return hips != null && yawBone != null && spine != null && chest != null && upperArmR != null && foreR != null && rightHand != null &&
                    upperArmL != null && foreL != null && handL != null && upperArmLen > 0.01f && foreArmLen > 0.01f;
         }
     }
@@ -770,6 +826,7 @@ public class CharacterRig : MonoBehaviour
     /// </summary>
     private void PoseBody(float dt, float fwd, float side, bool backward, float kneeAngle)
     {
+        BeginPose();
         Vector3 up = Vector3.up;
         // Hips turn towards where the legs run (up to 65 degrees; walking backwards: away from it).
         float want = 0f;
@@ -782,16 +839,23 @@ public class CharacterRig : MonoBehaviour
         }
         hipYaw = Mathf.MoveTowardsAngle(hipYaw, want, dt * 300f);
         Quaternion yaw = Quaternion.AngleAxis(hipYaw, up);
-        hips.rotation = yaw * hips.rotation;
+        yawBone.rotation = yaw * yawBone.rotation;
+        if (feetFree && Mathf.Abs(hipYaw) > 0.01f)
+        {
+            Vector3 pivot = yawBone.position;
+            TurnAbout(footL, pivot, yaw);
+            TurnAbout(footR, pivot, yaw);
+        }
         spine.rotation = Quaternion.AngleAxis(-hipYaw * 0.55f, up) * spine.rotation;
         chest.rotation = Quaternion.AngleAxis(-hipYaw * 0.45f, up) * chest.rotation;
 
-        // Crouch: thighs forward, shins back, feet flat, a slight forward lean.
-        Vector3 legRight = yaw * transform.right;
+        // Crouch: the body went down; each leg reaches back to where its foot was (knees bend forward), feet stay put.
         if (kneeAngle > 0.5f && upLegL != null && shinL != null && footL != null && upLegR != null && shinR != null && footR != null)
         {
-            BendLeg(upLegL, shinL, footL, legRight, kneeAngle);
-            BendLeg(upLegR, shinR, footR, legRight, kneeAngle);
+            float drop = Mathf.Max(0f, -root.localPosition.y);
+            Vector3 knees = yaw * transform.forward;
+            CrouchLeg(upLegL, shinL, footL, drop, knees);
+            CrouchLeg(upLegR, shinR, footR, drop, knees);
             spine.rotation = Quaternion.AngleAxis(kneeAngle * 0.25f, transform.right) * spine.rotation;
         }
 
@@ -804,7 +868,10 @@ public class CharacterRig : MonoBehaviour
         chest.rotation = Quaternion.AngleAxis(pitch * (pitch > 0f ? 0.35f : 0.45f), bodyRight) * chest.rotation;
 
         if (!weaponHold.gameObject.activeInHierarchy)
+        {
+            EndPose();
             return;   // no gun in hand (knocked down, item in use): the arms keep the clip's pose
+        }
 
         // The gun: shouldered on the aim when aiming or shooting, otherwise at the ready (muzzle lower, a little inwards).
         if (heldWeapon == null || heldWeapon.transform != weaponHold)
@@ -818,12 +885,13 @@ public class CharacterRig : MonoBehaviour
         aimK = Mathf.MoveTowards(aimK, aiming && !showcase ? 1f : 0f, dt * (aiming ? 9f : 3f));
         bool pistol = data != null && data.weaponType == WeaponType.Pistol;
         GunAnchors A = anchors;
-        Vector3 grip = A != null ? A.Grip : Vector3.zero;
-        Vector3 support = A != null ? A.Support : new Vector3(0f, 0.04f, pistol ? 0f : 0.3f);
+        float gs = heldWeapon != null && heldWeapon.ModelScale > 0f ? heldWeapon.ModelScale : 1f;
+        Vector3 grip = A != null ? A.Grip * gs : Vector3.zero;
+        Vector3 support = A != null ? A.Support * gs : new Vector3(0f, 0.04f, pistol ? 0f : 0.3f);
         if (A != null && data.attachments != null)
             foreach (var id in data.attachments)
                 if (id == "vgrip" || id == "tgrip" || id == "hgrip" || id == "agrip")
-                    support = new Vector3(A.cx, A.underY - 0.04f, A.underZ);   // hold the foregrip
+                    support = new Vector3(A.cx, A.underY - 0.04f, A.underZ) * gs;   // hold the foregrip
         float k = Mathf.SmoothStep(0f, 1f, aimK);
         Quaternion ready = Quaternion.AngleAxis(pistol ? 38f : 24f, aim * Vector3.right) * Quaternion.AngleAxis(pistol ? -6f : -14f, Vector3.up) * aim;
         Quaternion gunRot = Quaternion.Slerp(ready, aim, k);
@@ -841,7 +909,7 @@ public class CharacterRig : MonoBehaviour
         else
         {
             // Butt in the shoulder pocket (a little inside and below the shoulder joint).
-            Vector3 butt = A != null ? A.Butt : new Vector3(0f, 0.03f, -0.2f);
+            Vector3 butt = A != null ? A.Butt * gs : new Vector3(0f, 0.03f, -0.2f);
             Vector3 pocket = shoulderR + aim * new Vector3(-0.05f, -0.05f, 0.03f) - up * 0.03f * (1f - k);
             gunPos = pocket - gunRot * butt;
         }
@@ -858,24 +926,37 @@ public class CharacterRig : MonoBehaviour
         float reach = (upperArmLen + foreArmLen) * 0.97f, over = Vector3.Distance(shoulderL, leftTarget) - reach;
         if (!pistol && over > 0f)
             leftTarget -= (gunRot * Vector3.forward) * Mathf.Min(over * 1.3f, 0.22f);
-        SolveArm(upperArmR, foreR, rightHand, rightTarget, shoulderR - up * 0.6f + bodyRight * 0.35f - bodyFwd * 0.25f);
-        SolveArm(upperArmL, foreL, handL, leftTarget, shoulderL - up * 0.6f - bodyRight * 0.3f - bodyFwd * 0.1f);
+        SolveLimb(upperArmR, foreR, rightHand.position, rightTarget, shoulderR - up * 0.6f + bodyRight * 0.35f - bodyFwd * 0.25f, upperArmLen, foreArmLen);
+        SolveLimb(upperArmL, foreL, handL.position, leftTarget, shoulderL - up * 0.6f - bodyRight * 0.3f - bodyFwd * 0.1f, upperArmLen, foreArmLen);
         if (gripRelKnown)
             rightHand.rotation = gunRot * gripRel;
+        EndPose();
     }
 
-    private static void BendLeg(Transform thigh, Transform shin, Transform foot, Vector3 right, float angle)
+    private static void TurnAbout(Transform t, Vector3 pivot, Quaternion q)
     {
-        thigh.rotation = Quaternion.AngleAxis(-angle, right) * thigh.rotation;
-        shin.rotation = Quaternion.AngleAxis(angle * 2f, right) * shin.rotation;
-        foot.rotation = Quaternion.AngleAxis(-angle, right) * foot.rotation;
+        t.position = pivot + q * (t.position - pivot);
+        t.rotation = q * t.rotation;
     }
 
-    /// <summary>Two-bone IK: turns the upper and lower arm so the hand reaches the target, the elbow towards the pole.</summary>
-    private void SolveArm(Transform upper, Transform lower, Transform hand, Vector3 target, Vector3 pole)
+    /// <summary>A crouching leg: the ankle back where it was before the body went down, the foot keeping its angle.</summary>
+    private void CrouchLeg(Transform thigh, Transform shin, Transform foot, float drop, Vector3 kneeDir)
     {
+        Vector3 ankle = foot.position;
+        Vector3 target = ankle + Vector3.up * drop;
+        Quaternion footRot = foot.rotation;
+        SolveLimb(thigh, shin, ankle, target, thigh.position + kneeDir - Vector3.up * 0.2f, thighLen, shinLen);
+        if (feetFree)
+            foot.position = target;
+        foot.rotation = footRot;
+    }
+
+    /// <summary>Two-bone IK: turns the upper and lower bone so the end (now at <paramref name="end"/>, carried by the lower
+    /// bone) reaches the target, bending towards the pole (elbows down and out, knees forward).</summary>
+    private void SolveLimb(Transform upper, Transform lower, Vector3 end, Vector3 target, Vector3 pole, float la, float lb)
+    {
+        Vector3 endLocal = Quaternion.Inverse(lower.rotation) * (end - lower.position);
         Vector3 a = upper.position;
-        float la = upperArmLen, lb = foreArmLen;
         Vector3 toTarget = target - a;
         float d = Mathf.Clamp(toTarget.magnitude, Mathf.Abs(la - lb) + 0.01f, (la + lb) * 0.999f);
         Vector3 dir = toTarget.sqrMagnitude > 1e-6f ? toTarget.normalized : transform.forward;
@@ -888,7 +969,7 @@ public class CharacterRig : MonoBehaviour
         Vector3 b = lower.position;
         upper.rotation = Quaternion.FromToRotation(b - a, elbow - a) * upper.rotation;
         b = lower.position;
-        Vector3 c = hand.position;
+        Vector3 c = b + lower.rotation * endLocal;
         lower.rotation = Quaternion.FromToRotation(c - b, (a + dir * d) - b) * lower.rotation;
     }
 

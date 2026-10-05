@@ -3,7 +3,7 @@
 3D mobil battle royale oyunu (Unity, Android).
 **Yapımcı:** Olcay Yasin Dünder
 
-25 kişilik ada maçı: daralan güvenli bölge, ganimet sandıkları, silah değiştirme ve yapay zekâlı rakipler. Solo, Duo ve Squad modları (takım arkadaşları bot). İnternet gerektirmez.
+25 kişilik ada maçı: daralan güvenli bölge, ganimet sandıkları, silah değiştirme ve yapay zekâlı rakipler. Solo, Duo, Squad ve 5v5 modları; botlarla internetsiz ya da çevrimiçi (eksik oyuncuların yerini botlar alır).
 
 ## Özellikler
 
@@ -33,7 +33,13 @@
 - **Alan daralması:** Her aşama 30 saniye bekler, sonra daralır; botlar haritanın farklı bölgelerine dağılarak atlar
 - **Hata modu:** Ayarlar → Hata modu AÇIK. Ekranda FPS ve kırmızı HATA rozeti görünür; HATA EKRANI tüm hataları `ZM-...` kodlarıyla listeler, RAPORU KOPYALA cihaz bilgisiyle birlikte panoya kopyalar. Önceki oturumun hataları da saklanır (`zm_hata.log`)
 - **Yere düşme:** Duo/Squad'da can bitince yere düşersin; bot takım arkadaşın gelip 5 saniyede kaldırır
-- **Mağaza:** Maçlardan kazanılan altınla 6 farklı karakter açılır ve kuşanılır
+- **5v5 takım ölüm maçı:** İki takım, seçili haritanın dar bir bölgesinde (Ekşioğlu: apartmanlar, Senir: kasaba sokakları, Fırat: fakülteler); ölünce 5 saniyede takımının tarafında yeniden doğarsın, 40 öldürmeye ulaşan ya da 8 dakika sonunda önde olan takım kazanır. Özel odada grup aynı takımda; eksik yerleri botlar doldurur
+- **Arkadaşlar:** Oyuncu arama, arkadaş ekleme, takip et / takipten çık, özel mesajlaşma (küfür süzgeçli), arkadaşlara Kredi, hediye kutusu, karakter ya da kamuflaj gönderme; lobide odadaki herkesin gördüğü sohbet ve komik ifadeler
+- **Mağaza:** Oyun içi Kredi ile bronz/gümüş/altın hediye kutuları, karakterler ve kamuflajlar; kutular 4-5 dokunuşta sallanıp çatlayarak açılır, ödüller nadirliğine göre ışıklarla gelir
+- **Görevler:** Her gün 3 günlük (+ hepsini bitirene bonus kutu) ve her hafta 3 haftalık görev; ödüller Kredi, kutu, kamuflaj
+- **Karakter hareketleri:** Yürüme/koşma hıza göre senkron (ayak kaymaz), yana ve geriye yürürken kalça yürüme yönüne döner; eğilince dizler bükülür; silah nişanda omuza yaslanır, iki el silahta (IK); vurulunca kamera vuruş yönüne sarsılır
+- **Adım sesleri:** Ayak yere değdiği anda, zemine göre (asfalt, çim, toprak/çakıl, bina döşemesi, su) farklı ve her adımda değişen sesler; yakındaki rakiplerin adımları duyulur
+- **Silah aparatları silahla bütün:** Her silah modelinin ray, namlu ekseni, el koruması, şarjör ve dipçik noktaları ölçüldü; susturucu namlunun ucuna, dürbün raya, tutamak el korumasının altına, şarjör uzatması şarjörün ucuna oturur
 - **Ayarlar:** Bakış hassasiyeti, grafik kalitesi (düşük/orta/yüksek), ses; düşük RAM'li telefonlarda otomatik düşük kalite
 - **İlk maç ipuçları**, rakip adım sesleri, oyuncu seviyesine göre zorlaşan botlar, uygulama ikonu
 - **Grafik:** Post Processing Stack v2 (bloom, renk düzenleme, vinyet, yüksekte ortam gölgelemesi), MSAA/FXAA kenar yumuşatma, yumuşak gölgeler, rüzgârda sallanan çimenler (GPU instancing), dalgalı ve yansımalı deniz ile kıyı köpüğü, normal haritalı arazi, pürüzsüz (smooth) model yüzeyleri

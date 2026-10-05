@@ -154,7 +154,7 @@ public static class Footsteps
         {
             float t = (float)(i - start) / Rate;
             float env = Mathf.Exp(-t * decay) * Mathf.Clamp01(t * 2000f);
-            if (env < 0.001f)
+            if (t > 0.002f && env < 0.001f)
                 break;
             phase += 2f * Mathf.PI * hz * (1f - t * 2f) / Rate;
             d[i] += Mathf.Sin(phase) * env * amp;

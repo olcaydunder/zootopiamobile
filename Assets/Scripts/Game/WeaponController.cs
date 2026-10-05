@@ -23,6 +23,9 @@ public class WeaponController : MonoBehaviour
     private bool hasGunModel;
     private WeaponType gunModelType;
     private string gunSignature = "";
+    private Vector3 muzzleTip;
+    /// <summary>How much the gun model was scaled to its real size (anchors and attachments scale with it).</summary>
+    public float ModelScale { get; private set; }
 
     public void Initialize(WeaponData data, Renderer model)
     {
@@ -62,10 +65,14 @@ public class WeaponController : MonoBehaviour
                 ModelLibrary.ShareMaterials(gunModel, true);
                 ModelLibrary.SetLayer(gunModel, gameObject.layer);
                 float scale = FixGunScale(gunModel, data.weaponType);
+                ModelScale = scale;
                 WeaponDressing.Dress(gunModel, data, transform, scale);
             }
         }
         hasGunModel = gunModel != null;
+        if (ModelScale <= 0f)
+            ModelScale = 1f;
+        muzzleTip = WeaponDressing.MuzzleTip(data) * ModelScale;   // once per weapon change, not per shot
 
         if (modelRenderer != null)
         {
@@ -103,7 +110,7 @@ public class WeaponController : MonoBehaviour
     /// <summary>World position of the muzzle (with barrel attachments), where shots visibly come out.</summary>
     public Vector3 MuzzlePosition
     {
-        get { return hasGunModel && weaponData != null ? transform.TransformPoint(WeaponDressing.MuzzleTip(weaponData)) : transform.position; }
+        get { return hasGunModel && weaponData != null ? transform.TransformPoint(muzzleTip) : transform.position; }
     }
 
     public bool CanFire
@@ -350,7 +357,7 @@ public class WeaponController : MonoBehaviour
             return;
         if (hasGunModel && weaponData != null)
         {
-            flash.localPosition = WeaponDressing.MuzzleTip(weaponData);
+            flash.localPosition = muzzleTip;
         }
         else
         {

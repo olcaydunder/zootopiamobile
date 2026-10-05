@@ -155,9 +155,9 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         weapon.gameObject.SetActive(true);
         if (weapon.weaponData != null)
             weapon.Initialize(weapon.weaponData, weaponModel);
+        PlaceAt(ground);   // first: the rig starts from the new spot (no 'running' from the corpse)
         rig.ResetPose();
         rig.pose = RigPose.Normal;
-        PlaceAt(ground);
     }
 
     // ----- Drop from the plane -----

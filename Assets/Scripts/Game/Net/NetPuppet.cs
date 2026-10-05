@@ -119,7 +119,7 @@ public class NetPuppet : MonoBehaviour, IDamageable
     {
         if (sampleCount > 0 && serverTime <= samples[sampleCount - 1].time)
             return;   // out of order
-        if (reviveTime >= 0 && serverTime < reviveTime)
+        if (reviveTime >= 0 && serverTime <= reviveTime)
             return;   // from before a respawn (still dead there)
         if (sampleCount == samples.Length)
         {

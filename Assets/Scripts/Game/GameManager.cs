@@ -690,7 +690,7 @@ public class GameManager : MonoBehaviour
         if (IsTeamMatch && currentState == GameState.InGame && !NetGame.Online && TeamMatch.Over)
             EndTeamMatch();
         // The tank comes down once per match, when the zone starts its second phase.
-        if (currentState == GameState.InGame && !tankDropped && !NetGame.Online && safeZone != null && safeZone.active && safeZone.Phase >= 2)
+        if (currentState == GameState.InGame && !tankDropped && !IsTeamMatch && !NetGame.Online && safeZone != null && safeZone.active && safeZone.Phase >= 2)
         {
             tankDropped = true;
             Vector3 p = World.RandomOpenPoint(safeZone.center, safeZone.radius * 0.5f);
