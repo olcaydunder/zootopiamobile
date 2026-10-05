@@ -14,6 +14,10 @@ public class ProfileData
     public string equippedSkin = ModelLibrary.PlayerSkin;
     public string ownedSkins = ModelLibrary.PlayerSkin;
     public bool tutorialDone;
+    // Profile statistics (PROFİL)
+    public int trophies, deaths, bestKills, headshots;
+    public long damage;
+    public float playSeconds;
 
     /// <summary>Rewards given by the last AddMatchResult (one per level gained).</summary>
     public readonly List<GrantedReward> lastRewards = new List<GrantedReward>();
@@ -42,6 +46,13 @@ public class ProfileData
         if (!OwnsSkin(equippedSkin))
             equippedSkin = ModelLibrary.PlayerSkin;
         tutorialDone = PlayerPrefs.GetInt("zm_tutorial", 0) == 1;
+        trophies = PlayerPrefs.GetInt("zm_trophies", 0);
+        deaths = PlayerPrefs.GetInt("zm_deaths", 0);
+        bestKills = PlayerPrefs.GetInt("zm_bestkills", 0);
+        headshots = PlayerPrefs.GetInt("zm_headshots", 0);
+        if (!long.TryParse(PlayerPrefs.GetString("zm_damage", "0"), out damage))
+            damage = 0;
+        playSeconds = PlayerPrefs.GetFloat("zm_playtime", 0f);
 
         // Levels reached before the reward track existed still get their rewards.
         int rewarded = PlayerPrefs.GetInt("zm_reward_level", 1);
@@ -92,7 +103,58 @@ public class ProfileData
         PlayerPrefs.SetString("zm_skins", ownedSkins);
         PlayerPrefs.SetString("zm_skin", equippedSkin);
         PlayerPrefs.SetInt("zm_tutorial", tutorialDone ? 1 : 0);
+        PlayerPrefs.SetInt("zm_trophies", trophies);
+        PlayerPrefs.SetInt("zm_deaths", deaths);
+        PlayerPrefs.SetInt("zm_bestkills", bestKills);
+        PlayerPrefs.SetInt("zm_headshots", headshots);
+        PlayerPrefs.SetString("zm_damage", damage.ToString());
+        PlayerPrefs.SetFloat("zm_playtime", playSeconds);
         PlayerPrefs.Save();
+    }
+
+    public float WinRate { get { return matches > 0 ? 100f * wins / matches : 0f; } }
+    public float KillsPerDeath { get { return totalKills / (float)Mathf.Max(1, deaths); } }
+
+    public static readonly string[] Leagues = { "BRONZ", "GÜMÜŞ", "ALTIN", "PLATİN", "ELMAS", "USTA" };
+    public static readonly int[] LeagueAt = { 0, 400, 1000, 2000, 3500, 5500 };
+
+    public int LeagueIndex
+    {
+        get
+        {
+            int i = 0;
+            while (i + 1 < LeagueAt.Length && trophies >= LeagueAt[i + 1])
+                i++;
+            return i;
+        }
+    }
+
+    public string League { get { return Leagues[LeagueIndex]; } }
+
+    /// <summary>
+    /// KUPA: won or lost for a match (more for a good place and kills, a little lost for an early exit; never below 0).
+    /// Also adds the match to the profile statistics. Returns the change.
+    /// </summary>
+    public int AddStats(MatchMode mode, bool won, int place, int teams, int kills, int matchDeaths, float seconds, float matchDamage, int matchHeadshots)
+    {
+        float share = teams > 1 ? (float)(teams - place) / (teams - 1) : 1f;
+        int delta;
+        if (Modes.Arena(mode) && mode != MatchMode.FreeForAll)
+            delta = (won ? 24 : -8) + Mathf.Min(10, kills);
+        else
+            delta = Mathf.RoundToInt(-10f + 32f * share) + Mathf.Min(12, kills * 2) + (won ? 12 : 0);
+        // Higher leagues are harder to climb.
+        if (delta > 0)
+            delta = Mathf.Max(1, Mathf.RoundToInt(delta * (1f - 0.08f * LeagueIndex)));
+        int before = trophies;
+        trophies = Mathf.Max(0, trophies + delta);
+        deaths += Mathf.Max(0, matchDeaths);
+        bestKills = Mathf.Max(bestKills, kills);
+        headshots += Mathf.Max(0, matchHeadshots);
+        damage += Mathf.Max(0, Mathf.RoundToInt(matchDamage));
+        playSeconds += Mathf.Max(0f, seconds);
+        Save();
+        return trophies - before;
     }
 
     public void AddMatchResult(bool won, int kills, int xpGained, int coinsGained)

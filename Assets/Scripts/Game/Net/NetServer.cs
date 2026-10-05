@@ -50,9 +50,10 @@ public sealed class NetServer : MonoBehaviour
         public double respawnAt;   // 5v5: when this dead player comes back (0 = not waiting)
     }
 
-    private bool Tdm { get { return args.mode == MatchMode.Team5; } }
-    private int MaxPlayers { get { return Tdm ? TeamMatch.Size * 2 : NetProtocol.MaxHumans; } }
-    private readonly int[] teamScore = new int[2];
+    /// <summary>A respawning arena mode (5v5, Hakimiyet, Herkes Tek).</summary>
+    private bool Tdm { get { return Modes.Arena(args.mode); } }
+    private bool Ffa { get { return args.mode == MatchMode.FreeForAll; } }
+    private int MaxPlayers { get { return Ffa ? TeamMatch.FfaPlayers : Tdm ? TeamMatch.Size * 2 : NetProtocol.MaxHumans; } }
     private double nextScoreSend;
 
     private const double PeerTimeout = 15.0;
@@ -566,10 +567,19 @@ public sealed class NetServer : MonoBehaviour
         int teamSize = NetProtocol.TeamSize(args.mode);
         var humanTeam = new int[peers.Count];
         int botCount;
-        if (Tdm)
+        if (Ffa)
         {
-            // 5v5: a private room is a group — together on one side (more than five: the rest on the other);
-            // a quick match spreads the players over both sides. Bots fill each side to five.
+            // Herkes Tek: everyone is their own team; bots fill up to eight.
+            for (int i = 0; i < peers.Count; i++)
+                humanTeam[i] = i;
+            botCount = Mathf.Max(0, TeamMatch.FfaPlayers - peers.Count);
+            gm.BeginServerArenaRound(args.mode, 0, botCount, peers.Count);
+            teamCount = peers.Count + botCount;
+        }
+        else if (Tdm)
+        {
+            // 5v5 / Hakimiyet: a private room is a group — together on one side (more than five: the rest on the
+            // other); a quick match spreads the players over both sides. Bots fill each side to five.
             var onTeam = new int[2];
             for (int i = 0; i < peers.Count; i++)
             {
@@ -578,8 +588,7 @@ public sealed class NetServer : MonoBehaviour
             }
             int bots0 = Mathf.Max(0, TeamMatch.Size - onTeam[0]), bots1 = Mathf.Max(0, TeamMatch.Size - onTeam[1]);
             botCount = bots0 + bots1;
-            teamScore[0] = teamScore[1] = 0;
-            gm.BeginServerTeamRound(bots0, bots1);
+            gm.BeginServerArenaRound(args.mode, bots0, bots1, 0);
             teamCount = 2;
         }
         else
@@ -743,10 +752,10 @@ public sealed class NetServer : MonoBehaviour
                 anyone |= !p.gone;
             if (!anyone)
                 EndMatch(-1);
-            else if (teamScore[0] >= TeamMatch.ScoreToWin || teamScore[1] >= TeamMatch.ScoreToWin || Now - matchStarted >= TeamMatch.Duration)
+            else if (TeamMatch.Over || Now - matchStarted >= TeamMatch.Duration)
             {
                 BroadcastScore();
-                EndMatch(teamScore[0] > teamScore[1] ? 0 : teamScore[1] > teamScore[0] ? 1 : -1);
+                EndMatch(TeamMatch.Winner);
             }
             return;
         }
@@ -998,9 +1007,10 @@ public sealed class NetServer : MonoBehaviour
 
     private void Kill(Entity killer, Entity victim, int how)
     {
-        if (Tdm && killer != null && killer.team != victim.team && killer.team >= 0 && killer.team < 2)
+        bool killsScore = args.mode == MatchMode.Team5 || Ffa;
+        if (Tdm && killsScore && killer != null && killer.team != victim.team && killer.team >= 0 && killer.team < TeamMatch.Score.Length)
         {
-            teamScore[killer.team]++;
+            TeamMatch.Score[killer.team]++;
             nextScoreSend = 0;   // send the new score with the next tick
         }
         w.Reset();
@@ -1248,14 +1258,24 @@ public sealed class NetServer : MonoBehaviour
 
     private void BroadcastScore()
     {
-        nextScoreSend = Now + 3.0;
-        TeamMatch.Score[0] = teamScore[0];
-        TeamMatch.Score[1] = teamScore[1];
+        var obj = ArenaObjectives.Instance;
+        bool points = obj != null && obj.Domination;
+        nextScoreSend = Now + (points ? 0.5 : 3.0);   // capture progress moves: more often
+        int n = Ffa ? Mathf.Min(teamCount, TeamMatch.Score.Length) : 2;
         w.Reset();
         w.Byte(NetProtocol.S_Score);
-        w.UShort(teamScore[0]);
-        w.UShort(teamScore[1]);
+        w.Byte(n);
+        for (int i = 0; i < n; i++)
+            w.UShort(Mathf.Clamp(TeamMatch.Score[i], 0, 65535));
         w.Float((float)System.Math.Max(0.0, TeamMatch.Duration - (Now - matchStarted)));
+        int count = points ? obj.points.Count : 0;
+        w.Byte(count);
+        for (int i = 0; i < count; i++)
+        {
+            var pt = obj.points[i];
+            w.Byte(pt.owner < 0 ? 255 : pt.owner);
+            w.Byte((sbyte)Mathf.RoundToInt(Mathf.Clamp(pt.progress, -1f, 1f) * 100f));
+        }
         Broadcast(w.ToArray(), true, null);
     }
 

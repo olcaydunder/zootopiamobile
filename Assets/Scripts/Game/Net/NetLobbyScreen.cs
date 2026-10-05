@@ -292,7 +292,7 @@ public class NetLobbyScreen : MonoBehaviour
 
     private static string ModeLabel(MatchMode m)
     {
-        return m == MatchMode.Duo ? "DUO" : m == MatchMode.Squad ? "SQUAD" : m == MatchMode.Team5 ? "5v5" : "SOLO";
+        return Modes.Short(m);
     }
 
     /// <summary>Players should not all be "Oyuncu": the first time, pick an animal name with a number.</summary>
@@ -572,7 +572,7 @@ public class NetLobbyScreen : MonoBehaviour
         else
             status.text = "Oyuncular bekleniyor";
 
-        hint.text = inRoom ? "Boş yerleri botlar doldurur  •  " + ModeLabel(net.Mode) + "  •  en fazla " + NetProtocol.MaxHumans + " oyuncu" : "";
+        hint.text = inRoom ? "Boş yerleri botlar doldurur  •  " + ModeLabel(net.Mode) + "  •  en fazla " + (net.Mode == MatchMode.FreeForAll ? TeamMatch.FfaPlayers : Modes.Arena(net.Mode) ? TeamMatch.Size * 2 : NetProtocol.MaxHumans) + " oyuncu" : "";
         codeGroup.SetActive(inRoom && net.PrivateRoom);
         if (inRoom && net.PrivateRoom)
             codeText.text = net.RoomCode.Length == 6 ? net.RoomCode.Substring(0, 3) + " " + net.RoomCode.Substring(3) : net.RoomCode;

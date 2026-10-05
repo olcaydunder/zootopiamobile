@@ -188,9 +188,9 @@ public class MatchPrepScreen : MonoBehaviour
     public void Open(MatchMode matchMode)
     {
         mode = matchMode;
-        modeText.text = matchMode == MatchMode.Team5
-            ? "5v5 TAKIM SAVAŞI  •  " + MapCatalog.CurrentInfo.name + "  •  " + MapCatalog.TrUpper(MapCatalog.CurrentInfo.arenaName ?? "")
-            : "BATTLE ROYALE  •  " + UIManager.ModeLabel(matchMode) + "  •  " + (MapData.Loaded ? MapCatalog.CurrentInfo.name : "ZOOTOPIA ADASI");
+        modeText.text = Modes.Arena(matchMode)
+            ? Modes.Title(matchMode) + "  •  " + MapCatalog.CurrentInfo.name + "  •  " + MapCatalog.TrUpper(MapCatalog.CurrentInfo.arenaName ?? "")
+            : "BATTLE ROYALE  •  " + Modes.Short(matchMode) + "  •  " + (MapData.Loaded ? MapCatalog.CurrentInfo.name : "ZOOTOPIA ADASI");
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         var p = GameManager.Instance.profile;

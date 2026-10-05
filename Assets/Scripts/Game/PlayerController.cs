@@ -43,6 +43,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     public bool isCrouching;
     public bool isSprinting;
     public int kills;
+    public int deaths;   // this match (arena modes: every life)
 
     private readonly WeaponSlot[] slots = { new WeaponSlot(), new WeaponSlot() };
     private int activeSlot;
@@ -323,7 +324,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             lastDamageTeam = attackerTeam;
 
         // Duo / Squad: knocked down first while a teammate can still pick you up (5v5: straight out, you respawn).
-        if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && !gm.IsTeamMatch && gm.AliveAllies() > 0)
+        if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && !gm.IsArena && gm.AliveAllies() > 0)
         {
             GoDown();
             return false;
@@ -333,6 +334,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         {
             health = 0f;
             isDead = true;
+            deaths++;
             if (state == PlayerState.Driving)
                 ExitVehicle();
             if (state == PlayerState.Freefall || state == PlayerState.Parachute)
@@ -390,10 +392,13 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     /// Kills are kept between lives.</summary>
     public void TeamSpawn(Vector3 ground, Vector3 lookAt, bool first)
     {
-        int keepKills = kills;
+        int keepKills = kills, keepDeaths = deaths;
         ResetForRound(ground + Vector3.up * 0.95f);
         if (!first)
+        {
             kills = keepKills;
+            deaths = keepDeaths;
+        }
         lastDamageTeam = -1;
         GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));
         armor = Mathf.Min(maxArmor, 50f + Gear.StartArmor);
@@ -428,6 +433,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         health = maxHealth;
         armor = 0f;
         kills = 0;
+        deaths = 0;
         velocity = Vector3.zero;
         airVelocity = Vector3.zero;
         boostRemaining = 0f;

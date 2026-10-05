@@ -5,7 +5,7 @@ Zootopia Mobile match orchestrator (runs on the game server as the "zootopia" se
 - Keeps the newest dedicated-server build: polls the public GitHub release "son-server" and unpacks
   ZootopiaServer.tar.gz into builds/<asset id>/ (running matches keep using their own copy).
 - Starts one Unity server process per match on its own UDP port and hands clients that port:
-    POST /quick?mode=solo|duo|squad|5v5&map=M&version=V -> join (or open) a public match on that map
+    POST /quick?mode=solo|duo|squad|5v5|dom|ffa&map=M&version=V -> join (or open) a public match on that map
     POST /room/create?mode=...&map=M&version=V        -> open a private match, returns a 6-digit code
     GET  /room/<code>?version=V                       -> where that private match is (and its map)
   Maps: eksioglu (Ekşioğlu), senir (Senir Kasabası), firat (Fırat Üniversitesi).
@@ -50,7 +50,7 @@ API_PORT = 8080
 FIRST_GAME_PORT = 7777
 PORT_COUNT = 20
 MAX_MATCHES = max(2, min(PORT_COUNT, (os.cpu_count() or 2)))   # ~1 core per match
-MAX_HUMANS = {"solo": 16, "duo": 16, "squad": 16, "5v5": 10}
+MAX_HUMANS = {"solo": 16, "duo": 16, "squad": 16, "5v5": 10, "dom": 10, "ffa": 8}
 WAITING_TIMEOUT = 15 * 60       # an empty match that never started is closed after this
 MATCH_MAX_AGE = 45 * 60         # hard limit for any match process
 BUILD_POLL = 120

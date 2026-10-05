@@ -19,11 +19,14 @@ public class UIManager : MonoBehaviour
     // Lobby
     private Text lobbyNameText, lobbyLevelText, lobbyCoinsText, lobbyStatsText, lobbyGunText, lobbySkinText, lobbyStartLabel;
     private RectTransform lobbyXpFill;
-    private readonly List<Image> modeButtons = new List<Image>();
-    private readonly List<Image> modeAccents = new List<Image>();
-    private readonly List<Text> modeTitles = new List<Text>();
-    private readonly List<Text> modeSubs = new List<Text>();
     private MatchMode selectedMode = MatchMode.Solo;
+    private Image lobbyModeIcon, lobbyModeAccent;
+    private Text lobbyModeTitle, lobbyModeSub, lobbyWinsText, lobbyTrophyText, lobbyPowerText;
+    private readonly List<Image> lobbyWinPips = new List<Image>();
+    private GameObject wheelBadge;
+    private ModeSelectScreen modeSelect;
+    private ProfileScreen profileScreen;
+    private WheelScreen wheelScreen;
     private GunsmithScreen gunsmith;
 
     // Matchmaking
@@ -39,7 +42,14 @@ public class UIManager : MonoBehaviour
     private Text ammoText;
     private Text aliveText;
     private GameObject teamScoreBox;
-    private Text teamScoreOurs, teamScoreTheirs, teamScoreTime;
+    private Text teamScoreOurs, teamScoreTheirs, teamScoreTime, teamScoreGoal, teamCapOurs, teamCapTheirs;
+    // Hakimiyet / Soygun HUD
+    private GameObject pointsRow, captureBar;
+    private readonly Image[] pointBadges = new Image[3];
+    private readonly Image[] pointFills = new Image[3];
+    private Image captureFill;
+    private Text captureText, objectiveText;
+    private readonly List<Text> objMarkers = new List<Text>();
     private Text killsText;
     private Text zoneText;
     private Text zoneWarningText;
@@ -156,6 +166,9 @@ public class UIManager : MonoBehaviour
         if (store != null) store.Hide();
         if (missions != null) missions.Hide();
         if (inventory != null) inventory.Hide();
+        if (modeSelect != null) modeSelect.Hide();
+        if (profileScreen != null) profileScreen.Hide();
+        if (wheelScreen != null) wheelScreen.Hide();
         if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -200,28 +213,60 @@ public class UIManager : MonoBehaviour
         lobbyXpFill = xp.rectTransform;
         var rename = UIUtil.CreateButton(prof, "İSİM", new Vector2(1f, 0.5f), new Vector2(-52f, 20f), new Vector2(84f, 46f), Theme.PanelLight, false, 20, out unused);
         rename.onClick.AddListener(() => { HideAll(); netLobby.OpenRename(ShowLobby); });
+        // The whole box opens the profile.
+        var profButton = prof.gameObject.AddComponent<Button>();
+        profButton.transition = Selectable.Transition.None;
+        profButton.onClick.AddListener(OpenProfile);
+
+        // GÜÇ under the profile
+        var powerBox = Theme.Box(t, "Power", new Vector2(0f, 1f), new Vector2(650f, -150f), new Vector2(190f, 46f), Theme.Panel, false).transform;
+        Icons.Create(powerBox, "power", new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(38f, 38f)).raycastTarget = false;
+        lobbyPowerText = UIUtil.CreateText(powerBox, "", new Vector2(0f, 0.5f), new Vector2(115f, 0f), new Vector2(150f, 40f), 22, TextAnchor.MiddleLeft);
+        lobbyPowerText.color = new Color(0.85f, 0.6f, 1f);
+        lobbyPowerText.fontStyle = FontStyle.Bold;
+        // KUPA under it (opens the profile)
+        var trophyBox = Theme.Box(t, "Trophies", new Vector2(0f, 1f), new Vector2(650f, -202f), new Vector2(190f, 46f), Theme.Panel, false).transform;
+        Icons.Create(trophyBox, "trophy", new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(38f, 38f)).raycastTarget = false;
+        lobbyTrophyText = UIUtil.CreateText(trophyBox, "", new Vector2(0f, 0.5f), new Vector2(115f, 0f), new Vector2(150f, 40f), 22, TextAnchor.MiddleLeft);
+        lobbyTrophyText.color = new Color(1f, 0.85f, 0.3f);
+        lobbyTrophyText.fontStyle = FontStyle.Bold;
+        var trophyBtn = trophyBox.gameObject.AddComponent<Button>();
+        trophyBtn.transition = Selectable.Transition.None;
+        trophyBtn.onClick.AddListener(OpenProfile);
+        var powerBtn = powerBox.gameObject.AddComponent<Button>();
+        powerBtn.transition = Selectable.Transition.None;
+        powerBtn.onClick.AddListener(() => { HideAll(); inventory.Open(InventoryScreen.Tab.Armor, ShowLobby); });
+        // Lucky wheel (round, next to the profile)
+        var wheelBtn = UIUtil.CreateButton(t, "", new Vector2(0f, 1f), new Vector2(640f, -70f), new Vector2(104f, 104f), new Color(0.12f, 0.13f, 0.17f, 0.9f), true, 20, out unused);
+        Icons.Create(wheelBtn.transform, "wheel", new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(80f, 80f)).raycastTarget = false;
+        var wl = UIUtil.CreateText(wheelBtn.transform, "ÇARK", new Vector2(0.5f, 0f), new Vector2(0f, -6f), new Vector2(110f, 26f), 18, TextAnchor.MiddleCenter);
+        wl.fontStyle = FontStyle.Bold;
+        wheelBtn.onClick.AddListener(() => { HideAll(); wheelScreen.Open(ShowLobby); });
+        var wb = UIUtil.CreateImage(wheelBtn.transform, "Badge", new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(30f, 30f), Theme.Good, true);
+        wb.raycastTarget = false;
+        wheelBadge = wb.gameObject;
 
         // Coins + settings (top-right)
-        var coins = Theme.Box(t, "Coins", new Vector2(1f, 1f), new Vector2(-420f, -70f), new Vector2(300f, 80f), Theme.Panel, false).transform;
+        var coins = Theme.Box(t, "Coins", new Vector2(1f, 1f), new Vector2(-355f, -70f), new Vector2(290f, 80f), Theme.Panel, false).transform;
         Icons.Create(coins, "currency", new Vector2(0f, 0.5f), new Vector2(44f, 0f), new Vector2(58f, 58f));
         lobbyCoinsText = UIUtil.CreateText(coins, "", new Vector2(0f, 0.5f), new Vector2(170f, 0f), new Vector2(200f, 60f), 34, TextAnchor.MiddleLeft);
         lobbyCoinsText.fontStyle = FontStyle.Bold;
-        UIUtil.CreateButton(t, "AYARLAR", new Vector2(1f, 1f), new Vector2(-140f, -70f), new Vector2(220f, 80f), Theme.Panel, false, 28, out unused)
+        UIUtil.CreateButton(t, "AYARLAR", new Vector2(1f, 1f), new Vector2(-110f, -70f), new Vector2(180f, 80f), Theme.Panel, false, 26, out unused)
             .onClick.AddListener(() => OpenSettings(false));
-        var friendsButton = UIUtil.CreateButton(t, "ARKADAŞLAR", new Vector2(1f, 1f), new Vector2(-695f, -70f), new Vector2(240f, 80f), Theme.Panel, false, 28, out unused);
+        var friendsButton = UIUtil.CreateButton(t, "ARKADAŞLAR", new Vector2(1f, 1f), new Vector2(-615f, -70f), new Vector2(210f, 80f), Theme.Panel, false, 26, out unused);
         friendsButton.onClick.AddListener(() => { HideAll(); social.Open(SocialScreen.Tab.Friends, ShowLobby); });
         var fb = UIUtil.CreateImage(friendsButton.transform, "Badge", new Vector2(1f, 1f), new Vector2(-6f, -6f), new Vector2(40f, 40f), Theme.Red, true);
         fb.raycastTarget = false;
         friendsBadgeText = UIUtil.CreateText(fb.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40f, 40f), 22, TextAnchor.MiddleCenter);
         friendsBadge = fb.gameObject;
         friendsBadge.SetActive(false);
-        var storeButton = UIUtil.CreateButton(t, "   MAĞAZA", new Vector2(1f, 1f), new Vector2(-950f, -70f), new Vector2(240f, 80f), new Color(0.55f, 0.35f, 0.08f, 0.95f), false, 28, out unused);
+        var storeButton = UIUtil.CreateButton(t, "   MAĞAZA", new Vector2(1f, 1f), new Vector2(-840f, -70f), new Vector2(220f, 80f), new Color(0.55f, 0.35f, 0.08f, 0.95f), false, 26, out unused);
         Icons.Create(storeButton.transform, "store", new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(60f, 60f));
         storeButton.onClick.AddListener(() => { HideAll(); store.Open(StoreScreen.Tab.Deals, ShowLobby); });
         var dealDot = UIUtil.CreateImage(storeButton.transform, "Badge", new Vector2(1f, 1f), new Vector2(-6f, -6f), new Vector2(30f, 30f), Theme.Good, true);
         dealDot.raycastTarget = false;
         storeBadge = dealDot.gameObject;
-        var invButton = UIUtil.CreateButton(t, "     ENVANTER", new Vector2(1f, 1f), new Vector2(-1205f, -70f), new Vector2(240f, 80f), new Color(0.3f, 0.2f, 0.45f, 0.95f), false, 28, out unused);
+        var invButton = UIUtil.CreateButton(t, "     ENVANTER", new Vector2(1f, 1f), new Vector2(-1070f, -70f), new Vector2(220f, 80f), new Color(0.3f, 0.2f, 0.45f, 0.95f), false, 26, out unused);
         Icons.Create(invButton.transform, "inventory", new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(60f, 60f));
         invButton.onClick.AddListener(() => { HideAll(); inventory.Open(InventoryScreen.Tab.Armor, ShowLobby); });
 
@@ -292,24 +337,36 @@ public class UIManager : MonoBehaviour
         lobbyStatsText = UIUtil.CreateText(stats, "", new Vector2(0f, 0f), new Vector2(200f, 62f), new Vector2(380f, 100f), 24, TextAnchor.MiddleLeft);
         lobbyStatsText.color = Theme.TextDim;
 
-        // Right: game modes
-        string[] modes = { "SOLO", "DUO", "SQUAD", "5v5" };
-        string[] subs = { "Tek başına hayatta kal", "1 takım arkadaşıyla", "3 takım arkadaşıyla", "Dar arenada takım savaşı, yeniden doğma" };
-        for (int i = 0; i < modes.Length; i++)
+        // Right: the game mode (opens the mode screen) and today's victories.
+        var modeTile = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 178f), new Vector2(480f, 140f), Theme.Panel, false, 20, out unused);
+        modeTile.onClick.AddListener(() => { HideAll(); modeSelect.Open(selectedMode, m => { SelectMode(m); ShowLobby(); }, ShowLobby); });
+        var mtt0 = modeTile.transform;
+        lobbyModeAccent = UIUtil.CreateImage(mtt0, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 140f), Theme.Accent, false);
+        lobbyModeAccent.raycastTarget = false;
+        lobbyModeIcon = Icons.Create(mtt0, "mode_br", new Vector2(0f, 0.5f), new Vector2(76f, 0f), new Vector2(108f, 108f));
+        lobbyModeIcon.raycastTarget = false;
+        var modeCaption = UIUtil.CreateText(mtt0, "OYUN MODU", new Vector2(0f, 0.5f), new Vector2(285f, 44f), new Vector2(300f, 26f), 18, TextAnchor.MiddleLeft);
+        modeCaption.color = Theme.TextDim;
+        lobbyModeTitle = UIUtil.CreateText(mtt0, "", new Vector2(0f, 0.5f), new Vector2(285f, 10f), new Vector2(300f, 46f), 32, TextAnchor.MiddleLeft);
+        lobbyModeTitle.fontStyle = FontStyle.Bold;
+        lobbyModeSub = UIUtil.CreateText(mtt0, "", new Vector2(0f, 0.5f), new Vector2(285f, -36f), new Vector2(300f, 46f), 17, TextAnchor.UpperLeft);
+        lobbyModeSub.horizontalOverflow = HorizontalWrapMode.Wrap;
+        lobbyModeSub.color = Theme.TextDim;
+        var chg = UIUtil.CreateText(mtt0, "DEĞİŞTİR ›", new Vector2(1f, 1f), new Vector2(-70f, -22f), new Vector2(130f, 26f), 18, TextAnchor.MiddleRight);
+        chg.color = Theme.Accent;
+
+        var winsTile = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 48f), new Vector2(480f, 100f), Theme.Panel, false, 20, out unused);
+        winsTile.onClick.AddListener(() => { HideAll(); missions.Open(MissionsScreen.Page.Wins, ShowLobby); });
+        var wtt = winsTile.transform;
+        var wcap = UIUtil.CreateText(wtt, "GÜNLÜK ZAFERLER", new Vector2(0f, 1f), new Vector2(150f, -22f), new Vector2(260f, 30f), 20, TextAnchor.MiddleLeft);
+        wcap.fontStyle = FontStyle.Bold;
+        lobbyWinsText = UIUtil.CreateText(wtt, "", new Vector2(1f, 1f), new Vector2(-90f, -22f), new Vector2(160f, 30f), 20, TextAnchor.MiddleRight);
+        lobbyWinsText.color = Theme.TextDim;
+        for (int i = 0; i < Missions.WinBoxes; i++)
         {
-            int index = i;
-            var b = UIUtil.CreateButton(t, "", new Vector2(1f, 0.5f), new Vector2(-280f, 205f - i * 92f), new Vector2(480f, 84f), Theme.Panel, false, 20, out unused);
-            b.onClick.AddListener(() => SelectMode(index));
-            var bt = b.transform;
-            var accent = UIUtil.CreateImage(bt, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 84f), i == 3 ? new Color(1f, 0.35f, 0.3f) : Theme.Accent, false);
-            accent.raycastTarget = false;
-            var mt = UIUtil.CreateText(bt, modes[i], new Vector2(0f, 0.5f), new Vector2(200f, 13f), new Vector2(340f, 46f), 34, TextAnchor.MiddleLeft);
-            mt.fontStyle = FontStyle.Bold;
-            var ms = UIUtil.CreateText(bt, subs[i], new Vector2(0f, 0.5f), new Vector2(200f, -21f), new Vector2(340f, 28f), 20, TextAnchor.MiddleLeft);
-            modeButtons.Add(b.GetComponent<Image>());
-            modeAccents.Add(accent);
-            modeTitles.Add(mt);
-            modeSubs.Add(ms);
+            var pip = Icons.Create(wtt, "crate_" + Missions.WinRewards[i].id, new Vector2(0f, 0f), new Vector2(50f + i * 76f, 34f), new Vector2(56f, 56f));
+            pip.raycastTarget = false;
+            lobbyWinPips.Add(pip);
         }
         // Right, above the modes: the map (picture, name) — opens the map selection.
         var info = MapCatalog.CurrentInfo;
@@ -341,9 +398,27 @@ public class UIManager : MonoBehaviour
         Color onlineBlue = new Color(0.16f, 0.45f, 0.95f, 0.95f);
         Text onlineLabel;
         var quick = UIUtil.CreateButton(t, "ÇEVRİMİÇİ  •  HIZLI MAÇ", new Vector2(1f, 0.5f), new Vector2(-280f, -165f), new Vector2(480f, 92f), onlineBlue, false, 32, out onlineLabel);
-        quick.onClick.AddListener(() => { HideAll(); netLobby.OpenQuick(selectedMode, ShowLobby); });
+        quick.onClick.AddListener(() =>
+        {
+            if (!Modes.Online(selectedMode))
+            {
+                LobbyToast(Modes.Short(selectedMode) + " şimdilik yalnız botlarla: BAŞLAT'a bas");
+                return;
+            }
+            HideAll();
+            netLobby.OpenQuick(selectedMode, ShowLobby);
+        });
         var create = UIUtil.CreateButton(t, "ODA KUR", new Vector2(1f, 0.5f), new Vector2(-404f, -267f), new Vector2(232f, 84f), Theme.Panel, false, 28, out onlineLabel);
-        create.onClick.AddListener(() => { HideAll(); netLobby.OpenCreate(selectedMode, ShowLobby); });
+        create.onClick.AddListener(() =>
+        {
+            if (!Modes.Online(selectedMode))
+            {
+                LobbyToast(Modes.Short(selectedMode) + " şimdilik yalnız botlarla: BAŞLAT'a bas");
+                return;
+            }
+            HideAll();
+            netLobby.OpenCreate(selectedMode, ShowLobby);
+        });
         UIUtil.CreateImage(create.transform, "Accent", new Vector2(0.5f, 0f), new Vector2(0f, 3f), new Vector2(232f, 6f), onlineBlue, false).raycastTarget = false;
         var join = UIUtil.CreateButton(t, "ODAYA KATIL", new Vector2(1f, 0.5f), new Vector2(-156f, -267f), new Vector2(232f, 84f), Theme.Panel, false, 28, out onlineLabel);
         join.onClick.AddListener(() => { HideAll(); netLobby.OpenJoin(ShowLobby); });
@@ -371,31 +446,37 @@ public class UIManager : MonoBehaviour
         store = StoreScreen.Create(canvas.transform);
         missions = MissionsScreen.Create(canvas.transform);
         inventory = InventoryScreen.Create(canvas.transform);
+        modeSelect = ModeSelectScreen.Create(canvas.transform);
+        profileScreen = ProfileScreen.Create(canvas.transform);
+        wheelScreen = WheelScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
-        SelectMode(0);
+        SelectMode((MatchMode)Mathf.Clamp(PlayerPrefs.GetInt("zm_mode", 0), 0, (int)MatchMode.Heist));
     }
 
-    private void SelectMode(int index)
+    private void SelectMode(MatchMode m)
     {
-        selectedMode = (MatchMode)index;
-        for (int i = 0; i < modeButtons.Count; i++)
-        {
-            bool sel = i == index;
-            modeButtons[i].color = sel ? Theme.Selected : Theme.Panel;
-            modeAccents[i].enabled = sel;
-            modeTitles[i].color = sel ? new Color(0.08f, 0.08f, 0.1f) : Color.white;
-            modeTitles[i].GetComponent<Shadow>().enabled = !sel;
-            modeSubs[i].color = sel ? new Color(0.2f, 0.2f, 0.24f) : Theme.TextDim;
-            modeSubs[i].GetComponent<Shadow>().enabled = !sel;
-        }
+        selectedMode = m;
+        PlayerPrefs.SetInt("zm_mode", (int)m);
+        Color mc = Modes.Color(m);
+        lobbyModeAccent.color = mc;
+        Icons.Set(lobbyModeIcon, Modes.Icon(m));
+        lobbyModeTitle.text = Modes.Arena(m) ? Modes.Title(m) : "BATTLE ROYALE  •  " + Modes.Short(m);
+        lobbyModeTitle.color = Color.Lerp(mc, Color.white, 0.45f);
+        lobbyModeSub.text = Modes.Description(m);
         if (lobbyStartLabel != null)
-            lobbyStartLabel.text = "BAŞLAT  •  " + ModeLabel(selectedMode);
+            lobbyStartLabel.text = "BAŞLAT  •  " + Modes.Short(m);
     }
 
     public static string ModeLabel(MatchMode m)
     {
-        return m == MatchMode.Duo ? "DUO" : m == MatchMode.Squad ? "SQUAD" : m == MatchMode.Team5 ? "5v5" : "SOLO";
+        return Modes.Short(m);
+    }
+
+    private void OpenProfile()
+    {
+        HideAll();
+        profileScreen.Open(ShowLobby, () => netLobby.OpenRename(ShowLobby), () => inventory.Open(InventoryScreen.Tab.Armor, ShowLobby));
     }
 
     private void OpenLoadout()
@@ -514,6 +595,10 @@ public class UIManager : MonoBehaviour
         teamScoreTime = UIUtil.CreateText(teamScoreBox.transform, "", c, new Vector2(0f, 10f), new Vector2(200f, 40f), 32, TextAnchor.MiddleCenter);
         teamScoreTime.fontStyle = FontStyle.Bold;
         var goal = UIUtil.CreateText(teamScoreBox.transform, "hedef " + TeamMatch.ScoreToWin, c, new Vector2(0f, -20f), new Vector2(200f, 26f), 18, TextAnchor.MiddleCenter);
+        teamScoreGoal = goal;
+        teamCapOurs = UIUtil.CreateText(teamScoreBox.transform, "TAKIMIN", new Vector2(0f, 0f), new Vector2(80f, -14f), new Vector2(150f, 24f), 16, TextAnchor.MiddleCenter);
+        teamCapTheirs = UIUtil.CreateText(teamScoreBox.transform, "DÜŞMAN", new Vector2(1f, 0f), new Vector2(-80f, -14f), new Vector2(150f, 24f), 16, TextAnchor.MiddleCenter);
+        BuildModeHud(t);
         goal.color = Theme.TextDim;
         teamScoreBox.SetActive(false);
 
@@ -1112,12 +1197,23 @@ public class UIManager : MonoBehaviour
         lobbyClassText.text = "Sınıf: " + cls.name + "  •  jeton ve kamuflaj";
         lobbyCoinsText.text = p.coins.ToString("N0");
         storeBadge.SetActive(Deals.FreeReady);
+        wheelBadge.SetActive(Deals.FreeSpinReady);
+        lobbyTrophyText.text = "KUPA " + p.trophies.ToString("N0");
+        lobbyPowerText.text = "GÜÇ " + Gear.Power(p).ToString("N0");
+        int winsToday = Missions.WinsToday;
+        lobbyWinsText.text = Mathf.Min(winsToday, Missions.WinBoxes) + " / " + Missions.WinBoxes;
+        for (int i = 0; i < lobbyWinPips.Count; i++)
+        {
+            bool claimed = Missions.WinClaimed(i), canOpen = Missions.WinReady(i);
+            lobbyWinPips[i].color = claimed ? new Color(1f, 1f, 1f, 0.25f) : canOpen ? Color.white : new Color(0.45f, 0.45f, 0.5f, 0.9f);
+            lobbyWinPips[i].rectTransform.localScale = Vector3.one * (canOpen ? 1.12f : 1f);
+        }
         int ready = Missions.ReadyCount();
         missionsBadge.SetActive(ready > 0);
         missionsBadgeText.text = ready.ToString();
         lobbyMissionsText.text = ready > 0 ? ready + " ödül toplanmayı bekliyor" : "Günlük ve haftalık görevler";
         float winRate = p.matches > 0 ? 100f * p.wins / p.matches : 0f;
-        lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nToplam öldürme " + p.totalKills;
+        lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nÖldürme " + p.totalKills + "    Kupa " + p.trophies + " (" + p.League + ")";
         var rifle = Gunsmith.Apply(WeaponData.CreateRifle());
         int count = 0;
         foreach (var a in rifle.attachments)
@@ -1134,6 +1230,145 @@ public class UIManager : MonoBehaviour
         HideAll();
         matchmakingText.text = message;
         matchmakingPanel.SetActive(true);
+    }
+
+    // ----- Arena mode HUD: score captions, capture points, the money bag, objective markers -----
+
+    private void BuildModeHud(Transform t)
+    {
+        var top = new Vector2(0.5f, 1f);
+        var c = new Vector2(0.5f, 0.5f);
+        pointsRow = UIUtil.CreateRect(t, "Points", top, new Vector2(0f, -130f), new Vector2(240f, 64f)).gameObject;
+        string[] names = { "A", "B", "C" };
+        for (int i = 0; i < 3; i++)
+        {
+            var bg = UIUtil.CreateImage(pointsRow.transform, "Pt" + names[i], c, new Vector2((i - 1) * 76f, 0f), new Vector2(58f, 58f), new Color(0.15f, 0.15f, 0.15f, 0.85f), true);
+            bg.raycastTarget = false;
+            pointBadges[i] = bg;
+            var fill = UIUtil.CreateImage(bg.transform, "Fill", c, Vector2.zero, new Vector2(58f, 58f), Color.white, true);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Radial360;
+            fill.fillOrigin = 2;
+            fill.raycastTarget = false;
+            pointFills[i] = fill;
+            var ring = UIUtil.CreateImage(bg.transform, "Inner", c, Vector2.zero, new Vector2(44f, 44f), new Color(0.08f, 0.08f, 0.1f, 0.85f), true);
+            ring.raycastTarget = false;
+            var l = UIUtil.CreateText(bg.transform, names[i], c, Vector2.zero, new Vector2(58f, 58f), 30, TextAnchor.MiddleCenter);
+            l.fontStyle = FontStyle.Bold;
+        }
+        pointsRow.SetActive(false);
+
+        captureBar = UIUtil.CreateImage(t, "Capture", top, new Vector2(0f, -205f), new Vector2(460f, 26f), new Color(0f, 0f, 0f, 0.55f), false).gameObject;
+        captureBar.GetComponent<Image>().raycastTarget = false;
+        captureFill = UIUtil.CreateImage(captureBar.transform, "Fill", new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 26f), ArenaObjectives.TeamColors[0], false);
+        captureFill.rectTransform.pivot = new Vector2(0f, 0.5f);
+        captureFill.raycastTarget = false;
+        captureText = UIUtil.CreateText(captureBar.transform, "", c, new Vector2(0f, 30f), new Vector2(600f, 34f), 24, TextAnchor.MiddleCenter);
+        captureText.fontStyle = FontStyle.Bold;
+        captureBar.SetActive(false);
+
+        objectiveText = UIUtil.CreateText(t, "", top, new Vector2(0f, -132f), new Vector2(900f, 40f), 26, TextAnchor.MiddleCenter);
+        objectiveText.fontStyle = FontStyle.Bold;
+
+        for (int i = 0; i < 4; i++)
+        {
+            var m = UIUtil.CreateText(t, "", c, Vector2.zero, new Vector2(160f, 60f), 24, TextAnchor.MiddleCenter);
+            m.fontStyle = FontStyle.Bold;
+            m.enabled = false;
+            objMarkers.Add(m);
+        }
+    }
+
+    private void UpdateModeHud(GameManager gm, PlayerController player)
+    {
+        var obj = ArenaObjectives.Instance;
+        bool dom = obj != null && obj.Domination && gm.IsArena;
+        bool heist = obj != null && obj.Heist && gm.IsArena;
+        if (pointsRow.activeSelf != dom)
+            pointsRow.SetActive(dom);
+        int marker = 0;
+        var cam = Camera.main;
+        var hudRect = (RectTransform)hudPanel.transform;
+        if (dom)
+        {
+            for (int i = 0; i < 3 && i < obj.points.Count; i++)
+            {
+                var p = obj.points[i];
+                Color own = p.owner >= 0 ? ArenaObjectives.TeamColors[p.owner] : new Color(0.45f, 0.45f, 0.45f);
+                pointBadges[i].color = new Color(own.r * 0.6f, own.g * 0.6f, own.b * 0.6f, 0.9f);
+                pointFills[i].color = p.progress >= 0f ? ArenaObjectives.TeamColors[0] : ArenaObjectives.TeamColors[1];
+                pointFills[i].fillAmount = Mathf.Abs(p.progress);
+                Marker(ref marker, cam, hudRect, p.pos + Vector3.up * 3f, p.name, own, player);
+            }
+            var at = player.isDead ? null : obj.PointAt(player.transform.position);
+            bool show = at != null;
+            if (captureBar.activeSelf != show)
+                captureBar.SetActive(show);
+            if (show)
+            {
+                float ours = Mathf.Clamp01(at.progress);
+                float theirs = Mathf.Clamp01(-at.progress);
+                bool contested = at.inside0 > 0 && at.inside1 > 0;
+                captureFill.color = theirs > 0f ? ArenaObjectives.TeamColors[1] : ArenaObjectives.TeamColors[0];
+                captureFill.rectTransform.sizeDelta = new Vector2(460f * Mathf.Max(ours, theirs), 26f);
+                captureText.text = contested ? at.name + " ÇEKİŞMELİ!" : at.owner == 0 ? at.name + " SENİN TAKIMININ" :
+                    theirs > 0f ? at.name + " DÜŞMANDAN ALINIYOR" : at.name + " ALINIYOR  %" + Mathf.RoundToInt(ours * 100f);
+                captureText.color = contested ? new Color(1f, 0.8f, 0.3f) : Color.white;
+            }
+        }
+        else if (captureBar.activeSelf)
+            captureBar.SetActive(false);
+
+        string line = "";
+        if (heist)
+        {
+            bool mine = ReferenceEquals(obj.carrier, player);
+            if (obj.bagGone)
+                line = "Yeni çanta geliyor...";
+            else if (mine)
+                line = "ÇANTA SENDE!  Mavi üsse götür";
+            else if (obj.carrier == null)
+                line = obj.bagHome ? "Para çantası kasada: kap ve üssüne götür" : "Para çantası yerde!";
+            else if (obj.carrier.Team == 0)
+                line = obj.carrier.DisplayName + " çantayı taşıyor: koru!";
+            else
+                line = "DÜŞMAN ÇANTAYI KAÇIRIYOR: durdur!";
+            objectiveText.color = mine ? new Color(0.4f, 1f, 0.5f) : obj.carrier != null && obj.carrier.Team != 0 ? new Color(1f, 0.45f, 0.35f) : Color.white;
+            if (!obj.bagGone && !mine)
+                Marker(ref marker, cam, hudRect, obj.bagPos + Vector3.up * 1.6f, "$", new Color(0.4f, 1f, 0.45f), player);
+            if (mine)
+                Marker(ref marker, cam, hudRect, obj.bases[0] + Vector3.up * 2f, "ÜS", ArenaObjectives.TeamColors[0], player);
+        }
+        if (objectiveText.text != line)
+            objectiveText.text = line;
+        for (int i = marker; i < objMarkers.Count; i++)
+            if (objMarkers[i].enabled)
+                objMarkers[i].enabled = false;
+    }
+
+    /// <summary>A label with the distance over an objective (kept on screen at the edges).</summary>
+    private void Marker(ref int index, Camera cam, RectTransform hudRect, Vector3 world, string label, Color color, PlayerController player)
+    {
+        if (index >= objMarkers.Count || cam == null)
+            return;
+        Vector3 sp = cam.WorldToScreenPoint(world);
+        if (sp.z < 0f)
+        {
+            // behind us: pin it to the bottom edge on that side
+            sp.x = Screen.width - sp.x;
+            sp.y = 0f;
+        }
+        sp.x = Mathf.Clamp(sp.x, Screen.width * 0.06f, Screen.width * 0.94f);
+        sp.y = Mathf.Clamp(sp.y, Screen.height * 0.12f, Screen.height * 0.86f);
+        Vector2 local;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(hudRect, sp, null, out local))
+            return;
+        var m = objMarkers[index++];
+        m.enabled = true;
+        m.rectTransform.anchoredPosition = local;
+        int d = Mathf.RoundToInt(Vector3.Distance(player.transform.position, world));
+        m.text = label + "\n" + d + " m";
+        m.color = color;
     }
 
     public void ShowBattleHud()
@@ -1153,15 +1388,27 @@ public class UIManager : MonoBehaviour
         botLastPos.Clear();
 
         hudPanel.SetActive(true);
+
+        var mode = GameManager.Instance.currentMode;
+        bool ffa = mode == MatchMode.FreeForAll;
+        teamCapOurs.text = ffa ? "SEN" : "TAKIMIN";
+        teamCapTheirs.text = ffa ? "LİDER" : "DÜŞMAN";
+        string unit = mode == MatchMode.Domination ? " puan" : mode == MatchMode.Heist ? " çanta" : " öldürme";
+        teamScoreGoal.text = "hedef " + TeamMatch.GoalFor(mode) + unit;
+        objectiveText.text = "";
     }
 
-    public void ShowResult(bool won, int place, int teams, int kills, int xp, int coins)
+    public void ShowResult(bool won, int place, int teams, int kills, int xp, int coins, int trophies)
     {
         HideAll();
-        resultTitle.text = won ? "ZAFER! #1" : "#" + place + " / " + teams;
+        var mode = GameManager.Instance.currentMode;
+        bool teamArena = Modes.TwoTeams(mode);
+        resultTitle.text = teamArena ? (won ? "ZAFER!" : "YENİLGİ") : won ? "ZAFER! #1" : "#" + place + " / " + teams;
         resultTitle.color = won ? new Color(1f, 0.85f, 0.3f) : Color.white;
-        resultDetails.text = (won ? "Ayakta kalan son kişi sensin!" : "Elendin. Bir dahaki sefere!") +
-                             "\nÖldürme: " + kills + "     +" + xp + " XP     +" + coins + " Kredi";
+        string line = teamArena ? (won ? "Takımın " + Modes.Short(mode) + " maçını kazandı!" : "Takımın kaybetti. Bir dahaki sefere!")
+            : won ? (mode == MatchMode.FreeForAll ? "Herkesi geride bıraktın!" : "Ayakta kalan son kişi sensin!") : "Elendin. Bir dahaki sefere!";
+        resultDetails.text = line + "\nÖldürme: " + kills + "     +" + xp + " XP     +" + coins + " Kredi     " +
+                             (trophies >= 0 ? "+" : "") + trophies + " Kupa";
 
         // Levels gained and their rewards.
         for (int i = resultRewards.childCount - 1; i >= 0; i--)
@@ -1374,7 +1621,7 @@ public class UIManager : MonoBehaviour
             driveHudKey = int.MinValue;
         }
 
-        bool team = gm.IsTeamMatch;
+        bool team = gm.IsArena;
         if (teamScoreBox.activeSelf != team)
         {
             teamScoreBox.SetActive(team);
@@ -1388,7 +1635,7 @@ public class UIManager : MonoBehaviour
             if (team)
             {
                 teamScoreOurs.text = TeamMatch.Score[0].ToString();
-                teamScoreTheirs.text = TeamMatch.Score[1].ToString();
+                teamScoreTheirs.text = (TeamMatch.FreeForAll ? TeamMatch.BestOther(0) : TeamMatch.Score[1]).ToString();
                 teamScoreTime.text = TeamMatch.TimeText;
             }
             else
@@ -1414,6 +1661,7 @@ public class UIManager : MonoBehaviour
 
         UpdateMinimap(gm, player);
         UpdateAbilityHud(gm, player);
+        UpdateModeHud(gm, player);
 
         if (toastText.text.Length > 0 && Time.time > toastUntil)
             toastText.text = "";

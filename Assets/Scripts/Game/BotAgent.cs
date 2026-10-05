@@ -45,6 +45,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     private float nextGrenadeTime;
     private int grenades;
     private float blindUntil;
+    private int objPref;   // which capture point / escort side this bot likes (set in Awake: no Random in field initialisers)
     private const float Gravity = -20f;
 
     /// <summary>Flash grenade: sees nothing and does not shoot for a while.</summary>
@@ -93,6 +94,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         weapon = weaponObj.AddComponent<WeaponController>();
         weapon.shooter = this;
         accuracy = Random.Range(3f, 7.5f);
+        objPref = Random.Range(0, 1000);
     }
 
     private static readonly Color[] Helmets =
@@ -501,6 +503,25 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         if (zone != null && zone.DistanceFromCenter(transform.position) > zone.radius * 0.85f)
             return FlatDirection(zone.center - transform.position);
 
+        // Hakimiyet / Soygun: the objective (points, the money bag, the base).
+        Vector3 objGoal = transform.position;
+        bool urgent = false;
+        var obj = ArenaObjectives.Instance;
+        bool hasObj = obj != null && gm.IsArena && obj.BotGoal(this, objPref, out objGoal, out urgent);
+
+        if (target != null && targetVisible && hasObj && urgent)
+        {
+            // Keep going for the objective while shooting, weaving a little.
+            strafeTimer -= Time.deltaTime;
+            if (strafeTimer <= 0f)
+            {
+                strafeTimer = Random.Range(0.8f, 2f);
+                strafeSign = Random.value < 0.5f ? -1f : 1f;
+            }
+            Vector3 toGoal = FlatDirection(objGoal - transform.position);
+            return (toGoal + Vector3.Cross(Vector3.up, toGoal) * strafeSign * 0.35f).normalized;
+        }
+
         if (target != null && targetVisible)
         {
             float dist = Vector3.Distance(transform.position, target.transform.position);
@@ -523,8 +544,18 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             return side * 0.6f;
         }
 
+        if (hasObj)
+        {
+            Vector3 to = objGoal - transform.position;
+            to.y = 0f;
+            float d = to.magnitude;
+            if (d < 1.5f)
+                return Vector3.zero;
+            return to / d * (d > 6f ? 1f : 0.6f);
+        }
+
         var player = PlayerController.LocalPlayer;
-        if (team == 0 && player != null && !player.isDead && !player.IsAirborne)
+        if (team == 0 && player != null && !player.isDead && !player.IsAirborne && !gm.IsArena)
         {
             Vector3 toPlayer = player.transform.position - transform.position;
             toPlayer.y = 0f;
@@ -539,7 +570,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         toWander.y = 0f;
         if (wanderTimer <= 0f || toWander.magnitude < 2f)
         {
-            if (gm.IsTeamMatch)
+            if (gm.IsArena)
             {
                 wanderTimer = Random.Range(2.5f, 5f);
                 wanderTarget = NearestEnemyArea(gm);
@@ -549,7 +580,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             wanderTarget = zone != null ? zone.RandomPointInside(0.7f) : transform.position + Random.insideUnitSphere * 10f;
             return Vector3.zero;
         }
-        return toWander.normalized * (gm.IsTeamMatch ? 1f : 0.75f);
+        return toWander.normalized * (gm.IsArena ? 1f : 0.75f);
     }
 
     private Vector3 NearestEnemyArea(GameManager gm)
@@ -670,7 +701,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         var gm = GameManager.Instance;
         if (gm != null)
         {
-            if (gm.lootSystem != null && !gm.IsTeamMatch)
+            if (gm.lootSystem != null && !gm.IsArena)
                 gm.lootSystem.DropDeathCrate(transform.position);
             gm.OnBotEliminated(this, attackerTeam);
         }

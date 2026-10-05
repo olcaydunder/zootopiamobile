@@ -287,6 +287,30 @@ STAR_EMPTY = svg('<path d="%s" fill="#2a2f38" opacity="0.85" %s/>' % (STAR_PATH,
 UP = svg(grad("up", "#7ef09a", "#24a050") + '<circle cx="128" cy="128" r="108" fill="url(#up)" %s/>' % stroke(12) +
          '<path d="M128 58 L 190 132 L 152 132 L 152 196 L 104 196 L 104 132 L 66 132 Z" fill="#fff" %s/>' % stroke(8), "")
 
+# ----- Game modes -----
+
+MODE_BR = svg(grad("pc", "#ff8a4a", "#d03a2a") + SHADOW +
+              '<path d="M28 110 C 40 40, 216 40, 228 110 C 200 96, 180 96, 160 110 C 140 96, 116 96, 96 110 C 76 96, 56 96, 28 110 Z" fill="url(#pc)" %s/>' % stroke() +
+              '<path d="M96 110 C 100 70, 110 52, 128 48 M160 110 C 156 70, 146 52, 128 48" fill="none" stroke="%s" stroke-width="6" opacity="0.5"/>' % INK +
+              '<path d="M32 112 L 114 186 M96 110 L 120 186 M160 110 L 136 186 M224 112 L 142 186" stroke="%s" stroke-width="5"/>' % INK +
+              '<rect x="108" y="180" width="40" height="42" rx="10" fill="#6a7a48" %s/>' % stroke(8) +
+              '<circle cx="128" cy="170" r="16" fill="#e8c8a0" %s/>' % stroke(7), "")
+MODE_DOM = svg(grad("fg", "#4aa0ff", "#1a5ad0") + SHADOW +
+               '<ellipse cx="128" cy="210" rx="92" ry="22" fill="#2a3a4a" %s/>' % stroke(8) +
+               '<rect x="88" y="28" width="14" height="186" rx="5" fill="#c7cdd4" %s/>' % stroke(7) +
+               '<path d="M102 34 L 212 58 C 190 74, 190 96, 212 112 L 102 120 Z" fill="url(#fg)" %s/>' % stroke(8) +
+               '<text x="146" y="100" font-family="sans-serif" font-weight="bold" font-size="52" text-anchor="middle" fill="#fff">A</text>', "")
+MODE_FFA = svg(grad("sk", "#f4f6f8", "#aab4be") + SHADOW +
+               '<path d="M128 28 C 70 28, 40 70, 44 118 C 46 146, 60 160, 74 168 L 74 204 L 182 204 L 182 168 C 196 160, 210 146, 212 118 C 216 70, 186 28, 128 28 Z" fill="url(#sk)" %s/>' % stroke() +
+               '<ellipse cx="96" cy="122" rx="24" ry="26" fill="%s"/><ellipse cx="160" cy="122" rx="24" ry="26" fill="%s"/>' % (INK, INK) +
+               '<path d="M128 146 L 116 170 L 140 170 Z" fill="%s"/>' % INK +
+               '<path d="M98 204 L 98 184 M118 204 L 118 184 M138 204 L 138 184 M158 204 L 158 184" stroke="%s" stroke-width="7"/>' % INK, "")
+MODE_HEIST = svg(grad("mb", "#d8b06a", "#8a6024") + SHADOW +
+                 '<path d="M96 70 L 160 70 L 150 92 C 214 116, 222 210, 128 214 C 34 210, 42 116, 106 92 Z" fill="url(#mb)" %s/>' % stroke() +
+                 '<path d="M92 56 C 110 76, 146 76, 164 56 L 152 80 L 104 80 Z" fill="#b08a44" %s/>' % stroke(7) +
+                 '<rect x="98" y="80" width="60" height="14" rx="5" fill="#6a4a1a" %s/>' % stroke(6) +
+                 '<text x="128" y="182" font-family="sans-serif" font-weight="bold" font-size="76" text-anchor="middle" fill="#2a7a2a" stroke="%s" stroke-width="4">$</text>' % INK, "")
+
 ICONS = {}
 ICONS.update(HELMETS)
 ICONS.update(VESTS)
@@ -298,7 +322,8 @@ ICONS.update(PERKS)
 ICONS.update({"inv_head": HELMETS["gear_h_tactical"], "inv_body": VESTS["gear_b_plate"], "inv_legs": BOOTS["gear_l_field"],
               "inv_explosive": FRAG, "inv_tactical": SMOKE, "inv_medical": MEDKIT, "inv_perk": PERKS["gear_p_armor"],
               "inventory": BACKPACK, "profile": PROFILE, "trophy": TROPHY, "wheel": WHEEL, "modes": MODES, "power": POWER,
-              "calendar": CALENDAR, "free": FREE, "star": STAR, "star_empty": STAR_EMPTY, "up": UP})
+              "calendar": CALENDAR, "free": FREE, "star": STAR, "star_empty": STAR_EMPTY, "up": UP,
+              "mode_br": MODE_BR, "mode_tdm": MODES, "mode_dom": MODE_DOM, "mode_ffa": MODE_FFA, "mode_heist": MODE_HEIST})
 
 if __name__ == "__main__":
     for name, data in ICONS.items():

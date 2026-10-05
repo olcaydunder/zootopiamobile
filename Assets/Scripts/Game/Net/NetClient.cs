@@ -451,12 +451,24 @@ public sealed class NetClient : MonoBehaviour
                 }
                 case NetProtocol.S_Score:
                 {
-                    int s0 = reader.UShort(), s1 = reader.UShort();
-                    float left = reader.Float();
-                    bool second = myServerTeam == 1;
-                    TeamMatch.Score[0] = second ? s1 : s0;   // ours first
-                    TeamMatch.Score[1] = second ? s0 : s1;
-                    TeamMatch.TimeLeft = left;
+                    int n = reader.Byte();
+                    for (int i = 0; i < n; i++)
+                    {
+                        int score = reader.UShort();
+                        int local = LocalTeam(i);   // ours first (Herkes Tek: we are index 0 here)
+                        if (local >= 0 && local < TeamMatch.Score.Length)
+                            TeamMatch.Score[local] = score;
+                    }
+                    TeamMatch.TimeLeft = reader.Float();
+                    int pts = reader.Byte();
+                    var obj = ArenaObjectives.Instance;
+                    for (int i = 0; i < pts; i++)
+                    {
+                        int owner = reader.Byte();
+                        float progress = (sbyte)reader.Byte() / 100f;
+                        if (obj != null)
+                            obj.ApplyNet(i, owner == 255 ? -1 : owner, progress, myServerTeam == 1);
+                    }
                     break;
                 }
                 case NetProtocol.S_Voice:
@@ -481,7 +493,7 @@ public sealed class NetClient : MonoBehaviour
     {
         LobbyPhase = reader.Byte();
         float left = reader.Float();
-        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 3);
+        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, (int)MatchMode.Heist);
         PrivateRoom = reader.Bool();
         LeaderId = reader.UShort();
         RoomCode = reader.String();
@@ -532,7 +544,7 @@ public sealed class NetClient : MonoBehaviour
     {
         MyId = reader.UShort();
         myServerTeam = reader.Byte();
-        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, 3);
+        Mode = (MatchMode)Mathf.Clamp(reader.Byte(), 0, (int)MatchMode.Heist);
         Vector3 planeStart = reader.Pos();
         Vector3 planeEnd = reader.Pos();
         float zx = reader.Float();
@@ -550,8 +562,8 @@ public sealed class NetClient : MonoBehaviour
         resultShown = false;
         Revision++;
         spawnedOnce = false;
-        if (Mode == MatchMode.Team5)
-            gm.BeginOnlineTeamRound(new Vector3(zx, 0f, zz), zr);
+        if (Modes.Arena(Mode))
+            gm.BeginOnlineArenaRound(Mode, new Vector3(zx, 0f, zz), zr, Modes.TwoTeams(Mode) && myServerTeam == 1);
         else
             gm.BeginOnlineRound(Mode, planeStart, planeEnd, new Vector3(zx, 0f, zz), zr);
 
@@ -847,9 +859,18 @@ public sealed class NetClient : MonoBehaviour
         reader.String();
         finished = true;
         var gm = GameManager.Instance;
-        if (Mode == MatchMode.Team5)
+        if (Mode == MatchMode.FreeForAll)
         {
-            // 5v5: the team result, whoever is alive right now.
+            // Herkes Tek: our place by the scores.
+            bool first = winner == myServerTeam;
+            int place = first ? 1 : Mathf.Max(2, TeamMatch.Place(0));
+            gm.uiManager.Toast(first ? "KAZANDIN!" : place + ". OLDUN");
+            StartCoroutine(FinishRoutine(first, place, 2f, session));
+            return;
+        }
+        if (Modes.Arena(Mode))
+        {
+            // 5v5 / Hakimiyet: the team result, whoever is alive right now.
             bool teamWon = winner == myServerTeam;
             gm.uiManager.Toast(teamWon ? "TAKIMIN KAZANDI!" : winner == 255 ? "BERABERE" : "TAKIMIN KAYBETTİ");
             StartCoroutine(FinishRoutine(teamWon, teamWon ? 1 : 2, 2f, session));
@@ -974,7 +995,7 @@ public sealed class NetClient : MonoBehaviour
             return;
         deathSent = true;
         bool recent = Time.time - lastAttackTime < 15f;
-        bool team5 = Mode == MatchMode.Team5;
+        bool team5 = Modes.Arena(Mode);
         int killer = recent ? lastAttacker : NetProtocol.NoEntity;
         if (conn != null)
         {

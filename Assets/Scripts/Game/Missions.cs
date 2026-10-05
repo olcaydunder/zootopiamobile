@@ -18,11 +18,13 @@ public static class MatchStats
     }
 }
 
-public enum MissionStat { Matches, Kills, Wins, Top5, Damage, Headshots, Loot, SurviveMinutes, TeamMatches, TeamWins }
+public enum MissionStat { Matches, Kills, Wins, Top5, Damage, Headshots, Loot, SurviveMinutes, TeamMatches, TeamWins }   // Team*: the arena modes (5v5, Hakimiyet, Herkes Tek, Soygun)
 
 /// <summary>
 /// Never-ending missions: 3 daily ones (new every day at midnight) and 3 weekly ones (new every Monday),
 /// picked from pools by the date so everyone has the same; finishing all daily ones gives a bonus box.
+/// Season missions (4 weeks) have five stages each. Every collected mission fills this week's mission box
+/// track (boxes at 1, 5 and 8), and every win today fills the daily victories track (six boxes).
 /// Progress is counted at the end of every match (bots or online). Rewards: Kredi and gift boxes,
 /// collected on the GÖREVLER screen (a box opens there with its animation).
 /// </summary>
@@ -58,7 +60,7 @@ public static class Missions
         new Def { id = "d_head", text = "{0} kafadan vuruş yap", stat = MissionStat.Headshots, goal = 5, reward = Box("bronze") },
         new Def { id = "d_loot", text = "{0} ganimet sandığı topla", stat = MissionStat.Loot, goal = 12, reward = Credits(120) },
         new Def { id = "d_survive", text = "Toplam {0} dakika hayatta kal", stat = MissionStat.SurviveMinutes, goal = 15, reward = Credits(150) },
-        new Def { id = "d_team", text = "{0} tane 5v5 maçı oyna", stat = MissionStat.TeamMatches, goal = 2, reward = Box("bronze") },
+        new Def { id = "d_team", text = "{0} arena maçı oyna (5v5, Hakimiyet, Herkes Tek, Soygun)", stat = MissionStat.TeamMatches, goal = 2, reward = Box("bronze") },
     };
 
     private static readonly Def[] WeeklyPool =
@@ -68,7 +70,7 @@ public static class Missions
         new Def { id = "w_wins", text = "{0} maç kazan", stat = MissionStat.Wins, goal = 3, reward = Box("gold") },
         new Def { id = "w_damage", text = "Toplam {0} hasar ver", stat = MissionStat.Damage, goal = 12000, reward = Credits(1000) },
         new Def { id = "w_head", text = "{0} kafadan vuruş yap", stat = MissionStat.Headshots, goal = 30, reward = Box("silver") },
-        new Def { id = "w_teamwins", text = "{0} tane 5v5 maçı kazan", stat = MissionStat.TeamWins, goal = 4, reward = Box("silver") },
+        new Def { id = "w_teamwins", text = "{0} arena maçı kazan", stat = MissionStat.TeamWins, goal = 4, reward = Box("silver") },
     };
 
     public static readonly Def DailyBonus = new Def { id = "d_all", text = "Bugünün bütün görevlerini bitir", stat = MissionStat.Matches, goal = 1, reward = Box("silver") };
@@ -119,6 +121,9 @@ public static class Missions
         foreach (var s in Current(true)) if (s.Done && !s.claimed) n++;
         var b = Bonus();
         if (b.Done && !b.claimed) n++;
+        foreach (var s in SeasonMissions()) if (s.Ready) n++;
+        for (int i = 0; i < ChestAt.Length; i++) if (ChestReady(i)) n++;
+        for (int i = 0; i < WinBoxes; i++) if (WinReady(i)) n++;
         return n;
     }
 
@@ -126,6 +131,9 @@ public static class Missions
     {
         if (amount <= 0)
             return;
+        foreach (var sd in SeasonPool)
+            if (sd.stat == stat)
+                PlayerPrefs.SetInt(SeasonKey(sd.id), SeasonProgress(sd) + amount);
         foreach (bool weekly in new[] { false, true })
             foreach (var s in Current(weekly))
                 if (s.def.stat == stat && !s.claimed)
@@ -138,7 +146,10 @@ public static class Missions
         Add(MissionStat.Matches, 1);
         Add(MissionStat.Kills, kills);
         if (won)
+        {
             Add(MissionStat.Wins, 1);
+            PlayerPrefs.SetInt(WinsKey, WinsToday + 1);
+        }
         if (team5v5 ? won : place <= 5)
             Add(MissionStat.Top5, 1);
         Add(MissionStat.Damage, Mathf.RoundToInt(MatchStats.Damage));
@@ -163,6 +174,111 @@ public static class Missions
         string k = Key(s.weekly, s.def.id);
         PlayerPrefs.SetInt(k + "_c", 1);
         given = Shop.Give(profile, s.def.reward);
+        AddChestPoint();
+        PlayerPrefs.Save();
+        return true;
+    }
+
+    // ----- Season missions: five stages each, for four weeks -----
+
+    public const int SeasonDays = 28;
+    public static int Season { get { return Day / SeasonDays + 1; } }
+    public static int SeasonDaysLeft { get { return SeasonDays - Day % SeasonDays; } }
+
+    public class SeasonDef
+    {
+        public string id, text;    // "{0}" = the stage's goal
+        public MissionStat stat;
+        public int[] goals;        // five stages
+    }
+
+    public class SeasonState
+    {
+        public SeasonDef def;
+        public int progress, claimed;   // claimed: stages collected (0..5)
+        public bool AllDone { get { return claimed >= def.goals.Length; } }
+        public int Goal { get { return def.goals[Mathf.Min(claimed, def.goals.Length - 1)]; } }
+        public bool Ready { get { return !AllDone && progress >= Goal; } }
+    }
+
+    public static readonly SeasonDef[] SeasonPool =
+    {
+        new SeasonDef { id = "s_kills", text = "{0} düşman indir", stat = MissionStat.Kills, goals = new[] { 25, 75, 150, 300, 500 } },
+        new SeasonDef { id = "s_wins", text = "{0} maç kazan", stat = MissionStat.Wins, goals = new[] { 2, 5, 10, 20, 35 } },
+        new SeasonDef { id = "s_head", text = "{0} kafadan vuruş yap", stat = MissionStat.Headshots, goals = new[] { 10, 30, 70, 150, 300 } },
+        new SeasonDef { id = "s_damage", text = "Toplam {0} hasar ver", stat = MissionStat.Damage, goals = new[] { 5000, 15000, 40000, 80000, 150000 } },
+        new SeasonDef { id = "s_matches", text = "{0} maç oyna", stat = MissionStat.Matches, goals = new[] { 5, 15, 30, 60, 100 } },
+        new SeasonDef { id = "s_loot", text = "{0} ganimet sandığı topla", stat = MissionStat.Loot, goals = new[] { 30, 90, 200, 400, 700 } },
+        new SeasonDef { id = "s_arena", text = "{0} arena maçı oyna", stat = MissionStat.TeamMatches, goals = new[] { 3, 8, 15, 30, 50 } },
+    };
+
+    /// <summary>What each of the five stages gives.</summary>
+    public static readonly Reward[] StageRewards = { Credits(250), Box("wood"), Box("bronze"), Box("silver"), Box("gold") };
+
+    private static string SeasonKey(string id) { return "zm_season_" + Season + "_" + id; }
+    private static int SeasonProgress(SeasonDef d) { return PlayerPrefs.GetInt(SeasonKey(d.id), 0); }
+
+    public static List<SeasonState> SeasonMissions()
+    {
+        var list = new List<SeasonState>();
+        foreach (var d in SeasonPool)
+            list.Add(new SeasonState { def = d, progress = SeasonProgress(d), claimed = PlayerPrefs.GetInt(SeasonKey(d.id) + "_c", 0) });
+        return list;
+    }
+
+    public static string SeasonText(SeasonState s) { return string.Format(s.def.text, s.Goal.ToString("N0")); }
+
+    public static bool ClaimStage(SeasonState s, ProfileData profile, out GrantedReward given)
+    {
+        given = default(GrantedReward);
+        if (!s.Ready)
+            return false;
+        given = Shop.Give(profile, StageRewards[s.claimed]);
+        PlayerPrefs.SetInt(SeasonKey(s.def.id) + "_c", s.claimed + 1);
+        AddChestPoint();
+        PlayerPrefs.Save();
+        return true;
+    }
+
+    // ----- This week's mission box track: boxes at 1, 5 and 8 collected missions -----
+
+    public static readonly int[] ChestAt = { 1, 5, 8 };
+    public static readonly Reward[] ChestRewards = { Box("bronze"), Box("silver"), Box("gold") };
+
+    private static string ChestKey { get { return "zm_mchest_w" + Week; } }
+    public static int ChestPoints { get { return PlayerPrefs.GetInt(ChestKey, 0); } }
+    private static void AddChestPoint() { PlayerPrefs.SetInt(ChestKey, ChestPoints + 1); }
+    public static bool ChestClaimed(int i) { return PlayerPrefs.GetInt(ChestKey + "_c" + i, 0) == 1; }
+    public static bool ChestReady(int i) { return !ChestClaimed(i) && ChestPoints >= ChestAt[i]; }
+
+    public static bool ClaimChest(int i, ProfileData profile, out GrantedReward given)
+    {
+        given = default(GrantedReward);
+        if (!ChestReady(i))
+            return false;
+        PlayerPrefs.SetInt(ChestKey + "_c" + i, 1);
+        given = Shop.Give(profile, ChestRewards[i]);
+        PlayerPrefs.Save();
+        return true;
+    }
+
+    // ----- Today's victories: a box for each of the first six wins -----
+
+    public const int WinBoxes = 6;
+    public static readonly Reward[] WinRewards = { Box("wood"), Box("wood"), Box("bronze"), Box("bronze"), Box("silver"), Box("gold") };
+
+    private static string WinsKey { get { return "zm_dwins_d" + Day; } }
+    public static int WinsToday { get { return PlayerPrefs.GetInt(WinsKey, 0); } }
+    public static bool WinClaimed(int i) { return PlayerPrefs.GetInt(WinsKey + "_c" + i, 0) == 1; }
+    public static bool WinReady(int i) { return !WinClaimed(i) && WinsToday > i; }
+
+    public static bool ClaimWin(int i, ProfileData profile, out GrantedReward given)
+    {
+        given = default(GrantedReward);
+        if (!WinReady(i))
+            return false;
+        PlayerPrefs.SetInt(WinsKey + "_c" + i, 1);
+        given = Shop.Give(profile, WinRewards[i]);
         PlayerPrefs.Save();
         return true;
     }

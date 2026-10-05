@@ -56,7 +56,7 @@ two static figure scans, and an AK-47 pack without license information.
 
 ## Photo textures (Poly Haven, CC0)
 
-Downloaded by `.github/workflows/textures.yml` (`Tools/fetch_textures.py`) into `Assets/Resources/Textures` (1K diffuse + normal).
+Downloaded by `.github/workflows/textures.yml` (`Tools/fetch_textures.py`) into `Assets/Resources/Textures` (2K diffuse + normal; the workflow's `cozunurluk` input picks 1k/2k/4k).
 Used by the terrain (5-layer splat), building façades (`Zootopia/Facade`), roads (`Zootopia/Road`), roofs, plinths and tree bark.
 
 | Use | Texture | Authors |
@@ -71,6 +71,13 @@ Used by the terrain (5-layer splat), building façades (`Zootopia/Facade`), road
 | rooftiles | [Roof Tiles](https://polyhaven.com/a/roof_tiles) | Stephan Seeliger |
 | bark | [Bark Brown 01](https://polyhaven.com/a/bark_brown_01) | Rob Tuytel |
 | metal | [Corrugated Iron](https://polyhaven.com/a/corrugated_iron) | Jenelle van Heerden, Dimitrios Savva |
+
+## Own art (made for this game, no third-party assets)
+
+- Animal masks (`Assets/Resources/Models/Masks/k_*.fbx`) and their icons (`UI/Icons/gear_k_*.png`): low-poly heads built
+  from primitives by `Tools/blender/build_masks.py` (Blender, run headless).
+- Inventory, perk, game-mode, wheel, trophy and store icons (`UI/Icons/gear_*`, `inv_*`, `mode_*`, …): SVG drawings in
+  `Tools/make_gear_icons.py`, rendered with cairosvg. Box art (`UI/Crates`, `crate_*`): `Tools/make_icons.py`.
 
 `Assets/Resources/UI/Logo.png` (loading and title screens) is drawn by `Tools/make_logo.py` (own design: the first O of
 ZOOTOPIA is a sight with a paw print) using [Russo One](https://fonts.google.com/specimen/Russo+One) by Jovanny Lemonad and

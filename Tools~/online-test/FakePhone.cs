@@ -32,7 +32,9 @@ public class Phone
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
     public static V3 Pos(NetReader r) { float x = r.Short() * 0.05f, y = r.Short() * 0.05f, z = r.Short() * 0.05f; return new V3(x, y, z); }
     public List<string> chats = new List<string>(); public int emotes, lastEmote = -1;
-    public Dictionary<int, V3> respawnAt = new Dictionary<int, V3>(); public Dictionary<int, int> respawns = new Dictionary<int, int>(); public int scoreMsgs, score0 = -1, score1 = -1; public float timeLeft;
+    public Dictionary<int, V3> respawnAt = new Dictionary<int, V3>(); public Dictionary<int, int> respawns = new Dictionary<int, int>(); public int scoreMsgs, score0 = -1, score1 = -1; public float timeLeft; public int[] scores = new int[0], points = new int[0];
+    /// <summary>Leaves like the game does: a bye packet (twice).</summary>
+    public void Bye() { if (conn == null) return; w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(5); w.UInt(conn.Token); sock.Send(w.Buffer, w.Length, server); sock.Send(w.Buffer, w.Length, server); }
     public void Rel(params Action<NetWriter>[] parts) { w.Reset(); foreach (var p in parts) p(w); conn.SendReliable(w.ToArray()); }
     public void Unrel(Action<NetWriter> f) { w.Reset(); f(w); conn.SendUnreliable(w.ToArray()); }
 
@@ -84,7 +86,7 @@ public class Phone
             case 36: r.UShort(); r.String(); r.String(); chats.Add(r.String()); break;
             case 37: r.UShort(); r.String(); lastEmote = r.Byte(); emotes++; break;
             case 38: { int rid = r.UShort(); r.Float(); var at = Pos(r); respawnAt[rid] = at; int c; respawns.TryGetValue(rid, out c); respawns[rid] = c + 1; Ent e; if (ents.TryGetValue(rid, out e)) { e.pos = at; e.flags = 0; e.health = 100; } } break;
-            case 39: score0 = r.UShort(); score1 = r.UShort(); timeLeft = r.Float(); scoreMsgs++; break;
+            case 39: { int n = r.Byte(); scores = new int[n]; for (int i = 0; i < n; i++) scores[i] = r.UShort(); score0 = n > 0 ? scores[0] : 0; score1 = n > 1 ? scores[1] : 0; timeLeft = r.Float(); int pts = r.Byte(); points = new int[pts]; for (int i = 0; i < pts; i++) { int owner = r.Byte(); r.Byte(); points[i] = owner == 255 ? -1 : owner; } scoreMsgs++; } break;
         }
     }
 }
@@ -160,6 +162,78 @@ public static class FakePhoneTest
         return fails;
     }
 
+    /// <summary>Hakimiyet: 5v5 with three capture points the server runs; bots take points and the score grows from holding them.</summary>
+    static int Domination(Phone A, Phone B, Phone[] ps)
+    {
+        Console.WriteLine("== Hakimiyet start (leader)");
+        A.Rel(x => x.Byte(8));
+        bool ok = RunUntil(20, ps, () => A.inMatch && B.inMatch && Respawns(A, A.id) > 0 && A.scoreMsgs > 0 && A.ents.Count >= 10);
+        Check(ok, "Hakimiyet started: entities " + A.ents.Count + ", teams " + A.teams);
+        Check(A.teams == 2 && A.ents.Count == 10, "two teams of five: " + A.ents.Count + " / " + A.teams);
+        Check(A.points.Length == 3, "three capture points in the score message: " + A.points.Length);
+        Check(A.score0 == 0 && A.score1 == 0 && A.timeLeft > 470, "score 0-0, " + A.timeLeft.ToString("F0") + " s");
+        V3 sa = A.respawnAt[A.id], sb = B.respawnAt[B.id];
+        A.pos = new V3(sa.x, sa.y + 0.95f, sa.z); B.pos = new V3(sb.x, sb.y + 0.95f, sb.z); A.flags = 0; B.flags = 0;
+        Console.WriteLine("== the bots fight over the points (40 s)");
+        int msgs = A.scoreMsgs;
+        ok = RunUntil(40, ps, () => { foreach (var o in A.points) if (o >= 0) return A.score0 + A.score1 > 0; return false; });
+        string owners = string.Join(",", Array.ConvertAll(A.points, x => x.ToString()));
+        Check(ok, "a point was taken and scores: owners " + owners + ", score " + A.score0 + "-" + A.score1);
+        Check(A.scoreMsgs - msgs >= 20, "score/point updates ~2 per second: " + (A.scoreMsgs - msgs));
+        Console.WriteLine("== a kill does not score in Hakimiyet");
+        int before = A.score0 + A.score1, enemyBot = -1;
+        foreach (var e in A.ents.Values) if (e.bot && e.team != A.team && (e.flags & 1) == 0) { enemyBot = e.id; break; }
+        int kb = A.kills;
+        Ent t; A.ents.TryGetValue(enemyBot, out t);
+        if (t != null) A.pos = new V3(t.pos.x + 10, t.pos.y + 0.95f, t.pos.z);
+        A.Rel(x => { x.Byte(3); x.UShort(enemyBot); x.UShort(600); x.Byte(0); x.Bool(true); });
+        A.Rel(x => { x.Byte(3); x.UShort(enemyBot); x.UShort(600); x.Byte(0); x.Bool(true); });
+        RunUntil(3, ps, () => A.kills > kb);
+        Check(A.kills > kb, "A killed bot #" + enemyBot);
+        Console.WriteLine("== everyone leaves: the server ends the match");
+        foreach (var p in ps) p.Bye();
+        return fails;
+    }
+
+    /// <summary>Herkes Tek: eight players each on their own; A gets to 20 kills and wins.</summary>
+    static int FreeForAll(Phone A, Phone B, Phone[] ps)
+    {
+        Console.WriteLine("== Herkes Tek start (leader)");
+        A.Rel(x => x.Byte(8));
+        bool ok = RunUntil(20, ps, () => A.inMatch && B.inMatch && Respawns(A, A.id) > 0 && A.scoreMsgs > 0 && A.ents.Count >= 8);
+        Check(ok, "Herkes Tek started: entities " + A.ents.Count + ", teams " + A.teams);
+        var teams = new HashSet<int>(); foreach (var e in A.ents.Values) teams.Add(e.team);
+        Check(A.ents.Count == 8 && teams.Count == 8 && A.teams == 8, "eight players, eight teams: " + A.ents.Count + " / " + teams.Count + " / " + A.teams);
+        Check(A.team != B.team, "the two phones are rivals: " + A.team + " / " + B.team);
+        Check(A.scores.Length == 8, "eight scores in the score message: " + A.scores.Length);
+        V3 sa = A.respawnAt[A.id];
+        A.pos = new V3(sa.x, sa.y + 0.95f, sa.z); A.flags = 0; B.flags = 0;
+        Console.WriteLine("== A hunts everyone to 20");
+        var killedAt = new Dictionary<int, double>();
+        ok = RunUntil(120, ps, () =>
+        {
+            Ent target = null;
+            foreach (var e in A.ents.Values)
+                if (e.bot && (e.flags & 1) == 0 && e.health > 0)
+                { double k; if (killedAt.TryGetValue(e.id, out k) && Phone.Now - k < 1.0) continue; target = e; break; }
+            if (target != null)
+            {
+                A.pos = new V3(target.pos.x + 12, target.pos.y + 0.95f, target.pos.z);
+                int before = A.kills;
+                A.Rel(x => { x.Byte(3); x.UShort(target.id); x.UShort(350); x.Byte(0); x.Bool(true); });
+                Run(0.12, ps);
+                if (A.kills > before) killedAt[target.id] = Phone.Now;
+            }
+            return A.endWinner != -2;
+        });
+        Check(A.kills >= 20, "A's kills: " + A.kills);
+        Check(ok && A.endWinner == A.team, "match ended, A won: winner " + A.endWinner + " (A's team " + A.team + ")");
+        int mine = A.team < A.scores.Length ? A.scores[A.team] : -1;
+        Check(mine >= 20, "A's score in the score message: " + mine);
+        Check(B.endWinner == A.team, "B got the same result");
+        return fails;
+    }
+
     public static int Main(string[] a)
     {
         int port = int.Parse(a[0]); string version = a[1]; string mode = a.Length > 2 ? a[2] : "solo"; bool squad = mode == "squad";
@@ -197,6 +271,10 @@ public static class FakePhoneTest
         Check(A.voiceFrames == 0, "A does not hear itself");
         if (mode == "5v5")
             return TeamDeathmatch(A, B, ps);
+        if (mode == "dom")
+            return Domination(A, B, ps);
+        if (mode == "ffa")
+            return FreeForAll(A, B, ps);
         Console.WriteLine("== start (leader)");
         B.Rel(x => x.Byte(8));   // not the leader: ignored
         Run(1, ps); Check(A.lobbyPhase == 0, "non-leader start ignored");
