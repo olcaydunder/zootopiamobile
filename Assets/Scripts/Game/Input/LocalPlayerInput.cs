@@ -58,13 +58,17 @@ public class LocalPlayerInput : IPlayerInput
         get { var tc = Touch; return (!Application.isMobilePlatform && Input.GetMouseButton(0)) || (tc != null && tc.FireHeld); }
     }
 
+    public bool GrenadeHeld { get { var tc = Touch; return Input.GetKey(KeyCode.G) || (tc != null && tc.GrenadeHeld); } }
+    public bool TacticalHeld { get { var tc = Touch; return Input.GetKey(KeyCode.T) || (tc != null && tc.TacticalHeld); } }
+
     public bool ConsumeJump() { var tc = Touch; return Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeJump()); }
     public bool ConsumeCrouch() { var tc = Touch; return Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.C) || (tc != null && tc.ConsumeCrouch()); }
+    public bool ConsumeProne() { var tc = Touch; return Input.GetKeyDown(KeyCode.B) || (tc != null && tc.ConsumeProne()); }
     public bool ConsumeReload() { var tc = Touch; return Input.GetKeyDown(KeyCode.R) || (tc != null && tc.ConsumeReload()); }
     public bool ConsumeMedkit() { var tc = Touch; return Input.GetKeyDown(KeyCode.X) || (tc != null && tc.ConsumeMedkit()); }
     public bool ConsumeDrink() { var tc = Touch; return Input.GetKeyDown(KeyCode.V) || (tc != null && tc.ConsumeDrink()); }
-    public bool ConsumeGrenade() { var tc = Touch; return Input.GetKeyDown(KeyCode.G) || (tc != null && tc.ConsumeGrenade()); }
-    public bool ConsumeTactical() { var tc = Touch; return Input.GetKeyDown(KeyCode.T) || (tc != null && tc.ConsumeTactical()); }
+    public bool ConsumeGrenade() { var tc = Touch; return tc != null && tc.ConsumeGrenade(); }
+    public bool ConsumeTactical() { var tc = Touch; return tc != null && tc.ConsumeTactical(); }
     public bool ConsumeSwap() { var tc = Touch; return Input.GetKeyDown(KeyCode.Q) || (tc != null && tc.ConsumeSwap()); }
     public bool ConsumeVehicle() { var tc = Touch; return Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle()); }
     public bool ConsumeAirAction() { var tc = Touch; return Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeAirAction()); }

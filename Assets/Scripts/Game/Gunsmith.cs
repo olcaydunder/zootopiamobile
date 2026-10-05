@@ -40,6 +40,7 @@ public class CamoDef
     public Color glow;          // emission colour (alpha = strength)
     public int pattern;         // 0 blotches, 1 stripes, 2 digital, 3 veins, 4 solid metal, 5 nebula
     public float gloss;
+    public bool drawOnly;       // only from the ŞANS ÇEKİLİŞİ (never sold, not in boxes)
 }
 
 /// <summary>
@@ -157,6 +158,10 @@ public static class Gunsmith
         new CamoDef { id = "galaxy", name = "Galaksi", price = 2500, rarity = "Mitik", a = new Color(0.05f, 0.05f, 0.2f), b = new Color(0.3f, 0.5f, 1f), c = new Color(0.02f, 0.01f, 0.06f), pattern = 5, gloss = 0.9f, glow = new Color(0.4f, 0.6f, 1f, 1.6f) },
         new CamoDef { id = "phoenix", name = "Anka Kuşu", price = 2500, rarity = "Mitik", a = new Color(0.3f, 0.04f, 0.02f), b = new Color(0.7f, 0.15f, 0.03f), c = new Color(1f, 0.8f, 0.2f), pattern = 3, gloss = 0.85f, glow = new Color(1f, 0.65f, 0.15f, 2f) },
         new CamoDef { id = "pati", name = "Altın Pati", price = 3000, rarity = "Mitik", a = new Color(1f, 0.8f, 0.35f), b = new Color(0.75f, 0.5f, 0.1f), c = new Color(1f, 0.95f, 0.7f), pattern = 9, gloss = 0.95f, glow = new Color(1f, 0.8f, 0.3f, 0.6f) },
+        // Şans Çekilişi'ne özel (satılmaz)
+        new CamoDef { id = "prism", name = "Gökkuşağı Prizması", price = 0, rarity = "Mitik", drawOnly = true, a = new Color(1f, 0.35f, 0.75f), b = new Color(0.3f, 0.85f, 1f), c = new Color(1f, 0.9f, 0.3f), pattern = 11, gloss = 0.92f, glow = new Color(1f, 0.9f, 1f, 0.45f) },
+        new CamoDef { id = "neon", name = "Neon Dalga", price = 0, rarity = "Mitik", drawOnly = true, a = new Color(0.04f, 0.03f, 0.08f), b = new Color(0.1f, 0.95f, 1f), c = new Color(1f, 0.2f, 0.85f), pattern = 12, gloss = 0.85f, glow = new Color(0.6f, 0.45f, 1f, 1.6f) },
+        new CamoDef { id = "goldflame", name = "Altın Alev", price = 0, rarity = "Mitik", drawOnly = true, a = new Color(0.12f, 0.08f, 0.03f), b = new Color(0.85f, 0.55f, 0.12f), c = new Color(1f, 0.9f, 0.5f), pattern = 10, gloss = 0.9f, glow = new Color(1f, 0.75f, 0.25f, 1.4f) },
     };
 
     /// <summary>Icon (Resources/UI/Icons) for an attachment slot.</summary>

@@ -37,7 +37,8 @@ public partial class PlayerController
     private void StartSwim()
     {
         isSwimming = true;
-        if (isCrouching)
+        CancelCook();
+        if (isCrouching || isProne)
             SetCrouch(false);
         ClearScope();
         aimingDownSights = false;

@@ -49,8 +49,26 @@ public class MapSelectScreen : MonoBehaviour
         // The cards need ~1710 units: shrink them together on screens narrower than 16:9 (tablets).
         float canvasW = 1080f * Screen.width / Mathf.Max(1f, Screen.height);
         float need = maps.Length * cardW + (maps.Length - 1) * gap + 80f;
-        var row = UIUtil.CreateRect(t, "Cards", new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(need, cardH));
-        row.localScale = Vector3.one * Mathf.Clamp(canvasW / need, 0.6f, 1f);
+        float scale = Mathf.Clamp(canvasW / need, 0.62f, 1f);
+        // A row of cards; more maps than fit: it scrolls sideways.
+        var viewport = UIUtil.CreateRect(t, "Viewport", new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(canvasW - 40f, cardH * scale + 20f));
+        viewport.gameObject.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.01f);
+        viewport.gameObject.AddComponent<RectMask2D>();
+        var row = UIUtil.CreateRect(viewport, "Cards", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(need, cardH));
+        row.localScale = Vector3.one * scale;
+        if (need * scale > canvasW - 40f)
+        {
+            row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
+            row.pivot = new Vector2(0f, 0.5f);
+            row.anchoredPosition = Vector2.zero;
+            var scroll = viewport.gameObject.AddComponent<ScrollRect>();
+            scroll.content = row;
+            scroll.viewport = viewport;
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 40f;
+        }
         for (int i = 0; i < maps.Length; i++)
         {
             var m = maps[i];

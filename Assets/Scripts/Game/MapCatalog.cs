@@ -48,6 +48,30 @@ public static class MapCatalog
             signColor = new Color32(118, 28, 44, 255), signCross = false,
             arena = new Vector2(-110f, 140f), arenaRadius = 80f, arenaName = "Fakülteler"
         },
+        new Info
+        {
+            id = "kafeler", name = "KAFELER CADDESİ", place = "Merkez, Isparta",
+            blurb = "Isparta'nın kalbi: kafeler sokağı, çarşı, sıkışık bloklar ve geniş caddeler; çevresi tepeler.",
+            signTop = "KAFELER", signBottom = "CADDESİ • ISPARTA",
+            signColor = new Color32(130, 62, 24, 255), signCross = false,
+            arena = new Vector2(-10f, -10f), arenaRadius = 80f, arenaName = "Kafeler Caddesi"
+        },
+        new Info
+        {
+            id = "davraz", name = "DAVRAZ MAHALLESİ", place = "Merkez, Isparta",
+            blurb = "Apartman blokları, mahalle parkları ve göbekli kavşak; her sokak bir çatışma koridoru.",
+            signTop = "DAVRAZ", signBottom = "MAHALLESİ • ISPARTA",
+            signColor = new Color32(28, 86, 140, 255), signCross = false,
+            arena = new Vector2(0f, 0f), arenaRadius = 85f, arenaName = "Davraz parkı"
+        },
+        new Info
+        {
+            id = "pinar", name = "PINAR EVLERİ", place = "Tepecik, Senir / Keçiborlu",
+            blurb = "Pınar Evleri Sitesi: bahçeli iki katlı evler, site sokakları, çevresi tarlalar ve yamaçlar.",
+            signTop = "PINAR EVLERİ", signBottom = "SİTESİ • TEPECİK",
+            signColor = new Color32(30, 110, 90, 255), signCross = false,
+            arena = new Vector2(-5f, -20f), arenaRadius = 80f, arenaName = "Site sokakları"
+        },
     };
 
     public const string DefaultId = "eksioglu";

@@ -109,6 +109,24 @@ public class OnlineService : MonoBehaviour
     }
 
     [System.Serializable]
+    public class TopEntry
+    {
+        public string id = "";
+        public string name = "";
+        public int kills, wins, matches;
+    }
+
+    [System.Serializable]
+    public class TopView : IAnswer
+    {
+        public void Fail(string message) { ok = false; error = message; }
+        public bool ok;
+        public string error = "";
+        public TopEntry[] top = new TopEntry[0];
+        public int myRank, myKills;
+    }
+
+    [System.Serializable]
     public class ChatThread
     {
         public string id = "";
@@ -322,6 +340,23 @@ public class OnlineService : MonoBehaviour
     }
 
     public static void GiftInbox(System.Action<GiftsView> done) { Api("/gift/inbox", "{}", done); }
+
+    /// <summary>Today's best players (most eliminations, online and against bots) and where this player is.</summary>
+    public static void TopToday(System.Action<TopView> done) { Api("/stats/top", "{}", done); }
+
+    /// <summary>A finished match for today's leaderboard (fire and forget).</summary>
+    public static void PostMatchStats(int kills, bool won)
+    {
+        Api<SocialAnswer>("/stats/match", "{\"kills\":" + Mathf.Clamp(kills, 0, 99) + ",\"won\":" + (won ? "true" : "false") + "}", null);
+    }
+
+    [System.Serializable]
+    private class SocialAnswer : IAnswer
+    {
+        public void Fail(string message) { ok = false; error = message; }
+        public bool ok;
+        public string error = "";
+    }
 
     public static void ClaimGift(long giftId, System.Action<GiftsView> done)
     {

@@ -26,7 +26,7 @@ public class Phone
     public static string MapId = Environment.GetEnvironmentVariable("ZM_MAP") ?? "eksioglu";
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(6); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId); w.String("k_cat");
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(7); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId); w.String("k_cat");
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
@@ -78,7 +78,7 @@ public class Phone
             case 28: { float a = r.UShort() / 10f; lastAttacker = r.UShort(); Pos(r); r.Bool(); lastHow = r.Byte(); damageMsgs++; damageTotal += a; } break;
             case 29: { int k = r.UShort(); int v = r.UShort(); int how = r.Byte(); killLog.Add(k + ">" + v + "(" + how + ")"); if (k == id) kills++; } break;
             case 30: r.UShort(); r.Bool(); Pos(r); doorMsgs++; break;
-            case 31: r.UShort(); Pos(r); r.Float(); r.Float(); r.Float(); r.Byte(); grenades++; break;
+            case 31: r.UShort(); Pos(r); r.Float(); r.Float(); r.Float(); r.Byte(); r.Byte(); grenades++; break;
             case 32: placement = r.Byte(); r.Byte(); break;
             case 33: endWinner = r.Byte(); Console.WriteLine(name + ": MATCH END winner team " + endWinner + " (" + r.String() + ")"); break;
             case 34: Console.WriteLine(name + ": TOAST " + r.String()); break;

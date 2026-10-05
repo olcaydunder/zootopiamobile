@@ -24,7 +24,7 @@ public class ServerHuman : MonoBehaviour, IDamageable
     public bool IsDead { get { return dead; } }
     public bool IsAirborne { get { return (flags & NetProtocol.F_Air) != 0; } }
     public string DisplayName { get { return displayName; } }
-    public Vector3 AimPoint { get { return transform.position + Vector3.up * ((flags & NetProtocol.F_Crouch) != 0 ? 0.05f : 0.4f); } }
+    public Vector3 AimPoint { get { return transform.position + Vector3.up * ((flags & NetProtocol.F_Prone) != 0 ? -0.6f : (flags & NetProtocol.F_Crouch) != 0 ? 0.05f : 0.4f); } }
 
     public static ServerHuman Create(int id, int team, string name, Vector3 position)
     {
@@ -59,8 +59,9 @@ public class ServerHuman : MonoBehaviour, IDamageable
         health = hp;
         armor = ap;
         bool crouch = (flags & NetProtocol.F_Crouch) != 0;
-        body.height = crouch ? 1.2f : 1.8f;
-        body.center = crouch ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
+        bool prone = (flags & NetProtocol.F_Prone) != 0;
+        body.height = prone ? 0.8f : crouch ? 1.2f : 1.8f;
+        body.center = prone ? new Vector3(0f, -0.5f, 0f) : crouch ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
         body.enabled = !IsAirborne;
     }
 

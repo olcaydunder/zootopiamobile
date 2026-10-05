@@ -116,9 +116,14 @@ public class K9Dog : MonoBehaviour
         float dt = Time.deltaTime;
         if (done)
         {
-            transform.localScale = Vector3.one * Mathf.Clamp01(1f - (Time.time - doneAt) * 2f);
-            if (Time.time - doneAt > 0.5f)
+            // A moment on the spot (it bit or sniffed), then gone in a puff of dust: no shrinking into the ground.
+            if (Time.time - doneAt > 0.45f)
+            {
+                Vector3 body = transform.position + Vector3.up * 0.55f;
+                Effects.Dust(transform.position + Vector3.up * 0.1f, 10);
+                AbilityFx.Flash(body, new Color(0.95f, 0.9f, 0.8f, 0.5f), 1.1f, 0.3f);
                 Destroy(gameObject);
+            }
             return;
         }
         if (target != null && !target.IsDead)
@@ -135,20 +140,35 @@ public class K9Dog : MonoBehaviour
         Vector3 dir = to / Mathf.Max(0.001f, dist);
         transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), dt * 10f);
         Vector3 next = transform.position + dir * Speed * dt;
-
-        // Follow floors and steps: probe down from a little above.
-        RaycastHit hit;
-        float ground = Physics.Raycast(next + Vector3.up * 1.5f, Vector3.down, out hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-            ? hit.point.y : World.GroundHeight(next.x, next.z);
-        if (hit.collider != null && hit.collider.GetComponentInParent<IDamageable>() != null)
-            ground = World.GroundHeight(next.x, next.z);
-        next.y = Mathf.Lerp(transform.position.y, ground, dt * 12f);
+        next.y = Mathf.Lerp(transform.position.y, GroundUnder(next, transform.position.y), dt * 14f);
         transform.position = next;
 
         float swing = Mathf.Sin(Time.time * 22f) * 40f;
         for (int i = 0; i < legs.Length; i++)
             legs[i].localRotation = Quaternion.Euler(((i == 0 || i == 3) ? swing : -swing), 0f, 0f);
         tail.localRotation = Quaternion.Euler(-30f, Mathf.Sin(Time.time * 18f) * 35f, 0f);
+    }
+
+    private static readonly RaycastHit[] groundHits = new RaycastHit[8];
+
+    /// <summary>The floor under the dog: the highest walkable surface below knee height above it (floors, stairs,
+    /// pavements), never a person or a car, and the terrain when nothing else is there. Keeps the dog on top of
+    /// building floors instead of sinking to the terrain under them.</summary>
+    private static float GroundUnder(Vector3 p, float currentY)
+    {
+        float terrain = World.HeightAt(p.x, p.z);   // the heightmap (GroundHeight would find roofs)
+        Vector3 from = new Vector3(p.x, currentY + 1.2f, p.z);
+        int n = Physics.RaycastNonAlloc(from, Vector3.down, groundHits, 6f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        float best = float.NegativeInfinity;
+        for (int i = 0; i < n; i++)
+        {
+            var h = groundHits[i];
+            if (h.collider.GetComponentInParent<IDamageable>() != null || h.normal.y < 0.55f)
+                continue;
+            if (h.point.y > best)
+                best = h.point.y;
+        }
+        return best > float.NegativeInfinity ? Mathf.Max(best, terrain - 0.05f) : terrain;
     }
 
     private void Finish()

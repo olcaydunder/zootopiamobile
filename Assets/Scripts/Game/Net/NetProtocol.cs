@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 6;   // 3: the hello carries the map; 4: room chat and emotes; 5: 5v5; 6: masks, throw kinds, new modes
+    public const int Version = 7;   // 3: the hello carries the map; 4: room chat and emotes; 5: 5v5; 6: masks, throw kinds, new modes; 7: grenade fuse, prone
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game
@@ -21,7 +21,7 @@ public static class NetProtocol
     public const byte C_Died = 4;       // ushort killer, byte how (weapon+1 / HitGrenade, from the last S_Damage)
     public const byte C_Pickup = 5;     // ushort loot id
     public const byte C_Door = 6;       // ushort door, bool open, Pos from
-    public const byte C_Grenade = 7;    // Pos, float vx vy vz, byte ThrowKind
+    public const byte C_Grenade = 7;    // Pos, float vx vy vz, byte ThrowKind, byte fuse (tenths of a second, 0 = the kind's own)
     public const byte C_Start = 8;      // (private room leader) start now
     public const byte C_Voice = 9;      // voice frame: byte seq, short predictor, byte index, ADPCM bytes (unreliable)
     public const byte C_Chat = 10;      // string text (room chat; in a match: team chat)
@@ -39,7 +39,7 @@ public static class NetProtocol
     public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, byte flags (1 head, 2 poison), byte how
     public const byte S_Kill = 29;        // ushort killer, ushort victim, byte how
     public const byte S_Door = 30;        // ushort door, bool open, Pos from
-    public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz, byte ThrowKind
+    public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz, byte ThrowKind, byte fuse (tenths, 0 = default)
     public const byte S_Placement = 32;   // byte place, byte teams
     public const byte S_MatchEnd = 33;    // byte winner team (255 none), string names
     public const byte S_Toast = 34;       // string
@@ -50,7 +50,7 @@ public static class NetProtocol
     public const byte S_Score = 39;       // arena: byte n {ushort score per server team}, float seconds left, byte points {byte owner (255 none), sbyte progress*100}
 
     // Entity flags (C_State and snapshots)
-    public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64;
+    public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64, F_Prone = 128;
     public const int F_Air = F_Plane | F_Freefall | F_Parachute;
 
     /// <summary>Largest voice payload accepted (40 ms of 8 kHz ADPCM = 160 bytes + header).</summary>

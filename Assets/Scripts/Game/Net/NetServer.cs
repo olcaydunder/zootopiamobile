@@ -1078,12 +1078,14 @@ public sealed class NetServer : MonoBehaviour
         Vector3 pos = reader.Pos();
         Vector3 vel = reader.Vec();
         int kind = reader.Byte();
+        int fuse = reader.Byte();
         if (!Playing(p) || vel.magnitude > 60f || kind > (int)ThrowKind.Gas)
             return;
+        fuse = Mathf.Min(fuse, 80);
         // Smoke and flash change what the server's bots see: simulate those here too (damage stays with the thrower's phone).
         if ((kind == (int)ThrowKind.Smoke || kind == (int)ThrowKind.Flash) && p.entity != null)
-            Grenade.ServerEffect(pos, vel, (ThrowKind)kind, p.entity.team);
-        WriteGrenade(p.id, pos, vel, kind);
+            Grenade.ServerEffect(pos, vel, (ThrowKind)kind, p.entity.team, fuse / 10f);
+        WriteGrenade(p.id, pos, vel, kind, fuse);
         Broadcast(w.ToArray(), true, p);
     }
 
@@ -1171,7 +1173,7 @@ public sealed class NetServer : MonoBehaviour
         RoomBroadcast(p, w.ToArray());
     }
 
-    private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel, int kind)
+    private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel, int kind, int fuseTenths)
     {
         w.Reset();
         w.Byte(NetProtocol.S_Grenade);
@@ -1179,6 +1181,7 @@ public sealed class NetServer : MonoBehaviour
         w.Pos(pos);
         w.Vec(vel);
         w.Byte(kind);
+        w.Byte(fuseTenths);
     }
 
     // ----- Hooks from the game systems (server side) -----
@@ -1202,7 +1205,7 @@ public sealed class NetServer : MonoBehaviour
         var key = owner as Object;
         if (phase != Phase.Playing || key == null || !byObject.TryGetValue(key, out e) || e.agent == null)
             return;
-        WriteGrenade(e.id, position, velocity, (int)kind);
+        WriteGrenade(e.id, position, velocity, (int)kind, 0);
         Broadcast(w.ToArray(), true, null);
     }
 

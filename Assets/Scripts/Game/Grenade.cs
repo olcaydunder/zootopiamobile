@@ -59,16 +59,16 @@ public class Grenade : MonoBehaviour
     }
 
     /// <summary>Online: someone else's throw — it flies and does its effect here, the damage is handled by the thrower / server.</summary>
-    public static void ThrowVisual(Vector3 position, Vector3 velocity, ThrowKind kind)
+    public static void ThrowVisual(Vector3 position, Vector3 velocity, ThrowKind kind, float fuse)
     {
-        var g = Spawn(position, velocity, null, kind, 1f);
+        var g = Spawn(position, velocity, null, kind, 1f, fuse);
         g.visualOnly = true;
     }
 
     /// <summary>Game server: a player's smoke or flash, so the server's bots are blinded / cannot see through it.</summary>
-    public static void ServerEffect(Vector3 position, Vector3 velocity, ThrowKind kind, int team)
+    public static void ServerEffect(Vector3 position, Vector3 velocity, ThrowKind kind, int team, float fuse)
     {
-        var g = Spawn(position, velocity, null, kind, 1f);
+        var g = Spawn(position, velocity, null, kind, 1f, fuse);
         g.team = team;
     }
 
@@ -79,11 +79,23 @@ public class Grenade : MonoBehaviour
 
     public static void Throw(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind, float power)
     {
-        Spawn(position, velocity, owner, kind, power);
-        NetGame.GrenadeThrown(position, velocity, owner, kind);
+        Throw(position, velocity, owner, kind, power, 0f);
     }
 
-    private static Grenade Spawn(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind, float power)
+    /// <summary>A throw; <paramref name="fuse"/> &gt; 0 is what is left of a cooked fuse (0: the kind's own).</summary>
+    public static void Throw(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind, float power, float fuse)
+    {
+        Spawn(position, velocity, owner, kind, power, fuse);
+        NetGame.GrenadeThrown(position, velocity, owner, kind, fuse);
+    }
+
+    /// <summary>Fuse a held grenade starts with (counted from the moment the button is pressed).</summary>
+    public const float CookFuse = 6f;
+
+    /// <summary>Molotovs break on impact; everything else can be cooked.</summary>
+    public static bool Cookable(ThrowKind k) { return k != ThrowKind.Molotov; }
+
+    private static Grenade Spawn(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind, float power, float fuse = 0f)
     {
         var go = GameObject.CreatePrimitive(kind == ThrowKind.Charge ? PrimitiveType.Cube : PrimitiveType.Sphere);
         go.name = "Grenade_" + kind;
@@ -140,6 +152,8 @@ public class Grenade : MonoBehaviour
         g.kind = kind;
         g.power = Mathf.Clamp(power, 0.5f, 3f);
         g.fuse = kind == ThrowKind.Molotov ? 4f : kind == ThrowKind.Charge ? 3f : kind == ThrowKind.Frag ? 2.6f : 1.6f;
+        if (fuse > 0f && kind != ThrowKind.Molotov)
+            g.fuse = fuse;
         return g;
     }
 

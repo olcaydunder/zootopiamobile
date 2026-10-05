@@ -205,7 +205,7 @@ def new_code():
             return code
 
 
-MAPS = ("eksioglu", "senir", "firat")
+MAPS = ("eksioglu", "senir", "firat", "kafeler", "davraz", "pinar")
 
 
 def clean_map(value):
@@ -340,6 +340,9 @@ def db_init():
     CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT, to_id TEXT, kind TEXT,
         item TEXT, amount INTEGER, note TEXT, created REAL, claimed REAL DEFAULT 0);
     CREATE INDEX IF NOT EXISTS gifts_to ON gifts(to_id, claimed);
+    CREATE TABLE IF NOT EXISTS daily_stats (day TEXT, account TEXT, kills INTEGER DEFAULT 0, wins INTEGER DEFAULT 0,
+        matches INTEGER DEFAULT 0, last REAL DEFAULT 0, PRIMARY KEY (day, account));
+    CREATE INDEX IF NOT EXISTS daily_stats_day ON daily_stats(day, kills);
     """)
     db.commit()
 
@@ -861,6 +864,36 @@ class Handler(BaseHTTPRequestHandler):
             view["claimed"] = {"id": g["id"], "from": g["from_id"], "kind": g["kind"], "item": g["item"] or "",
                                "amount": g["amount"] or 0}
             self.reply(200, view)
+        elif path == "/stats/match":   # a finished match (online or against bots): today's leaderboard
+            now = time.time()
+            day = time.strftime("%Y-%m-%d", time.gmtime(now + 3 * 3600))   # Türkiye's day
+            row = q_one("SELECT last FROM daily_stats WHERE day=? AND account=?", (day, me["id"]))
+            if row and now - (row["last"] or 0) < 20:
+                self.reply(429, {"ok": False, "error": "Çok sık"})
+                return
+            try:
+                kills = max(0, min(40, int(data.get("kills", 0))))
+            except (TypeError, ValueError):
+                kills = 0
+            won = 1 if data.get("won") is True else 0
+            q_run("""INSERT INTO daily_stats (day, account, kills, wins, matches, last) VALUES (?,?,?,?,1,?)
+                     ON CONFLICT(day, account) DO UPDATE SET kills=kills+excluded.kills, wins=wins+excluded.wins,
+                     matches=matches+1, last=excluded.last""", (day, me["id"], kills, won, now))
+            self.reply(200, {"ok": True})
+        elif path == "/stats/top":   # today's best players (most eliminations), and where I am
+            day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 3 * 3600))
+            rows = q_all("""SELECT d.account, a.name, d.kills, d.wins, d.matches FROM daily_stats d
+                            JOIN accounts a ON a.id=d.account WHERE d.day=? AND a.banned=0
+                            ORDER BY d.kills DESC, d.wins DESC, d.last ASC LIMIT 5""", (day,))
+            mine = q_one("SELECT kills, wins, matches FROM daily_stats WHERE day=? AND account=?", (day, me["id"]))
+            rank = 0
+            if mine:
+                better = q_one("""SELECT COUNT(*) AS n FROM daily_stats d JOIN accounts a ON a.id=d.account
+                                  WHERE d.day=? AND d.kills>? AND a.banned=0""", (day, mine["kills"]))
+                rank = (better["n"] if better else 0) + 1
+            self.reply(200, {"ok": True, "top": [{"id": r["account"], "name": r["name"], "kills": r["kills"], "wins": r["wins"],
+                                                  "matches": r["matches"]} for r in rows],
+                             "myRank": rank, "myKills": mine["kills"] if mine else 0})
         elif path == "/report/player":
             if too_many(ip, "report", 10, 600):
                 self.reply(429, {"ok": False, "error": "Çok fazla şikayet gönderdin, biraz bekle"})
@@ -1100,7 +1133,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, {"ok": True})
             return
         if path.startswith("/account/") or path.startswith("/friends") or path.startswith("/msg/") or path.startswith("/gift/") \
-                or path in ("/block", "/unblock", "/bug", "/report/player", "/follow", "/unfollow", "/follows", "/search"):
+                or path in ("/block", "/unblock", "/bug", "/report/player", "/follow", "/unfollow", "/follows", "/search") \
+                or path in ("/stats/match", "/stats/top"):
             self.handle_account_post(path, q, body)
             return
 

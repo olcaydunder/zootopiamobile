@@ -25,6 +25,8 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     public float detectRange = 45f;
     public bool isDead;
     public BotAir air = BotAir.None;
+    /// <summary>This match (the in-match scoreboard).</summary>
+    public int kills, deaths;
 
     public CharacterController controller;
     public WeaponController weapon;
@@ -338,6 +340,32 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             TakeDamage(9999f, -1);
     }
 
+    // ----- Hearing -----
+
+    private Vector3 heardAt;
+    private float heardUntil;
+
+    /// <summary>
+    /// A sound at <paramref name="at"/> (footsteps, a shot, a heavy landing): enemy bots within
+    /// <paramref name="radius"/> who don't see anyone right now come to look. Crouched and prone steps make none.
+    /// </summary>
+    public static void Noise(Vector3 at, float radius, int sourceTeam)
+    {
+        var gm = GameManager.Instance;
+        if (gm == null || NetGame.InOnlineMatch || gm.currentState != GameState.InGame)
+            return;
+        float r2 = radius * radius;
+        foreach (var b in gm.bots)
+        {
+            if (b == null || b.isDead || b.team == sourceTeam || b.air != BotAir.None)
+                continue;
+            if ((b.transform.position - at).sqrMagnitude > r2 || (b.target != null && b.targetVisible))
+                continue;
+            b.heardAt = at + Random.insideUnitSphere * 2f;
+            b.heardUntil = Time.time + 6f;
+        }
+    }
+
     /// <summary>Footsteps you can hear when enemies are close (the rig's run cycle put a foot down).</summary>
     private void OnStep(bool left)
     {
@@ -544,6 +572,16 @@ public partial class BotAgent : MonoBehaviour, IDamageable
             return side * 0.6f;
         }
 
+        // Heard something: go and look (on the way, Think spots whoever made it).
+        if (Time.time < heardUntil)
+        {
+            Vector3 toNoise = heardAt - transform.position;
+            toNoise.y = 0f;
+            if (toNoise.magnitude > 2.5f)
+                return toNoise.normalized * 0.85f;
+            heardUntil = 0f;
+        }
+
         if (hasObj)
         {
             Vector3 to = objGoal - transform.position;
@@ -684,6 +722,10 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     private void Die(int attackerTeam)
     {
         isDead = true;
+        deaths++;
+        var killerBot = HitContext.Attacker as BotAgent;
+        if (killerBot != null && killerBot != this)
+            killerBot.kills++;
         if (Ability != null)
             Ability.EndStealth();
         if (air != BotAir.None)

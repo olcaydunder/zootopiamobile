@@ -29,6 +29,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     // UI references
     private readonly List<Image> categoryButtons = new List<Image>();
     private readonly List<Text> categoryLabels = new List<Text>();
+    private readonly List<Text> categoryCounts = new List<Text>();
     private Text weaponTitle;
     private Text coinsText;
     private readonly Text[] statValues = new Text[6];
@@ -73,6 +74,9 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         coinsText = UIUtil.CreateText(t, "", new Vector2(1f, 1f), new Vector2(-230f, -60f), new Vector2(400f, 60f), 34, TextAnchor.MiddleRight);
         coinsText.color = Theme.Accent;
         coinsText.fontStyle = FontStyle.Bold;
+        Text drawLabel;
+        var drawButton = UIUtil.CreateButton(t, "ŞANS ÇEKİLİŞİ", new Vector2(1f, 1f), new Vector2(-610f, -60f), new Vector2(300f, 76f), new Color(0.42f, 0.2f, 0.62f, 0.95f), false, 28, out drawLabel);
+        drawButton.onClick.AddListener(OpenDraw);
 
         // Weapon classes (left)
         for (int i = 0; i < Gunsmith.Weapons.Length; i++)
@@ -81,7 +85,15 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
             Text label;
             var b = UIUtil.CreateButton(t, Gunsmith.CategoryNames[i], new Vector2(0f, 0.5f), new Vector2(210f, 280f - i * 104f), new Vector2(340f, 88f), Theme.Panel, false, 30, out label);
             label.alignment = TextAnchor.MiddleLeft;
-            label.rectTransform.offsetMin = new Vector2(28f, 0f);
+            var lr = label.rectTransform;
+            lr.anchorMin = Vector2.zero;
+            lr.anchorMax = Vector2.one;
+            lr.offsetMin = new Vector2(26f, 0f);
+            lr.offsetMax = new Vector2(-70f, 0f);
+            // how many gun models the class has
+            var count = UIUtil.CreateText(b.transform, ModelLibrary.GunSkins(Gunsmith.Weapons[i]).Length + " model", new Vector2(1f, 0.5f), new Vector2(-48f, 0f), new Vector2(90f, 40f), 20, TextAnchor.MiddleRight);
+            count.color = Theme.TextDim;
+            categoryCounts.Add(count);
             b.onClick.AddListener(() => SelectWeapon(index));
             categoryButtons.Add(b.GetComponent<Image>());
             categoryLabels.Add(label);
@@ -107,8 +119,9 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         {
             float x = i % 2 == 0 ? -135f : 135f;
             float y = 225f - (i / 2) * 72f;
-            Theme.Label(panel, Gunsmith.StatNames[i], new Vector2(x - 20f, y + 14f), new Vector2(230f, 34f), 24, TextAnchor.MiddleLeft, Color.white, true);
-            statValues[i] = Theme.Label(panel, "", new Vector2(x + 20f, y + 14f), new Vector2(230f, 34f), 26, TextAnchor.MiddleRight, Color.white, true);
+            // name on the left of the bar, value at its right end (the two columns never touch)
+            Theme.Label(panel, Gunsmith.StatNames[i], new Vector2(x - 20f, y + 14f), new Vector2(150f, 34f), 24, TextAnchor.MiddleLeft, Color.white, true);
+            statValues[i] = Theme.Label(panel, "", new Vector2(x + 45f, y + 14f), new Vector2(100f, 34f), 26, TextAnchor.MiddleRight, Color.white, true);
             UIUtil.CreateImage(panel, "BarBg", new Vector2(0.5f, 0.5f), new Vector2(x, y - 14f), new Vector2(StatBarWidth, 8f), new Color(1f, 1f, 1f, 0.15f), false).raycastTarget = false;
             var baseBar = UIUtil.CreateImage(panel, "Bar", new Vector2(0.5f, 0.5f), new Vector2(x - StatBarWidth * 0.5f, y - 14f), new Vector2(0f, 8f), Color.white, false);
             baseBar.raycastTarget = false;
@@ -283,6 +296,7 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     {
         gameObject.SetActive(true);
         EnsureStage();
+        stage.gameObject.SetActive(true);
         previewCam.enabled = true;
         SelectWeapon(weaponIndex);
     }
@@ -292,6 +306,8 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     {
         if (previewCam != null)
             previewCam.enabled = false;
+        if (stage != null)
+            stage.gameObject.SetActive(false);   // its studio lights too (the lucky draw has its own)
         if (previewRT != null)
             previewRT.Release();   // frees the MSAA/depth buffers; recreated on the next render
         gameObject.SetActive(false);
@@ -351,7 +367,8 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         var camo = Gunsmith.FindCamo(current.camo);
 
         coinsText.text = "KREDİ  " + profile.coins.ToString("N0");
-        weaponTitle.text = baseData.weaponName + (string.IsNullOrEmpty(camo.id) ? "" : "  -  " + camo.name);
+        string model = ModelLibrary.SelectedGunSkin(w);
+        weaponTitle.text = (model.Length == 0 ? baseData.weaponName : ModelLibrary.GunSkinName(w, model)) + (string.IsNullOrEmpty(camo.id) ? "" : "  -  " + camo.name);
 
         float[] before = Gunsmith.Stats(baseData);
         float[] after = Gunsmith.Stats(current);
@@ -398,9 +415,23 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         ClearStrip();
         if (slotIndex < 0)
         {
-            stripTitle.text = "Bir aparat yuvası ya da KAMUFLAJ seç";
+            // Gun models of the class (aparat yuvası seçilince yerini aparatlara bırakır).
+            string[] skins = ModelLibrary.GunSkins(w);
+            string selected = ModelLibrary.SelectedGunSkin(w);
+            stripTitle.text = Gunsmith.CategoryNames[weaponIndex] + "  •  " + skins.Length + " MODEL   (aparat için yukarıdan bir yuva seç)";
+            stripTitle.rectTransform.sizeDelta = new Vector2(1100f, 36f);
+            stripTitle.rectTransform.anchoredPosition = new Vector2(570f, 18f);
+            const float mw = 270f;
+            for (int i = 0; i < skins.Length; i++)
+            {
+                string skin = skins[i];
+                ModelCard(i, mw, w, skin, skin == selected);
+            }
+            FinishStrip(skins.Length, mw);
             return;
         }
+        stripTitle.rectTransform.sizeDelta = new Vector2(460f, 36f);
+        stripTitle.rectTransform.anchoredPosition = new Vector2(250f, 18f);
 
         if (slotIndex == Gunsmith.SlotCount)
         {
@@ -412,8 +443,8 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
                 var c = camos[i];
                 bool owned = Gunsmith.OwnsCamo(c.id);
                 bool on = loadout[Gunsmith.CamoIndex] == c.id;
-                string status = on ? "KUŞANILDI" : (owned ? "KUŞAN" : c.price + " Kredi");
-                var card = Card(i, camos.Count, width, c.name, c.rarity, status, Theme.Rarity(c.rarity), on, owned || profile.coins >= c.price);
+                string status = on ? "KUŞANILDI" : (owned ? "KUŞAN" : (c.drawOnly ? "ÇEKİLİŞTE" : c.price + " Kredi"));
+                var card = Card(i, camos.Count, width, c.name, c.rarity, status, Theme.Rarity(c.rarity), on, owned || (!c.drawOnly && profile.coins >= c.price));
                 if (!string.IsNullOrEmpty(c.id))
                 {
                     var sw = UIUtil.CreateRawSwatch(card, WeaponDressing.Pattern(c), new Vector2(0f, 6f), new Vector2(width - 24f, 44f));
@@ -513,6 +544,55 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         return rect;
     }
 
+    /// <summary>A gun model card: side-view picture (Resources/UI/Guns), name, and SEÇİLİ / SEÇ.</summary>
+    private void ModelCard(int index, float width, WeaponType w, string skin, bool selected)
+    {
+        Text label;
+        var b = UIUtil.CreateButton(stripContent, "", new Vector2(0f, 0.5f), new Vector2(10f + width * 0.5f + index * (width + 10f), -14f), new Vector2(width, 160f),
+            selected ? new Color(0.25f, 0.22f, 0.08f, 1f) : Theme.PanelLight, false, 20, out label);
+        b.name = "Model" + index;
+        var rect = (RectTransform)b.transform;
+        var bar = UIUtil.CreateImage(rect, "Bar", new Vector2(0.5f, 1f), new Vector2(0f, -3f), new Vector2(width, 6f), selected ? Theme.Accent : new Color(1f, 1f, 1f, 0.2f), false);
+        bar.raycastTarget = false;
+        var tex = Resources.Load<Texture2D>("UI/Guns/" + (skin.Length == 0 ? w.ToString() : w + "_" + skin));
+        if (tex != null)
+        {
+            var pic = UIUtil.CreateRect(rect, "Picture", new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(width - 20f, (width - 20f) * 0.5f * 0.82f));
+            var raw = pic.gameObject.AddComponent<RawImage>();
+            raw.texture = tex;
+            raw.raycastTarget = false;
+        }
+        var name = UIUtil.CreateText(rect, ModelLibrary.GunSkinName(w, skin), new Vector2(0.5f, 0f), new Vector2(0f, 48f), new Vector2(width - 16f, 30f), 22, TextAnchor.MiddleCenter);
+        name.fontStyle = FontStyle.Bold;
+        var st = UIUtil.CreateText(rect, selected ? "SEÇİLİ" : "SEÇ", new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(width - 16f, 28f), 20, TextAnchor.MiddleCenter);
+        st.fontStyle = FontStyle.Bold;
+        st.color = selected ? Theme.Accent : Theme.TextDim;
+        b.onClick.AddListener(() => ChooseModel(w, skin));
+    }
+
+    private void ChooseModel(WeaponType w, string skin)
+    {
+        if (ModelLibrary.SelectedGunSkin(w) == skin)
+            return;
+        ModelLibrary.SelectGunSkin(w, skin);
+        Sfx.Play(SoundBank.Reload, 0.35f, 1.15f);
+        Toast(ModelLibrary.GunSkinName(w, skin) + " seçildi", Theme.Good);
+        RebuildPreview();
+        Refresh();
+    }
+
+    private void OpenDraw()
+    {
+        var gm = GameManager.Instance;
+        if (gm == null)
+            return;
+        Hide();
+        gm.uiManager.OpenLuckyDraw(() =>
+        {
+            Open();
+        });
+    }
+
     private void ChooseAttachment(WeaponType w, AttachmentSlot slot, AttachmentDef a)
     {
         var profile = GameManager.Instance.profile;
@@ -545,6 +625,11 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
     private void ChooseCamo(WeaponType w, CamoDef c)
     {
         var profile = GameManager.Instance.profile;
+        if (!Gunsmith.OwnsCamo(c.id) && c.drawOnly)
+        {
+            Toast(c.name + " yalnızca ŞANS ÇEKİLİŞİ'nden çıkar", Theme.Accent);
+            return;
+        }
         if (!Gunsmith.OwnsCamo(c.id))
         {
             if (!Gunsmith.Buy(profile, c.id, c.price, true))

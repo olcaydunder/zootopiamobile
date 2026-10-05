@@ -45,7 +45,7 @@ public class NetPuppet : MonoBehaviour, IDamageable
     public bool IsDead { get { return (flags & NetProtocol.F_Dead) != 0; } }
     public bool IsAirborne { get { return (flags & NetProtocol.F_Air) != 0; } }
     public string DisplayName { get { return displayName; } }
-    public Vector3 AimPoint { get { return transform.position + Vector3.up * ((flags & NetProtocol.F_Crouch) != 0 ? 0.05f : 0.4f); } }
+    public Vector3 AimPoint { get { return transform.position + Vector3.up * ((flags & NetProtocol.F_Prone) != 0 ? -0.6f : (flags & NetProtocol.F_Crouch) != 0 ? 0.05f : 0.4f); } }
 
     public static NetPuppet Create(int id, int team, bool bot, string name, string skin, string parachute)
     {
@@ -108,8 +108,8 @@ public class NetPuppet : MonoBehaviour, IDamageable
     private void OnStep(bool left)
     {
         var p = PlayerController.LocalPlayer;
-        if (p == null || team == 0 || IsDead)
-            return;
+        if (p == null || team == 0 || IsDead || (flags & (NetProtocol.F_Crouch | NetProtocol.F_Prone)) != 0)
+            return;   // crouched and prone steps are silent
         if (Vector3.Distance(p.transform.position, transform.position) < 30f)
             Footsteps.Play(transform.position - Vector3.up * 0.9f, 0.95f, false);
     }
@@ -160,13 +160,16 @@ public class NetPuppet : MonoBehaviour, IDamageable
                 rig.pose = RigPose.Parachute;
             else if ((flags & NetProtocol.F_Swim) != 0)
                 rig.pose = RigPose.Swim;
+            else if ((flags & NetProtocol.F_Prone) != 0)
+                rig.pose = RigPose.Prone;
             else
                 rig.pose = RigPose.Normal;
             rig.crouched = (flags & NetProtocol.F_Crouch) != 0 && !dead;
             rig.aiming = (flags & NetProtocol.F_Aim) != 0;
             bool crouch = rig.crouched;
-            body.height = crouch ? 1.2f : 1.8f;
-            body.center = crouch ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
+            bool prone = (flags & NetProtocol.F_Prone) != 0 && !dead;
+            body.height = prone ? 0.8f : crouch ? 1.2f : 1.8f;
+            body.center = prone ? new Vector3(0f, -0.5f, 0f) : crouch ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
             body.enabled = !dead && !IsAirborne;
         }
         if (IsDead || IsAirborne || (flags & NetProtocol.F_Swim) != 0)
@@ -268,6 +271,9 @@ public class NetPuppet : MonoBehaviour, IDamageable
         transform.position = Vector3.Lerp(a.position, b.position, t);
         transform.rotation = Quaternion.Euler(0f, Mathf.LerpAngle(a.yaw, b.yaw, t), 0f);
         rig.aimPitch = Mathf.Lerp(a.pitch, b.pitch, t);
+        // falling off a roof shows the fall pose (the rig only uses it while the puppet really drops)
+        // (a short ray from just above the feet: starting inside its own capsule, it never hits it)
+        rig.grounded = Physics.Raycast(transform.position + Vector3.down * 0.85f, Vector3.down, 0.45f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
     }
 
     /// <summary>Muzzle flash, tracer and shot sound for a shot the server reported.</summary>

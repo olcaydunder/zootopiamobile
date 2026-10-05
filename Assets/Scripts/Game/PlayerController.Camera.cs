@@ -10,16 +10,18 @@ public partial class PlayerController
     {
         if (cinematic)
             return;
+        if (Killcam.Drive(playerCamera))
+            return;   // flying to / holding on whoever eliminated us
         if (lobbyView)
         {
             // Camera in front of the character, slowly drifting, like a menu showcase.
+            // The whole figure on the showroom stage (LobbyStage), head to feet, from chest height with a long lens.
             float t = Time.time * 0.25f;
-            Vector3 focus = transform.position + Vector3.up * 0.25f;
-            // A little further back and higher than a close-up, so the clinic sign behind shows too.
-            Vector3 offset = transform.forward * 3.9f + transform.right * Mathf.Sin(t) * 0.35f + Vector3.up * (0.45f + Mathf.Sin(t * 0.7f) * 0.05f);
-            playerCamera.transform.position = focus + offset;
-            playerCamera.transform.LookAt(focus + Vector3.up * 0.6f);
-            playerCamera.fieldOfView = 44f;
+            Vector3 feet = transform.position - Vector3.up * 0.95f;
+            Vector3 offset = transform.forward * 4.4f + transform.right * Mathf.Sin(t) * 0.35f + Vector3.up * (1.3f + Mathf.Sin(t * 0.7f) * 0.04f);
+            playerCamera.transform.position = feet + offset;
+            playerCamera.transform.LookAt(feet + Vector3.up * 1.0f);
+            playerCamera.fieldOfView = 32f;
             return;
         }
 
@@ -28,7 +30,7 @@ public partial class PlayerController
 
         // Crouching and standing up move the eye smoothly (the knees bend in the rig at the same pace).
         var pivotPos = cameraPivot.localPosition;
-        pivotPos.y = Mathf.Lerp(pivotPos.y, isCrouching ? 0.25f : 0.75f, 1f - Mathf.Exp(-Time.deltaTime * 9f));
+        pivotPos.y = Mathf.Lerp(pivotPos.y, isProne ? -0.4f : isCrouching ? 0.25f : 0.75f, 1f - Mathf.Exp(-Time.deltaTime * 9f));
         cameraPivot.localPosition = pivotPos;
         UpdatePunch();
         float wantedDistance = aimingDownSights ? 1.6f : camTarget;
@@ -90,6 +92,7 @@ public partial class PlayerController
 
     private Vector3 punch, punchVelocity;
     private float pendingRecoil;
+    private float recoilDebt;   // how far recoil has lifted the aim since the trigger was last let go
 
     /// <summary>Kicks the view (degrees: x = pitch, y = yaw, z = roll); it springs back by itself.</summary>
     public void Punch(Vector3 degrees)
@@ -114,6 +117,14 @@ public partial class PlayerController
             float step = pendingRecoil * Mathf.Min(1f, Time.deltaTime * 28f);
             pendingRecoil -= step;
             pitch = Mathf.Clamp(pitch - step, -60f, 60f);
+            cameraPivot.localRotation = Quaternion.Euler(pitch, state == PlayerState.Driving ? lookYaw : 0f, 0f);
+        }
+        else if (recoilDebt > 0.001f && Time.time - lastFireTime > 0.12f)
+        {
+            // Recovery: a moment after the trigger is let go, the sight settles back where you were aiming.
+            float back = Mathf.Min(recoilDebt, (recoilDebt * 9f + 3f) * Time.deltaTime);
+            recoilDebt -= back;
+            pitch = Mathf.Clamp(pitch + back, -60f, 60f);
             cameraPivot.localRotation = Quaternion.Euler(pitch, state == PlayerState.Driving ? lookYaw : 0f, 0f);
         }
     }
@@ -159,6 +170,9 @@ public partial class PlayerController
         if (tc != null)
             look += tc.MouseLook * mouseSensitivity;
 
+        // Pulling down against the climb pays the recoil back (no double recovery afterwards).
+        if (look.y < 0f && recoilDebt > 0f)
+            recoilDebt = Mathf.Max(0f, recoilDebt + look.y);
         pitch = Mathf.Clamp(pitch - look.y, -60f, state == PlayerState.Ground ? 60f : 80f);
 
         if (state == PlayerState.Driving)

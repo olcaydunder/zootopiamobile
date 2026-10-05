@@ -97,9 +97,10 @@ public class GameManager : MonoBehaviour
         if (player != null)
         {
             player.ApplySkin(profile.equippedSkin);
-            player.ResetForRound(World.LobbySpot + Vector3.up * 0.95f);
-            player.transform.rotation = Quaternion.Euler(0f, World.LobbyYaw, 0f);   // faces the street, clinic behind
+            // On the showroom stage above the map, facing the camera.
             player.SetLobbyView(true);
+            player.ResetForRound(LobbyStage.Spot + Vector3.up * 0.95f);
+            player.transform.rotation = Quaternion.Euler(0f, LobbyStage.Yaw, 0f);
             RefreshLobbyWeapon();
         }
 
@@ -135,7 +136,7 @@ public class GameManager : MonoBehaviour
     {
         for (int i = 3; i > 0; i--)
         {
-            uiManager.ShowMatchmaking(Modes.Short(currentMode) + " hazırlanıyor... " + i);
+            uiManager.ShowMatchmaking(Modes.Short(currentMode) + " HAZIRLANIYOR", "00:0" + i, currentMode);
             yield return new WaitForSeconds(1f);
         }
         if (IsArena)
@@ -645,7 +646,7 @@ public class GameManager : MonoBehaviour
             StartCoroutine(ReviveRoutine());
             return;
         }
-        StartCoroutine(EndAfterDelay(false, 2f));
+        StartCoroutine(EndAfterDelay(false, Killcam.Active ? Killcam.Duration + 0.2f : 2f));
     }
 
     private System.Collections.IEnumerator ReviveRoutine()
@@ -708,6 +709,8 @@ public class GameManager : MonoBehaviour
         profile.AddMatchResult(won, kills, xp, coins);
         int trophies = profile.AddStats(currentMode, won, place, teams, kills, player.deaths, Time.time - MatchStats.StartTime, MatchStats.Damage, MatchStats.Headshots);
         Missions.OnMatchEnd(won, place, kills, currentMode);
+        OnlineService.PostMatchStats(kills, won);   // today's leaderboard (GÜNÜN EN İYİ OYUNCULARI)
+        TopPlayersPanel.Invalidate();
         uiManager.ShowResult(won, place, teams, kills, xp, coins, trophies);
     }
 

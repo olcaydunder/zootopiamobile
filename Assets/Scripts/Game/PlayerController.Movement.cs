@@ -35,26 +35,114 @@ public partial class PlayerController
         Vector2 input = MoveInput(tc);
 
         bool sprintInput = tc != null && tc.SprintHeld;
-        isSprinting = sprintInput && input.y > 0.4f && !isCrouching;
+        if (isProne && sprintInput && input.y > 0.4f)
+            SetProne(false);   // sprinting gets you up
+        isSprinting = sprintInput && input.y > 0.4f && !isCrouching && !isProne;
 
         Vector3 move = transform.right * input.x + transform.forward * input.y;
         move = Vector3.ClampMagnitude(move, 1f);
 
-        float speed = (isCrouching ? crouchSpeed * crouchMul : (isSprinting ? sprintSpeed : moveSpeed)) * SpeedBoostFactor * GearSpeed;
+        float speed = (isProne ? ProneSpeed * crouchMul : isCrouching ? crouchSpeed * crouchMul : (isSprinting ? sprintSpeed : moveSpeed)) * SpeedBoostFactor * GearSpeed;
         if (currentWeapon != null && currentWeapon.weaponData != null)
             speed *= Mathf.Clamp(0.85f + 0.15f * currentWeapon.weaponData.mobilityMul, 0.75f, 1.15f);
         if (aimingDownSights)
-            speed *= 0.6f;
+        {
+            // aiming slows you down; assault rifles and SMGs stay nimble (strafe while shooting)
+            var wt = currentWeapon != null && currentWeapon.weaponData != null ? currentWeapon.weaponData.weaponType : WeaponType.Rifle;
+            speed *= wt == WeaponType.SMG ? 0.8f : wt == WeaponType.Rifle ? 0.72f : 0.6f;
+        }
 
-        if (controller.isGrounded && velocity.y < 0f)
+        bool grounded = controller.isGrounded;
+        if (grounded && velocity.y < 0f)
             velocity.y = -2f;
         velocity.y += gravity * Time.deltaTime;
 
-        controller.Move((move * speed + Vector3.up * velocity.y) * Time.deltaTime);
+        // On the ground the stick sets the pace; in the air the body keeps its momentum (a little air control),
+        // so a jump or a step off a roof follows a real falling arc.
+        Vector3 wanted = move * speed;
+        if (grounded || Time.time - lastGroundedTime < 0.15f)
+            airMove = wanted;
+        else
+            airMove = Vector3.MoveTowards(airMove, wanted, Mathf.Max(speed, 2f) * 0.9f * Time.deltaTime);
+        controller.Move((airMove + Vector3.up * velocity.y) * Time.deltaTime);
+
+        grounded = controller.isGrounded;
+        if (grounded)
+        {
+            if (!wasGrounded)
+                OnLanded(fallStartY - transform.position.y);
+            lastGroundedTime = Time.time;
+        }
+        else if (wasGrounded)
+            fallStartY = transform.position.y;
+        else
+            fallStartY = Mathf.Max(fallStartY, transform.position.y);
+        wasGrounded = grounded;
 
         // Footsteps come from the animation (OnFootstep), when a foot touches the ground.
-        rig.grounded = controller.isGrounded;
+        rig.grounded = grounded;
         rig.crouched = isCrouching;
+    }
+
+    public const float ProneSpeed = 1.15f;
+
+    /// <summary>A fresh start on the ground (respawn, landing from the sky): no fall carried over.</summary>
+    private void ResetFall()
+    {
+        wasGrounded = true;
+        fallStartY = transform.position.y;
+        airMove = Vector3.zero;
+        lastGroundedTime = Time.time;
+    }
+    private Vector3 airMove;
+    private bool wasGrounded = true;
+    private float lastGroundedTime, fallStartY;
+
+    /// <summary>Back on the ground after <paramref name="drop"/> metres: a thud, the camera dips, dust from high up.</summary>
+    private void OnLanded(float drop)
+    {
+        if (drop < 1.6f)
+            return;
+        float k = Mathf.Clamp01((drop - 1.6f) / 8f);
+        Sfx.Play(SoundBank.Land, 0.35f + 0.55f * k, 1.05f - 0.15f * k);
+        Footsteps.Play(transform.position + controller.center - Vector3.up * (controller.height * 0.5f), 0.5f + 0.4f * k, true);
+        Punch(new Vector3(3f + 9f * k, 0f, Random.Range(-2f, 2f) * k));
+        Shake(0.05f + 0.25f * k);
+        if (drop > 3.5f)
+        {
+            Effects.Dust(transform.position - Vector3.up * 0.9f, 6 + Mathf.RoundToInt(10f * k));
+            Haptics.Tap(40);
+        }
+        BotAgent.Noise(transform.position, 10f + 20f * k, Team);   // a heavy landing is heard
+    }
+
+    /// <summary>Lie down (YAT) / get up. Lying flat: slow crawl, small target, steadier aim, silent.</summary>
+    private void SetProne(bool on)
+    {
+        if (on == isProne)
+            return;
+        if (on)
+        {
+            if (isCrouching)
+            {
+                isCrouching = false;
+                rig.crouched = false;
+            }
+            isProne = true;
+            isSprinting = false;
+            controller.height = 0.8f;
+            controller.center = new Vector3(0f, -0.5f, 0f);
+            rig.pose = RigPose.Prone;
+            Sfx.Play(SoundBank.Land, 0.22f, 1.35f);
+        }
+        else
+        {
+            isProne = false;
+            controller.height = 1.8f;
+            controller.center = Vector3.zero;
+            if (rig.pose == RigPose.Prone)
+                rig.pose = RigPose.Normal;
+        }
     }
 
     /// <summary>The rig's walk/run cycle put a foot down: a step sound for the ground under it.</summary>
@@ -62,15 +150,25 @@ public partial class PlayerController
     {
         if (state != PlayerState.Ground || isSwimming || isDowned || isDead || lobbyView || !controller.isGrounded)
             return;
-        float vol = isCrouching ? 0.22f : isSprinting ? 0.62f : 0.45f;
+        float vol = isCrouching ? 0.12f : isSprinting ? 0.62f : 0.45f;
         if (Ability != null && Ability.cls == PlayerClass.Shadow)
             vol *= 0.3f;
         vol *= Gear.StepVolumeMul;   // Dağ Botu
         Footsteps.Play(transform.position + controller.center - Vector3.up * (controller.height * 0.5f), vol, true);
+        // Enemies hear walking and running steps (not crouched ones): bots come to look.
+        if (!isCrouching && !isProne && (Ability == null || Ability.cls != PlayerClass.Shadow))
+            BotAgent.Noise(transform.position, (isSprinting ? 24f : 13f) * Gear.StepVolumeMul, Team);
     }
 
     private void SetCrouch(bool crouched)
     {
+        if (isProne)
+        {
+            // from lying down straight to crouching / standing
+            isProne = false;
+            if (rig.pose == RigPose.Prone)
+                rig.pose = RigPose.Normal;
+        }
         isCrouching = crouched;
         controller.height = crouched ? 1.2f : 1.8f;
         controller.center = crouched ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
@@ -139,6 +237,9 @@ public partial class PlayerController
 
     private void UpdateAir(IPlayerInput tc)
     {
+        if (isProne)
+            SetProne(false);
+        CancelCook();
         if (UpdateLaunch())
             return;
         float dt = Time.deltaTime;
@@ -199,6 +300,7 @@ public partial class PlayerController
         state = PlayerState.Ground;
         launchGlide = false;
         controller.enabled = true;
+        ResetFall();
         velocity = Vector3.zero;
         rig.pose = RigPose.Normal;
         currentWeapon.gameObject.SetActive(true);
@@ -223,6 +325,9 @@ public partial class PlayerController
         controller.enabled = false;
         if (isCrouching)
             SetCrouch(false);
+        if (isProne)
+            SetProne(false);
+        CancelCook();
         rig.pose = RigPose.Driving;
         rig.SetVisible(!v.def.hideDriver);
         currentWeapon.gameObject.SetActive(false);
@@ -320,6 +425,7 @@ public partial class PlayerController
             Ability.EndStealth();
         if (state == PlayerState.Parachute || state == PlayerState.Freefall)
             Land(new Vector3(transform.position.x, World.GroundHeight(transform.position.x, transform.position.z) + 0.95f, transform.position.z));
+        CancelCook();
         isDowned = true;
         health = maxHealth;            // now bleed-out health
         boostRemaining = 0f;
@@ -345,6 +451,7 @@ public partial class PlayerController
             isDowned = false;
             isDead = true;
             rig.pose = RigPose.Dead;
+            StartKillcam();
             gm.OnPlayerEliminated();
             return;
         }

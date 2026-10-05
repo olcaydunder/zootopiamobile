@@ -41,6 +41,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
     public bool isDead;
     public bool isCrouching;
+    public bool isProne;
     public bool isSprinting;
     public int kills;
     public int deaths;   // this match (arena modes: every life)
@@ -224,6 +225,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     {
         lobbyView = on;
         rig.showcase = on;
+        LobbyStage.SetActive(on);
         ClearScope();
         if (on)
             cameraPivot.localRotation = Quaternion.Euler(28f, -50f, 0f);   // gun held low across the body
@@ -322,6 +324,13 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
         if (attackerTeam >= 0)
             lastDamageTeam = attackerTeam;
+        // who hit us last (offline: the killcam shows them)
+        var attackerComp = HitContext.Attacker as Component;
+        if (attackerComp != null && attackerComp.gameObject != gameObject)
+        {
+            lastAttacker = attackerComp;
+            lastAttackerTime = Time.time;
+        }
 
         // Duo / Squad: knocked down first while a teammate can still pick you up (5v5: straight out, you respawn).
         if (health <= 0f && !isDowned && amount < 9000f && gm != null && gm.TeamSize() > 1 && !gm.IsArena && gm.AliveAllies() > 0)
@@ -343,11 +352,34 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             currentWeapon.gameObject.SetActive(false);
             rig.pose = RigPose.Dead;
             Haptics.Long();
+            CancelCook();
+            StartKillcam();
             if (gm != null)
                 gm.OnPlayerEliminated();
             return true;
         }
         return false;
+    }
+
+    // ----- Killcam -----
+
+    private Component lastAttacker;
+    private float lastAttackerTime = -100f;
+
+    /// <summary>Offline: fly the camera to the bot that eliminated us (online NetClient does it with the puppet).</summary>
+    private void StartKillcam()
+    {
+        // Your own grenade, or nobody hit you lately (the zone, a fall): no killer to show.
+        if (NetGame.InOnlineMatch || ReferenceEquals(HitContext.Attacker, this) || lastAttacker == null || Time.time - lastAttackerTime > 8f)
+            return;
+        var bot = lastAttacker as BotAgent;
+        lastAttacker = null;
+        if (bot == null)
+            return;
+        bot.kills++;   // the scoreboard (also when that bot has fallen since)
+        if (bot.isDead)
+            return;
+        Killcam.Begin(bot.transform, playerCamera, bot.botName, bot.weapon != null ? bot.weapon.weaponData : null, () => bot != null ? bot.health / 100f : 0f);
     }
 
     // ----- Envanter effects -----
@@ -392,6 +424,11 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     /// Kills are kept between lives.</summary>
     public void TeamSpawn(Vector3 ground, Vector3 lookAt, bool first)
     {
+        Killcam.Stop();
+        ResetFall();
+        lastAttacker = null;
+        cooking = false;
+        HideArc();
         int keepKills = kills, keepDeaths = deaths;
         ResetForRound(ground + Vector3.up * 0.95f);
         if (!first)
@@ -413,6 +450,11 @@ public partial class PlayerController : MonoBehaviour, IDamageable
 
     public void ResetForRound(Vector3 spawnPosition)
     {
+        Killcam.Stop();
+        ResetFall();
+        lastAttacker = null;
+        cooking = false;
+        HideArc();
         ClearScope();
         if (vehicle != null)
         {

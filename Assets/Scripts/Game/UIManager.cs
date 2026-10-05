@@ -28,9 +28,11 @@ public class UIManager : MonoBehaviour
     private ProfileScreen profileScreen;
     private WheelScreen wheelScreen;
     private GunsmithScreen gunsmith;
+    private LuckyDrawScreen luckyDraw;
 
     // Matchmaking
-    private Text matchmakingText;
+    private Text matchmakingText, matchmakingCount;
+    private Image matchmakingIcon;
 
     // HUD
     private TouchControls touchControls;
@@ -79,6 +81,9 @@ public class UIManager : MonoBehaviour
     // Minimap
     private const float MapPx = 300f;
     private RawImage minimapRaw;
+    private Text cookText;
+    private ScoreboardPanel scoreboard;
+    private BigMapPanel bigMap;
     private float mapZoom = 1f;
     private Vector2 mapCenterUV = new Vector2(0.5f, 0.5f);
     private RectTransform mapRect;
@@ -157,6 +162,7 @@ public class UIManager : MonoBehaviour
         resultPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (gunsmith != null) gunsmith.Hide();
+        if (luckyDraw != null) luckyDraw.Hide();
         if (matchPrep != null) matchPrep.Hide();
         if (career != null) career.Hide();
         if (loadout != null) loadout.Hide();
@@ -319,6 +325,13 @@ public class UIManager : MonoBehaviour
         lobbyClassText = UIUtil.CreateText(lt, "", new Vector2(0f, 0f), new Vector2(240f, 36f), new Vector2(300f, 40f), 22, TextAnchor.MiddleLeft);
         lobbyClassText.color = Theme.TextDim;
 
+        // Lucky draw: round button beside the gunsmith tile
+        var drawBtn = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(560f, 150f), new Vector2(112f, 112f), new Color(0.36f, 0.18f, 0.55f, 0.95f), true, 20, out unused);
+        Icons.Create(drawBtn.transform, "crate_diamond", new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(74f, 74f)).raycastTarget = false;
+        var dl = UIUtil.CreateText(drawBtn.transform, "ÇEKİLİŞ", new Vector2(0.5f, 0f), new Vector2(0f, -8f), new Vector2(130f, 26f), 18, TextAnchor.MiddleCenter);
+        dl.fontStyle = FontStyle.Bold;
+        drawBtn.onClick.AddListener(() => OpenLuckyDraw(ShowLobby));
+
         var gunsmithTile = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, 150f), new Vector2(440f, 170f), Theme.Panel, false, 20, out unused);
         gunsmithTile.onClick.AddListener(OpenGunsmith);
         var gt = gunsmithTile.transform;
@@ -459,6 +472,7 @@ public class UIManager : MonoBehaviour
         modeSelect = ModeSelectScreen.Create(canvas.transform);
         profileScreen = ProfileScreen.Create(canvas.transform);
         wheelScreen = WheelScreen.Create(canvas.transform);
+        luckyDraw = LuckyDrawScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode((MatchMode)Mathf.Clamp(PlayerPrefs.GetInt("zm_mode", 0), 0, (int)MatchMode.Heist));
@@ -501,6 +515,13 @@ public class UIManager : MonoBehaviour
         career.Open(ShowLobby);
     }
 
+    /// <summary>ŞANS ÇEKİLİŞİ (from the lobby or the gunsmith); <paramref name="back"/> runs when it closes.</summary>
+    public void OpenLuckyDraw(System.Action back)
+    {
+        HideAll();
+        luckyDraw.Open(back ?? ShowLobby);
+    }
+
     private void OpenGunsmith()
     {
         lobbyPanel.SetActive(false);
@@ -509,9 +530,20 @@ public class UIManager : MonoBehaviour
 
     private void BuildMatchmaking()
     {
-        matchmakingPanel = CreateFullPanel("MatchmakingPanel", new Color(0.03f, 0.06f, 0.1f, 0.75f));
-        matchmakingText = UIUtil.CreateText(matchmakingPanel.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200f, 120f), 64, TextAnchor.MiddleCenter);
+        // Light veil (the character on the stage shows through), the mode box on the left, today's best on the right.
+        matchmakingPanel = CreateFullPanel("MatchmakingPanel", new Color(0.03f, 0.06f, 0.1f, 0.3f));
+        var mt = matchmakingPanel.transform;
+        var box = UIUtil.CreateImage(mt, "ModeBox", new Vector2(0f, 1f), new Vector2(400f, -170f), new Vector2(660f, 170f), new Color(0.13f, 0.33f, 0.82f, 0.95f), false);
+        box.raycastTarget = false;
+        var edge = UIUtil.CreateImage(box.transform, "Edge", new Vector2(0.5f, 0f), new Vector2(0f, 4f), new Vector2(660f, 8f), new Color(0.07f, 0.18f, 0.5f, 1f), false);
+        edge.raycastTarget = false;
+        matchmakingIcon = Icons.Create(box.transform, "mode_br", new Vector2(0f, 0.5f), new Vector2(90f, 6f), new Vector2(120f, 120f));
+        matchmakingIcon.raycastTarget = false;
+        matchmakingText = UIUtil.CreateText(box.transform, "", new Vector2(0f, 0.5f), new Vector2(410f, 30f), new Vector2(460f, 60f), 32, TextAnchor.MiddleCenter);
         matchmakingText.fontStyle = FontStyle.Bold;
+        matchmakingCount = UIUtil.CreateText(box.transform, "", new Vector2(0f, 0.5f), new Vector2(410f, -30f), new Vector2(440f, 60f), 46, TextAnchor.MiddleCenter);
+        matchmakingCount.fontStyle = FontStyle.Bold;
+        TopPlayersPanel.Create(mt, new Vector2(-270f, -20f));
     }
 
     private static Texture2D scopeTex;
@@ -616,6 +648,10 @@ public class UIManager : MonoBehaviour
         zoneWarningText.color = new Color(1f, 0.35f, 0.3f);
         zoneWarningText.fontStyle = FontStyle.Bold;
 
+        // Cooking a grenade: what it is and the seconds left on its fuse, under the crosshair.
+        cookText = UIUtil.CreateText(t, "", c, new Vector2(0f, -110f), new Vector2(600f, 70f), 44, TextAnchor.MiddleCenter);
+        cookText.fontStyle = FontStyle.Bold;
+        cookText.supportRichText = true;
         toastText = UIUtil.CreateText(t, "", c, new Vector2(0f, 230f), new Vector2(1000f, 60f), 38, TextAnchor.MiddleCenter);
         toastText.fontStyle = FontStyle.Bold;
 
@@ -624,6 +660,14 @@ public class UIManager : MonoBehaviour
 
         BuildMinimap(t);
         killFeedText = UIUtil.CreateText(t, "", new Vector2(1f, 1f), new Vector2(-230f, -440f), new Vector2(420f, 160f), 26, TextAnchor.UpperRight);
+
+        // Tap the score / players-left at the top: the scoreboard. Tap the minimap: the big map.
+        scoreboard = ScoreboardPanel.Create(t);
+        bigMap = BigMapPanel.Create(t);
+        var scoreTap = UIUtil.CreateImage(t, "ScoreTap", top, new Vector2(0f, -55f), new Vector2(580f, 110f), new Color(0f, 0f, 0f, 0.001f), false);
+        var st = scoreTap.gameObject.AddComponent<Button>();
+        st.transition = Selectable.Transition.None;
+        st.onClick.AddListener(() => scoreboard.Toggle());
 
         // Bottom centre: health, armor and boost bars, weapon & ammo
         var bottom = new Vector2(0.5f, 0f);
@@ -865,7 +909,9 @@ public class UIManager : MonoBehaviour
     {
         var anchor = new Vector2(1f, 1f);
         var frame = UIUtil.CreateImage(parent, "MinimapFrame", anchor, new Vector2(-185f, -185f), new Vector2(MapPx + 12f, MapPx + 12f), new Color(0f, 0f, 0f, 0.55f), false);
-        frame.raycastTarget = false;
+        var openMap = frame.gameObject.AddComponent<Button>();   // tap: the big map
+        openMap.transition = Selectable.Transition.None;
+        openMap.onClick.AddListener(() => { if (bigMap != null) bigMap.Toggle(); });
 
         mapRect = UIUtil.CreateRect(frame.transform, "Minimap", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(MapPx, MapPx));
         var raw = mapRect.gameObject.AddComponent<RawImage>();
@@ -1235,12 +1281,16 @@ public class UIManager : MonoBehaviour
         int skin = System.Array.IndexOf(ModelLibrary.ShopSkins, p.equippedSkin);
         lobbySkinText.text = "Kuşanılan: " + (skin >= 0 ? ModelLibrary.ShopNames[skin] : p.equippedSkin);
         lobbyPanel.SetActive(true);
+        TopPlayersPanel.Refresh();   // ready for the next match's waiting screen
     }
 
-    public void ShowMatchmaking(string message)
+    /// <summary>The match is being prepared: <paramref name="message"/> in the mode box, <paramref name="count"/> under it.</summary>
+    public void ShowMatchmaking(string message, string count, MatchMode mode)
     {
         HideAll();
         matchmakingText.text = message;
+        matchmakingCount.text = count;
+        Icons.Set(matchmakingIcon, Modes.Icon(mode));
         matchmakingPanel.SetActive(true);
     }
 
@@ -1400,6 +1450,8 @@ public class UIManager : MonoBehaviour
         botLastPos.Clear();
 
         hudPanel.SetActive(true);
+        if (scoreboard != null) scoreboard.gameObject.SetActive(false);
+        if (bigMap != null) bigMap.gameObject.SetActive(false);
 
         var mode = GameManager.Instance.currentMode;
         bool ffa = mode == MatchMode.FreeForAll;
@@ -1454,6 +1506,20 @@ public class UIManager : MonoBehaviour
     }
 
     // ----- HUD feedback -----
+
+    /// <summary>While a throw is held: its name and the fuse counting down (red near the end); null hides it.</summary>
+    public void ShowCook(string what, float secondsLeft)
+    {
+        if (cookText == null)
+            return;
+        if (string.IsNullOrEmpty(what))
+        {
+            cookText.text = "";
+            return;
+        }
+        string time = secondsLeft >= 0f ? "  <color=" + (secondsLeft < 2f ? "#ff4d3d" : "#ffd23f") + ">" + secondsLeft.ToString("0.0") + " sn</color>" : "";
+        cookText.text = what + time + "\n<size=24>bırakınca atılır</size>";
+    }
 
     public void Toast(string message)
     {

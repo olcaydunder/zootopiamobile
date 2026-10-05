@@ -9,7 +9,8 @@ public enum RigPose
     Parachute,
     Driving,
     Dead,
-    Swim
+    Swim,
+    Prone      // lying on the stomach, crawling
 }
 
 /// <summary>
@@ -85,6 +86,11 @@ public class CharacterRig : MonoBehaviour
     private float strideSpeed = 3.5f;
     private Vector3 velocity;                           // smoothed ground velocity (world)
     private float crouchK, hipYaw, aimK;
+    private float verticalSpeed, airTime, landDip;   // falls: a leaping pose in the air, knees giving on landing
+    private float crawlPhase;
+
+    /// <summary>Falling or jumping for a moment (not a step down a kerb).</summary>
+    private bool Airborne { get { return airTime > 0.18f; } }
     private double lastRunPhase = -1;
     private WeaponController heldWeapon;
     private WeaponData anchorsFor;
@@ -272,12 +278,28 @@ public class CharacterRig : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
         Vector3 delta = transform.position - lastPos;
+        float dy = delta.y;
         delta.y = 0f;
         lastPos = transform.position;
-        if (delta.sqrMagnitude > 25f)
+        if (delta.sqrMagnitude > 25f || Mathf.Abs(dy) > 5f)
+        {
             delta = Vector3.zero;   // teleported (respawn, vehicle exit): not a step
+            dy = 0f;
+        }
         velocity = Vector3.Lerp(velocity, delta / dt, Mathf.Min(1f, dt * 10f));
         speed = velocity.magnitude;
+        verticalSpeed = Mathf.Lerp(verticalSpeed, dy / dt, Mathf.Min(1f, dt * 12f));
+        // In the air on foot (jumped, or stepped off a roof): count the time; landing bends the knees.
+        bool inAir = !grounded && pose == RigPose.Normal && (verticalSpeed < -1.5f || verticalSpeed > 1.5f);
+        if (inAir)
+            airTime += dt;
+        else
+        {
+            if (airTime > 0.3f && grounded)
+                landDip = Mathf.Clamp01(airTime * 1.1f);
+            airTime = 0f;
+        }
+        landDip = Mathf.MoveTowards(landDip, 0f, dt * 2.6f);
 
         canopy.SetActive(pose == RigPose.Parachute);
         if (pose == RigPose.Parachute && canopyCamoShown != (parachuteCamo ?? ""))
@@ -380,16 +402,26 @@ public class CharacterRig : MonoBehaviour
         if (model == null)
             return false;
 
-        // The pack's characters have near-black faces; give them a real skin tone.
+        // The low-poly pack's characters come with a near-black "Skin" (head, neck, hands) and plain white "Face"
+        // (the eyes). Give them a real, slightly deeper skin tone (a pale tone reads as white under the bright sun)
+        // and dark eyes, so faces have features instead of a blank pale mask.
+        Color tone = new Color(skinTone.r * 0.86f, skinTone.g * 0.79f, skinTone.b * 0.74f);
         foreach (var r in model.GetComponentsInChildren<Renderer>())
         {
             var mats = r.sharedMaterials;
             bool changed = false;
             for (int i = 0; i < mats.Length; i++)
             {
-                if (mats[i] != null && mats[i].name.StartsWith("Skin"))
+                if (mats[i] == null || mats[i].mainTexture != null)
+                    continue;
+                if (mats[i].name.StartsWith("Skin"))
                 {
-                    mats[i] = MaterialCache.Lit(skinTone);
+                    mats[i] = MaterialCache.Lit(tone);
+                    changed = true;
+                }
+                else if (mats[i].name.StartsWith("Face") && mats[i].color.grayscale > 0.8f)
+                {
+                    mats[i] = MaterialCache.Lit(new Color(0.09f, 0.075f, 0.07f));
                     changed = true;
                 }
             }
@@ -707,13 +739,32 @@ public class CharacterRig : MonoBehaviour
                 target = Idle;
                 bodyPos = new Vector3(0f, -0.45f, 0f);
                 break;
+            case RigPose.Prone:
+            {
+                // flat on the stomach, head forward; crawling rocks the body side to side and pushes it along
+                // (a stride clip would swing the legs into the ground when lying flat)
+                target = Idle;
+                crawlPhase += dt * Mathf.Min(speed, 1.6f) * 4.5f;
+                float k = Mathf.Clamp01(speed / 0.6f);
+                bodyRot = Quaternion.Euler(84f, 0f, Mathf.Sin(crawlPhase) * 6f * k);
+                bodyPos = new Vector3(Mathf.Sin(crawlPhase) * 0.04f * k, -0.74f, -0.05f + Mathf.Abs(Mathf.Cos(crawlPhase)) * 0.06f * k);
+                break;
+            }
             default:
-                target = speed > 0.6f ? Run : (aiming && !posed ? Shoot : Idle);
+                target = speed > 0.6f || Airborne ? Run : (aiming && !posed ? Shoot : Idle);
+                if (Airborne)
+                {
+                    // in the air: a held mid-stride leap, leaning into the fall
+                    float lean = Mathf.Clamp(-verticalSpeed * 1.2f, -8f, 14f);
+                    bodyRot = Quaternion.Euler(lean, 0f, 0f);
+                }
                 break;
         }
 
         // Crouching: knees bend and the body lowers by exactly what bent legs lose (feet stay on the ground).
-        crouchK = Mathf.MoveTowards(crouchK, crouched && normal ? 1f : 0f, dt * 5f);
+        float crouchGoal = crouched && normal ? 1f : 0f;
+        crouchGoal = Mathf.Max(crouchGoal, landDip * 0.85f);   // knees give when landing from a fall
+        crouchK = Mathf.MoveTowards(crouchK, crouchGoal, dt * (landDip > crouchK ? 14f : 5f));
         float kneeAngle = 0f;
         if (normal && posed && thighLen > 0f)
         {
@@ -721,9 +772,9 @@ public class CharacterRig : MonoBehaviour
             kneeAngle = 52f * k;
             bodyPos.y = -(thighLen + shinLen) * (1f - Mathf.Cos(kneeAngle * Mathf.Deg2Rad));
         }
-        else if (normal && crouched)
+        else if (normal && (crouched || landDip > 0.05f))
         {
-            bodyPos.y = -0.25f;
+            bodyPos.y = -0.25f * Mathf.Max(crouched ? 1f : 0f, landDip);
         }
         root.localRotation = Quaternion.Slerp(root.localRotation, bodyRot, dt * 6f);
         root.localPosition = Vector3.Lerp(root.localPosition, bodyPos, dt * (posed ? 20f : 10f));
@@ -758,6 +809,8 @@ public class CharacterRig : MonoBehaviour
                 float goal = i == target ? 1f : 0f;
                 if (normal && target != Death && (i == Run || i == Idle) && target != Shoot)
                     goal = i == Run ? runAmount : 1f - runAmount;   // walk = run clip blended with idle, smaller steps
+                if (normal && Airborne && (i == Run || i == Idle))
+                    goal = i == Run ? 1f : 0f;   // full stride held in the air
                 if (i == Hit)
                     goal = hitTimer > 0f && target != Death ? 0.7f : 0f;
                 weights[i] = Mathf.MoveTowards(weights[i], goal, dt * (target == Death ? 6f : 9f));
@@ -771,6 +824,8 @@ public class CharacterRig : MonoBehaviour
             rate = Mathf.Clamp(rate, 0.4f, 2f);
             if (pose == RigPose.Swim)
                 rate = Mathf.Clamp(speed / 3f, 0.6f, 1.4f);
+            if (normal && Airborne)
+                rate = 0.12f;                                    // legs drift slowly while falling
             states[Run].SetSpeed(backward && normal ? -rate : rate);
 
             for (int i = 0; i < states.Length; i++)
@@ -790,9 +845,10 @@ public class CharacterRig : MonoBehaviour
             StepEvents(normal);
         }
 
-        if (!normal || weaponHold == null || rightHand == null)
+        bool prone = pose == RigPose.Prone;
+        if ((!normal && !prone) || weaponHold == null || rightHand == null)
             return;
-        if (!posed || !Visible())
+        if (!posed || prone || !Visible())
         {
             // Not posing (server, simple rigs, off screen): the gun simply follows the right hand.
             Quaternion aim = AimRotation();

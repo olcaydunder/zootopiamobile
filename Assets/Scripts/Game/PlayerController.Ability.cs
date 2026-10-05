@@ -90,6 +90,8 @@ public partial class PlayerController : IAbilityUser
     /// <summary>Dirilme Jetonu: back in the match, parachuting into the safe zone with a pistol.</summary>
     public void RespawnFromToken(Vector3 groundPoint)
     {
+        Killcam.Stop();
+        ResetFall();
         bool wasLevel2 = Ability != null && Ability.IsLevel2;
         EndVault();
         StopSwim();

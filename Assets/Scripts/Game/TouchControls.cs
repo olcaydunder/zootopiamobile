@@ -37,7 +37,10 @@ public class TouchControls : MonoBehaviour
     private GameObject cannonObj, climbObj, descendObj;
     private Image cannonReady;
 
-    private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
+    private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued, proneQueued;
+    private HoldButton crouchHold;
+    private float crouchHeldFor;
+    private bool crouchLongFired;
     private bool drinkQueued, grenadeQueued, tacticalQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued, airdropQueued, boostQueued;
     private Image aimImage;
 
@@ -84,10 +87,14 @@ public class TouchControls : MonoBehaviour
 
     public bool ConsumeJump() { bool v = jumpQueued; jumpQueued = false; return v; }
     public bool ConsumeCrouch() { bool v = crouchQueued; crouchQueued = false; return v; }
+    public bool ConsumeProne() { bool v = proneQueued; proneQueued = false; return v; }
     public bool ConsumeReload() { bool v = reloadQueued; reloadQueued = false; return v; }
     public bool ConsumeMedkit() { bool v = medkitQueued; medkitQueued = false; return v; }
     public bool ConsumeDrink() { bool v = drinkQueued; drinkQueued = false; return v; }
     public bool ConsumeGrenade() { bool v = grenadeQueued; grenadeQueued = false; return v; }
+    private HoldButton grenadeHold, tacticalHold;
+    public bool GrenadeHeld { get { return grenadeHold != null && grenadeHold.Held && grenadeHold.isActiveAndEnabled; } }
+    public bool TacticalHeld { get { return tacticalHold != null && tacticalHold.Held && tacticalHold.isActiveAndEnabled; } }
     public bool ConsumeTactical() { bool v = tacticalQueued; tacticalQueued = false; return v; }
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
@@ -136,13 +143,23 @@ public class TouchControls : MonoBehaviour
         var jump = UIUtil.CreateButton(g, "ZIPLA", new Vector2(1f, 0f), new Vector2(-470f, 130f), new Vector2(130f, 130f), ButtonColor, true, 22, out unused);
         jump.onClick.AddListener(() => jumpQueued = true);
         var crouch = UIUtil.CreateButton(g, "EĞİL", new Vector2(1f, 0f), new Vector2(-470f, 300f), new Vector2(120f, 120f), ButtonColor, true, 22, out unused);
-        crouch.onClick.AddListener(() => crouchQueued = true);
+        // EĞİL: tap to crouch, hold to lie down (like the YAT button)
+        crouchHold = crouch.gameObject.AddComponent<HoldButton>();
+        crouch.onClick.AddListener(() =>
+        {
+            if (crouchLongFired)
+                crouchLongFired = false;   // that press already made us lie down
+            else
+                crouchQueued = true;
+        });
+        var prone = UIUtil.CreateButton(g, "YAT", new Vector2(1f, 0f), new Vector2(-365f, 415f), new Vector2(96f, 96f), ButtonColor, true, 22, out unused);
+        prone.onClick.AddListener(() => proneQueued = true);
         var reload = UIUtil.CreateButton(g, "DOLDUR", new Vector2(1f, 0f), new Vector2(-230f, 500f), new Vector2(130f, 130f), ButtonColor, true, 20, out unused);
         reload.onClick.AddListener(() => reloadQueued = true);
         var grenade = UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel);
-        grenade.onClick.AddListener(() => grenadeQueued = true);
+        grenadeHold = grenade.gameObject.AddComponent<HoldButton>();   // hold: aim the throw (the fuse runs), release: throw
         var tactical = UIUtil.CreateButton(g, "TAKTİK", new Vector2(1f, 0f), new Vector2(-660f, 140f), new Vector2(105f, 105f), new Color(0.45f, 0.5f, 0.6f, 0.5f), true, 17, out tacticalLabel);
-        tactical.onClick.AddListener(() => tacticalQueued = true);
+        tacticalHold = tactical.gameObject.AddComponent<HoldButton>();
         tacticalButton = tactical.gameObject;
 
         var aim = UIUtil.CreateButton(g, "NİŞAN", new Vector2(1f, 0f), new Vector2(-660f, 470f), new Vector2(115f, 115f), ButtonColor, true, 20, out unused);
@@ -230,6 +247,7 @@ public class TouchControls : MonoBehaviour
         RegisterHud("fireL", "SOL ATEŞ", fireL);
         RegisterHud("jump", "ZIPLA", jump);
         RegisterHud("crouch", "EĞİL", crouch);
+        RegisterHud("prone", "YAT", prone);
         RegisterHud("reload", "DOLDUR", reload);
         RegisterHud("grenade", "BOMBA", grenade);
         RegisterHud("tactical", "TAKTİK", tactical);
@@ -437,7 +455,9 @@ public class TouchControls : MonoBehaviour
         fireFinger = -1;
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
-        jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
+        jumpQueued = crouchQueued = reloadQueued = medkitQueued = proneQueued = false;
+        crouchHeldFor = 0f;
+        crouchLongFired = false;
         drinkQueued = grenadeQueued = tacticalQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = airdropQueued = boostQueued = false;
         itemsKey = -1;   // item names may have changed in the inventory
         SprintOn = false;
@@ -471,6 +491,21 @@ public class TouchControls : MonoBehaviour
     private void Update()
     {
         LookDelta = Vector2.zero;
+        // Holding EĞİL for a moment: YAT.
+        if (crouchHold != null && crouchHold.Held)
+        {
+            if (crouchHeldFor <= 0f)
+                crouchLongFired = false;   // a new press (a slid-off long press may have left it set)
+            crouchHeldFor += Time.unscaledDeltaTime;
+            if (crouchHeldFor > 0.45f && !crouchLongFired)
+            {
+                crouchLongFired = true;
+                proneQueued = true;
+                Haptics.Tap(25);
+            }
+        }
+        else
+            crouchHeldFor = 0f;
         float scale = canvas != null ? canvas.scaleFactor : 1f;
         if (scale <= 0f)
             scale = 1f;

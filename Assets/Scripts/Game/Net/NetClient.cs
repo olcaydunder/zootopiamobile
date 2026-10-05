@@ -70,6 +70,23 @@ public sealed class NetClient : MonoBehaviour
     private readonly NetReader reader = new NetReader();
 
     private readonly Dictionary<int, EntityInfo> infos = new Dictionary<int, EntityInfo>();
+    private readonly Dictionary<int, int> killCount = new Dictionary<int, int>(), deathCount = new Dictionary<int, int>();
+
+    /// <summary>Everyone in the match for the in-match scoreboard (teams already local: 0 = mine).</summary>
+    public void FillScoreboard(List<ScoreEntry> list)
+    {
+        foreach (var e in infos.Values)
+        {
+            int k, d;
+            killCount.TryGetValue(e.id, out k);
+            deathCount.TryGetValue(e.id, out d);
+            bool me = e.id == MyId;
+            NetPuppet p;
+            bool alive = me ? GameManager.Instance.player != null && !GameManager.Instance.player.isDead
+                            : puppets.TryGetValue(e.id, out p) && p != null && (p.flags & NetProtocol.F_Dead) == 0;
+            list.Add(new ScoreEntry { name = me ? GameManager.Instance.profile.playerName : e.name, team = LocalTeam(e.team), kills = k, deaths = d, me = me, alive = alive });
+        }
+    }
     private readonly Dictionary<int, NetPuppet> puppets = new Dictionary<int, NetPuppet>();
     private int myServerTeam;
     private int teamCount = 1;
@@ -560,6 +577,8 @@ public sealed class NetClient : MonoBehaviour
         State = Phase.Playing;
         nextState = 0;
         resultShown = false;
+        killCount.Clear();
+        deathCount.Clear();
         Revision++;
         spawnedOnce = false;
         if (Modes.Arena(Mode))
@@ -830,6 +849,18 @@ public sealed class NetClient : MonoBehaviour
         if (gm.uiManager != null)
             gm.uiManager.AddKillFeed(line);
 
+        if (killer != NetProtocol.NoEntity && killer != victim)
+        {
+            int k;
+            killCount.TryGetValue(killer, out k);
+            killCount[killer] = k + 1;
+        }
+        if (how != NetProtocol.HowLeft)
+        {
+            int d;
+            deathCount.TryGetValue(victim, out d);
+            deathCount[victim] = d + 1;
+        }
         if (killer == MyId && victim != MyId && gm.player != null)
         {
             gm.player.kills++;
@@ -858,8 +889,9 @@ public sealed class NetClient : MonoBehaviour
         Vector3 pos = reader.Pos();
         Vector3 vel = reader.Vec();
         var kind = (ThrowKind)Mathf.Clamp(reader.Byte(), 0, (int)ThrowKind.Gas);
+        float fuse = reader.Byte() / 10f;
         if (State == Phase.Playing)
-            Grenade.ThrowVisual(pos, vel, kind);
+            Grenade.ThrowVisual(pos, vel, kind, fuse);
     }
 
     private void OnMatchEnd()
@@ -913,6 +945,7 @@ public sealed class NetClient : MonoBehaviour
         if (p.state == PlayerState.Freefall) flags |= NetProtocol.F_Freefall;
         if (p.state == PlayerState.Parachute) flags |= NetProtocol.F_Parachute;
         if (p.isCrouching) flags |= NetProtocol.F_Crouch;
+        if (p.isProne) flags |= NetProtocol.F_Prone;
         if (p.IsSwimming) flags |= NetProtocol.F_Swim;
         if (p.rig != null && p.rig.aiming) flags |= NetProtocol.F_Aim;
         var cw = p.currentWeapon;
@@ -960,7 +993,7 @@ public sealed class NetClient : MonoBehaviour
         conn.SendReliable(w.ToArray());
     }
 
-    public void SendGrenade(Vector3 position, Vector3 velocity, ThrowKind kind)
+    public void SendGrenade(Vector3 position, Vector3 velocity, ThrowKind kind, float fuse)
     {
         if (!InMatch || conn == null)
             return;
@@ -969,6 +1002,7 @@ public sealed class NetClient : MonoBehaviour
         w.Pos(position);
         w.Vec(velocity);
         w.Byte((int)kind);
+        w.Byte(fuse > 0f ? Mathf.Clamp(Mathf.CeilToInt(fuse * 10f), 1, 255) : 0);   // 0 would mean "the kind's own fuse"
         conn.SendReliable(w.ToArray());
     }
 
@@ -1015,6 +1049,13 @@ public sealed class NetClient : MonoBehaviour
             conn.SendReliable(w.ToArray());
             conn.Flush(Now, output);
         }
+        NetPuppet killerPuppet;
+        if (killer != NetProtocol.NoEntity && puppets.TryGetValue(killer, out killerPuppet) && killerPuppet != null && GameManager.Instance.player != null)
+        {
+            var kp = killerPuppet;
+            Killcam.Begin(kp.transform, GameManager.Instance.player.playerCamera, kp.displayName, kp.weapon != null ? kp.weapon.weaponData : null,
+                () => kp != null ? kp.health / 100f : 0f);
+        }
         if (team5)
         {
             // 5v5: the server brings us back (S_Respawn); meanwhile a countdown.
@@ -1044,6 +1085,8 @@ public sealed class NetClient : MonoBehaviour
         while (placement < 0 && Time.realtimeSinceStartup < until && State == Phase.Playing && session == forSession)
             yield return null;
         yield return new WaitForSecondsRealtime(1f);
+        while (Killcam.Active && State == Phase.Playing && session == forSession)
+            yield return null;   // let the killcam finish before the result screen
         int place = placement > 0 ? placement : Mathf.Max(2, AliveTeams + 1);
         int teams = placementTeams > 0 ? placementTeams : teamCount;
         ShowResult(false, place, teams, forSession);

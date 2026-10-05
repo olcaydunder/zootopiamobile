@@ -213,7 +213,7 @@ public static class Progression
         var r = new List<CamoDef>();
         foreach (var c in list)
         {
-            if (string.IsNullOrEmpty(c.id))
+            if (string.IsNullOrEmpty(c.id) || c.drawOnly)
                 continue;
             foreach (var want in rarities)
                 if (c.rarity == want)

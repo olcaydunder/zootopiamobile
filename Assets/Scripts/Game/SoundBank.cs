@@ -12,6 +12,7 @@ public static class SoundBank
     private static AudioClip pistol, smg, rifle, shotgun, sniper;
     private static AudioClip explosion, footstep, hit, kill, pickup, beep, reload, land, whoosh;
     private static AudioClip planeLoop, windLoop, engineLoop;
+    private static AudioClip tick, fanfare, sting;
 
     public static AudioClip Gunshot(WeaponType type)
     {
@@ -37,6 +38,13 @@ public static class SoundBank
     public static AudioClip PlaneLoop { get { return planeLoop ?? (planeLoop = Hum("Plane", 2f, new[] { 70f, 140f, 210f, 280f }, new[] { 1f, 0.6f, 0.35f, 0.2f }, 0.5f)); } }
     public static AudioClip EngineLoop { get { return engineLoop ?? (engineLoop = Hum("Engine", 1f, new[] { 55f, 110f, 165f, 330f }, new[] { 1f, 0.7f, 0.4f, 0.15f }, 0.45f)); } }
     public static AudioClip WindLoop { get { return windLoop ?? (windLoop = MakeWind()); } }
+    /// <summary>Short click for the lucky draw's running light.</summary>
+    public static AudioClip Tick { get { return tick ?? (tick = Tone("Tick", 0.045f, 2600f, 1900f, 80f, 0.3f)); } }
+    /// <summary>Rising major arpeggio with a ringing chord (a prize won).</summary>
+    public static AudioClip Fanfare { get { return fanfare ?? (fanfare = MakeFanfare()); } }
+    /// <summary>Short dramatic music sting (about 1.7 s) for the killcam: a low hit, a minor chord swell and a
+    /// falling three-note motif.</summary>
+    public static AudioClip KillcamSting { get { return sting ?? (sting = MakeSting()); } }
 
     private static float Rnd()
     {
@@ -135,6 +143,68 @@ public static class SoundBank
             data[i] = Mathf.Sin(2f * Mathf.PI * hz * t) * env * 0.5f;
         }
         return Create(name, data);
+    }
+
+    /// <summary>Adds a soft synth note (a few harmonics, quick attack, exponential decay, light vibrato).</summary>
+    private static void Note(float[] data, float start, float length, float hz, float gain, float decay, float bright)
+    {
+        int s0 = Mathf.Max(0, (int)(start * Rate));
+        int n = Mathf.Min(data.Length - s0, (int)(length * Rate));
+        for (int i = 0; i < n; i++)
+        {
+            float t = (float)i / Rate;
+            float vib = 1f + 0.004f * Mathf.Sin(2f * Mathf.PI * 5.5f * t);
+            float ph = 2f * Mathf.PI * hz * vib * t;
+            float v = Mathf.Sin(ph) + bright * 0.5f * Mathf.Sin(ph * 2f) + bright * 0.28f * Mathf.Sin(ph * 3f) + bright * 0.12f * Mathf.Sin(ph * 4f);
+            float env = Mathf.Clamp01(t * 160f) * Mathf.Exp(-t * decay) * Mathf.Clamp01((length - t) * 12f);
+            data[s0 + i] += v * env * gain;
+        }
+    }
+
+    private static AudioClip MakeFanfare()
+    {
+        var data = new float[(int)(1.3f * Rate)];
+        float[] notes = { 523.25f, 659.25f, 783.99f, 1046.5f };
+        for (int k = 0; k < notes.Length; k++)
+            Note(data, k * 0.085f, 1.2f - k * 0.085f, notes[k], 0.18f, k == notes.Length - 1 ? 2.2f : 4f, 0.6f);
+        Note(data, 0.34f, 0.95f, 523.25f, 0.08f, 2.4f, 0.3f);
+        Note(data, 0.34f, 0.95f, 783.99f, 0.07f, 2.4f, 0.3f);
+        for (int i = 0; i < data.Length; i++)
+            data[i] = Mathf.Clamp(data[i], -1f, 1f);
+        return Create("Fanfare", data);
+    }
+
+    private static AudioClip MakeSting()
+    {
+        float length = 1.75f;
+        var data = new float[(int)(length * Rate)];
+        // low hit: a falling sine thump plus a burst of dark noise
+        float lp = 0f;
+        for (int i = 0; i < (int)(0.6f * Rate); i++)
+        {
+            float t = (float)i / Rate;
+            float hz = Mathf.Lerp(70f, 38f, Mathf.Clamp01(t * 3f));
+            lp += 0.08f * (Rnd() - lp);
+            data[i] += (Mathf.Sin(2f * Mathf.PI * hz * t) * 0.55f + lp * 1.6f * Mathf.Exp(-t * 10f)) * Mathf.Exp(-t * 5f) * Mathf.Clamp01(t * 400f);
+        }
+        // bell on the hit
+        Note(data, 0f, 1.2f, 1318.5f, 0.07f, 3.5f, 0.2f);
+        // A-minor chord swell underneath
+        Note(data, 0.02f, 1.7f, 110f, 0.14f, 0.9f, 0.7f);
+        Note(data, 0.02f, 1.7f, 164.81f, 0.09f, 1f, 0.6f);
+        Note(data, 0.02f, 1.7f, 220f, 0.08f, 1.1f, 0.5f);
+        Note(data, 0.02f, 1.7f, 261.63f, 0.06f, 1.2f, 0.5f);
+        // falling motif E5 - D5 - A4
+        Note(data, 0.22f, 0.4f, 659.25f, 0.13f, 3f, 0.55f);
+        Note(data, 0.5f, 0.4f, 587.33f, 0.13f, 3f, 0.55f);
+        Note(data, 0.78f, 0.97f, 440f, 0.15f, 1.6f, 0.55f);
+        // soft echo of the motif
+        Note(data, 0.42f, 0.3f, 659.25f, 0.04f, 4f, 0.3f);
+        Note(data, 0.7f, 0.3f, 587.33f, 0.04f, 4f, 0.3f);
+        Note(data, 0.98f, 0.7f, 440f, 0.05f, 2.2f, 0.3f);
+        for (int i = 0; i < data.Length; i++)
+            data[i] = Mathf.Clamp(data[i] * 1.1f, -1f, 1f);
+        return Create("KillcamSting", data);
     }
 
     private static AudioClip MakeReload()

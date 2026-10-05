@@ -361,12 +361,12 @@ public class TitleScreen : MonoBehaviour
                 cam.fieldOfView = 50f;
                 break;
             }
-            case 1:   // low dolly in on the character
+            case 1:   // low dolly in on the landmark's front and its sign (the lobby character is on its stage)
             {
                 float e = Mathf.SmoothStep(0f, 1f, u);
-                cam.transform.position = Vector3.Lerp(c + fwd * 8f + right * 4.5f + Vector3.up * 1.3f, c + fwd * 3.6f + right * 1.6f + Vector3.up * 1.7f, e);
-                cam.transform.LookAt(c + Vector3.up * 1.45f);
-                cam.fieldOfView = Mathf.Lerp(48f, 40f, e);
+                cam.transform.position = Vector3.Lerp(c + fwd * 9f + right * 4.5f + Vector3.up * 1.4f, c + fwd * 4.6f + right * 1.8f + Vector3.up * 1.9f, e);
+                cam.transform.LookAt(c - fwd * 3f + Vector3.up * 3.4f);
+                cam.fieldOfView = Mathf.Lerp(50f, 42f, e);
                 break;
             }
             default:  // high pass over the city

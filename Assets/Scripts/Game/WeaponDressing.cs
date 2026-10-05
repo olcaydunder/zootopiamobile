@@ -192,6 +192,24 @@ public static class WeaponDressing
                         glow = heat;
                         break;
                     }
+                    case 11: // rainbow prism: flowing hue bands with a pearly sheen
+                    {
+                        float hue = (x / (float)size + y / (float)size * 0.35f + n1[i] * 0.45f) % 1f;
+                        col = Color.HSVToRGB(hue, 0.62f, 1f);
+                        col = Color.Lerp(col, Color.white, Mathf.Clamp01((n2[i] - 0.62f) * 2.5f) * 0.55f);
+                        glow = 0.25f + Mathf.Clamp01((n2[i] - 0.6f) * 3f) * 0.5f;
+                        break;
+                    }
+                    case 12: // neon waves on a dark base, cyan to magenta across the gun
+                    {
+                        float u = x / (float)size, v = y / (float)size;
+                        float wv = Mathf.Sin((v * 7f + Mathf.Sin(u * Mathf.PI * 4f) * 0.35f + n1[i] * 0.8f) * Mathf.PI * 2f);
+                        float lineK = Mathf.Clamp01((Mathf.Abs(wv) - 0.9f) * 12f);
+                        col = Color.Lerp(camo.a, camo.a * 1.8f, n2[i] * 0.5f);
+                        col = Color.Lerp(col, Color.Lerp(camo.b, camo.c, Mathf.PingPong(u * 2f, 1f)), lineK);
+                        glow = lineK;
+                        break;
+                    }
                     default: // blotches
                     {
                         float v = n1[i];

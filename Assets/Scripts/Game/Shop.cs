@@ -231,7 +231,7 @@ public static class Shop
     {
         var pool = new List<Reward>();
         foreach (var cd in Gunsmith.Camos)
-            if (!string.IsNullOrEmpty(cd.id) && System.Array.IndexOf(rarities, cd.rarity) >= 0)
+            if (!string.IsNullOrEmpty(cd.id) && !cd.drawOnly && System.Array.IndexOf(rarities, cd.rarity) >= 0)
                 pool.Add(new Reward { kind = RewardKind.WeaponCamo, id = cd.id });
         foreach (var cd in Cosmetics.VehicleCamos)
             if (!string.IsNullOrEmpty(cd.id) && System.Array.IndexOf(rarities, cd.rarity) >= 0)

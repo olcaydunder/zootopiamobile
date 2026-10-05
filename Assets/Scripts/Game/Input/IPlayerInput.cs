@@ -17,9 +17,14 @@ public interface IPlayerInput
     /// <summary>Helicopter climb (+1) / descend (-1).</summary>
     float VerticalAxis { get; }
     bool FireHeld { get; }
+    /// <summary>BOMBA / TAKTİK held down: aiming a throw (released: thrown).</summary>
+    bool GrenadeHeld { get; }
+    bool TacticalHeld { get; }
 
     bool ConsumeJump();
     bool ConsumeCrouch();
+    /// <summary>YAT: lie down / get up.</summary>
+    bool ConsumeProne();
     bool ConsumeReload();
     bool ConsumeMedkit();
     bool ConsumeDrink();

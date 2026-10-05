@@ -81,9 +81,11 @@ public class Door : MonoBehaviour
         if (IsOpen)
             return;
         IsOpen = true;
-        // Swing away from the opener: the leaf's front (+Z of the root) faces one side of the wall.
+        // Swing away from the opener, whichever side of the wall they stand on. The leaf runs along the hinge's +X;
+        // turning the hinge by +angle (Unity: clockwise seen from above) moves it towards the root's -Z, so an opener
+        // on the +Z side needs a positive angle and one on the -Z side a negative one.
         float side = Vector3.Dot(from - Center, transform.forward);
-        target = side > 0f ? -OpenAngle : OpenAngle;
+        target = side > 0f ? OpenAngle : -OpenAngle;
         Sfx.PlayAt(SoundBank.Footstep, Center, 0.3f, 0.55f);
         enabled = true;
         NetGame.DoorChanged(this, from);

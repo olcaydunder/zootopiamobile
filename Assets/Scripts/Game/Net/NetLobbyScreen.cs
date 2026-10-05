@@ -32,6 +32,7 @@ public class NetLobbyScreen : MonoBehaviour
     private InputField nameField;
     private string code = "";
     private bool waitingHttp;
+    private TopPlayersPanel topPlayers;
     private bool showingError;
     private int shownRevision = -1;
     private int shownSeconds = -1;
@@ -122,6 +123,10 @@ public class NetLobbyScreen : MonoBehaviour
         var invite = UIUtil.CreateButton(sg, "ARKADAŞ ÇAĞIR", new Vector2(0.5f, 0.5f), new Vector2(-560f, -205f), new Vector2(460f, 90f), new Color(0.16f, 0.45f, 0.95f, 0.95f), false, 30, out label);
         invite.onClick.AddListener(() => GameManager.Instance.uiManager.OpenSocialFromRoom(gameObject));
         inviteButton = invite.gameObject;
+
+        // Quick match: today's best players on the right (only when the screen is wide enough beside the list).
+        topPlayers = TopPlayersPanel.Create(sg, new Vector2(-250f, 40f));
+        topPlayers.transform.localScale = Vector3.one * 0.9f;
 
         // Room chat (everyone in the waiting room) and emotes everyone sees.
         chatGroup = UIUtil.CreateRect(sg, "Chat", c, Vector2.zero, new Vector2(10f, 10f)).gameObject;
@@ -217,6 +222,8 @@ public class NetLobbyScreen : MonoBehaviour
     private void Show(Page p, string heading)
     {
         page = p;
+        if (topPlayers != null)
+            topPlayers.gameObject.SetActive(false);   // OpenQuick turns it back on
         title.text = heading;
         statusGroup.SetActive(p == Page.Status);
         joinGroup.SetActive(p == Page.Join);
@@ -233,6 +240,8 @@ public class NetLobbyScreen : MonoBehaviour
         mode = matchMode;
         EnsureName();
         Show(Page.Status, "ÇEVRİMİÇİ  •  " + ModeLabel(matchMode) + "  •  " + MapCatalog.CurrentInfo.name);
+        // beside the player list (right edge at +620) only when there is room for it
+        topPlayers.gameObject.SetActive(((RectTransform)transform).rect.width * 0.5f - 470f > 630f);
         ShowBusy("Maç aranıyor...");
         OnlineService.Quick(matchMode, info => OnMatchInfo(info, matchMode, false));
     }

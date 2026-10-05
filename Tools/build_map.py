@@ -11,6 +11,12 @@ Maps (CONFIGS below):
             The town is 3.4 km long, so the frame is turned along the town and squeezed (houses keep
             their real size), and the plain down to the lake is squeezed harder.
   firat     Fırat Üniversitesi, Elazığ: the rectorate campus (real scale), hills around it.
+  kafeler   Isparta city centre round Kafeler Caddesi (the pedestrian café streets), real scale; streets
+            without buildings in OpenStreetMap get apartment blocks.
+  davraz    Davraz Mahallesi, Isparta: apartment blocks along the neighbourhood's streets (OpenStreetMap has
+            the streets, few buildings), real scale.
+  pinar     Pınar Evleri Sitesi, Tepecik / Senir (Keçiborlu, Isparta): the housing estate's streets from
+            OpenStreetMap with detached two-storey houses along them, fields round it.
 
 Frame: metres, x = east (game), z = north (game).
 Run:  python3 Tools/build_map.py <map> [preview.png]   (needs numpy, pillow, scipy, shapely, mapbox-earcut)
@@ -48,6 +54,15 @@ CONFIGS = {
                   origin=(1000.0, -560.0),
                   landmark=dict(near=(1286.0, -614.0), toward=(1290.0, -500.0), roads=(2, 3), size=(26.0, 17.0), levels=5, kind=2),
                   fill="campus"),
+    "kafeler": dict(play=330.0, coast=360.0, map=860.0, edge="hills", enterable=90, origin=(-50.0, 60.0),
+                    landmark=dict(near=(-50.0, 60.0), roads=(4, 2), size=(14.0, 10.0), levels=3, kind=4),
+                    fill="city"),
+    "davraz": dict(play=330.0, coast=360.0, map=860.0, edge="hills", enterable=90,
+                   landmark=dict(near=(0.0, 0.0), roads=(2, 3), size=(16.0, 12.0), levels=4, kind=0),
+                   fill="city"),
+    "pinar": dict(play=260.0, coast=290.0, map=700.0, edge="hills", enterable=70, origin=(-105.0, -60.0),
+                  landmark=dict(near=(0.0, 0.0), roads=(2,), size=(13.0, 10.0), levels=2, kind=4),
+                  fill="site"),
 }
 CFG = CONFIGS[MAP_ID]
 PLAY = CFG["play"]    # half size of the playable square (land)
@@ -507,6 +522,17 @@ if not EKSIOGLU:
                 break
         if landmark:
             break
+    if landmark is None:
+        # A dense centre with no free plot: the nearest real building becomes the landmark (sign on its street side).
+        cands_b = [b for b in buildings if b["kind"] in (0, 4, 5) and 80 < b["poly"].area < 1500]
+        if cands_b:
+            landmark = min(cands_b, key=lambda b: b["poly"].distance(target))
+            c = landmark["poly"].centroid
+            near_roads = [(ls.distance(c), w, ls) for kind, w, ls in roads if kind in lm["roads"]] or \
+                         [(ls.distance(c), w, ls) for kind, w, ls in roads if kind <= 4]
+            d0, w0, ls0 = min(near_roads, key=lambda r: r[0])
+            rp0 = ls0.interpolate(ls0.project(c))
+            landmark["front"] = (rp0.x, rp0.y)
     print("landmark", "placed" if landmark else "NOT placed", landmark["poly"].centroid if landmark else "")
 
     if CFG["fill"] == "village":
@@ -558,6 +584,41 @@ if not EKSIOGLU:
             if kind in (2, 3) and ls.intersects(homes):
                 made += frontage(ls, w, homes_p, spec_home, gid)
         print("campus buildings", made)
+    elif CFG["fill"] == "city":
+        # Isparta: apartment blocks (shops on the main streets) along streets OpenStreetMap has no buildings for;
+        # parks, woods, pitches and cemeteries stay open.
+        green = [p for g, p in areas if g in (GROUND_PARK, GROUND_FOREST, GROUND_PITCH, GROUND_CEMETERY, GROUND_POOL)]
+        city = land_box.difference(unary_union(green)) if green else land_box
+        city_p = prep(city)
+        spec_main = dict(width=(16, 26), depth=(12, 16), setback=(3, 6), gap=(4, 10), skip=0.2, spacing=2.5,
+                         levels=(3, 4, 5, 6), level_p=(0.15, 0.35, 0.35, 0.15), kind=lambda lv, r: 4 if r < 0.45 else 0)
+        spec = dict(width=(14, 24), depth=(11, 15), setback=(3, 7), gap=(5, 13), skip=0.22, spacing=3.0,
+                    levels=(3, 4, 5, 6), level_p=(0.2, 0.35, 0.3, 0.15), kind=lambda lv, r: 0 if r < 0.88 else 4)
+        made = 0
+        order = sorted(roads, key=lambda r: (r[0], -r[2].length))
+        for kind, w, ls in order:
+            if kind == 1:
+                made += frontage(ls, w, city_p, spec_main, gid)
+        for kind, w, ls in order:
+            if kind in (2, 3):
+                made += frontage(ls, w, city_p, spec, gid)
+        spec2 = dict(spec, setback=(19, 27), skip=0.5)
+        for kind, w, ls in order:
+            if kind == 2:
+                made += frontage(ls, w, city_p, spec2, gid)
+        print("city blocks", made)
+    elif CFG["fill"] == "site":
+        # Pınar Evleri: detached two-storey houses on both sides of every street of the estate.
+        town = unary_union([poly_from(e) for e in osm if e.get("tags", {}).get("landuse") == "residential"
+                            and e["type"] in ("way", "relation")]).buffer(8)
+        town_p = prep(town)
+        spec = dict(width=(9.5, 12), depth=(9, 11), setback=(2.5, 5), gap=(5.5, 10), skip=0.2, spacing=2.0,
+                    levels=(1, 2), level_p=(0.3, 0.7), kind=lambda lv, r: 5)
+        made = 0
+        for kind, w, ls in sorted(roads, key=lambda r: (r[0], -r[2].length)):
+            if kind in (2, 3) and ls.intersects(town):
+                made += frontage(ls, w, town_p, spec, gid)
+        print("estate houses", made)
 
 # Landmark: the clinic in Ekşioğlu = closest building to the origin on the same side as the address
 # (the geocoded point is on the street); elsewhere the building placed above.
@@ -687,7 +748,7 @@ def fill_poly(poly, val):
             dr.polygon([gp(x, z) for x, z in hole.coords], fill=GROUND_GRASS)
 
 fields = []    # (polygon, orchard?) farmland round Senir
-if CFG.get("fill") == "village":
+if CFG.get("fill") in ("village", "site"):
     # Fields between the town and the lake, and on the gentle slopes: ploughed strips, meadows, orchards.
     frng = np.random.default_rng(77)
     town_g = town.buffer(4)

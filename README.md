@@ -8,12 +8,22 @@
 ## Özellikler
 
 - **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
-- **Üç gerçek harita, lobiden seçilir (HARİTA düğmesi):**
-  - **Ekşioğlu (Çekmeköy, İstanbul):** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar, parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir; klinik tabelasıyla lobinin arka planında. Haritanın etrafı deniz.
+- **Altı gerçek harita, lobiden seçilir (HARİTA düğmesi):**
+  - **Ekşioğlu (Çekmeköy, İstanbul):** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar, parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir; klinik tabelasıyla giriş ekranının açılış çekiminde. Haritanın etrafı deniz.
   - **Senir Kasabası (Keçiborlu, Isparta):** Burdur Gölü kıyısından kasabanın arkasındaki ormanlık dağa kadar bütün kasaba (1,1×1,1 km oyun alanı). 3,4 km uzunluğundaki kasaba haritaya sığsın diye uzunlamasına sıkıştırıldı, evler gerçek boyutunda; sokaklar OpenStreetMap'ten, ~400 bahçeli ev sokaklara göre yerleştirildi (OSM'de Senir'in evleri çizili değil). Tarlalar, meyve bahçeleri, gölde yüzme ve tekne, "SENİR — KASABAMIZA HOŞ GELDİNİZ" tabelası.
   - **Fırat Üniversitesi (Rektörlük Kampüsü, Elazığ):** gerçek ölçekli 1×1 km kampüs: fakülteler, rektörlük binası (tabelalı), kampüs yolları, çevre mahalleler; çevresi tepelerle kapalı.
+  - **Kafeler Caddesi (Merkez, Isparta):** Isparta'nın merkezi, kafeler sokağı ve çarşı çevresi (660×660 m, gerçek ölçek); OpenStreetMap'teki ~580 bina, binası çizilmemiş sokaklara apartman blokları.
+  - **Davraz Mahallesi (Isparta):** mahallenin gerçek sokakları, parkları ve göbekli kavşağı; sokak boyunca 3-6 katlı apartman blokları.
+  - **Pınar Evleri Sitesi (Tepecik, Senir / Keçiborlu):** sitenin OpenStreetMap'teki sokakları birebir, sokaklara dizili bahçeli iki katlı evler; çevresi tarlalar ve yamaçlar.
   - Haritalar `Tools/build_map.py <harita>` ile `MapData/<harita>/` verisinden üretilir (veri: Actions → "Harita verisi indir").
-- **Yakınlaşan mini harita:** Yerdeyken oyuncunun çevresini yakın gösterir, uçakta tüm haritayı
+- **Yakınlaşan mini harita:** Yerdeyken oyuncunun çevresini yakın gösterir, uçakta tüm haritayı; mini haritaya dokununca **büyük harita** (A–H / 1–8 karelerle bulunduğun kare, bölge, sonraki bölge, takım arkadaşları, uçak rotası)
+- **Skor tablosu:** Maçta üstteki skora / kalan oyuncuya dokununca MAVİ TAKIM – KIRMIZI TAKIM (eleme / ölüm) ya da en çok eleyenler listesi
+- **Öldürme kamerası:** Elendiğinde kamera seni vurana uçar, kısa bir müzikle 2-3 saniye onu, silahını ve kalan canını gösterir
+- **Günün en iyi oyuncuları:** Maç hazırlanırken / oyuncu aranırken sağda günün en çok eleme yapan 5 oyuncusu ve senin sıran (her bitirilen maç sayılır)
+- **Şans Çekilişi:** Her hafta 10 ödüllü pano (çekilişe özel Mitik kamuflaj, Efsanevi kamuflaj, aparatlar, Kredi); her çekiliş panodan bir ödül verir, fiyat her çekilişte artar, haftanın ilk çekilişi %50 indirimli; koşan ışık animasyonu (ANİMASYONU ATLA), dönen 3D vitrin silahı
+- **Hareket:** YAT (ya da EĞİL'e basılı tut) ile yere yatıp sürünme; eğilip yürürken ayak sesi düşmana gitmez (botlar yürüyüş/koşu adımlarını, silah seslerini ve sert inişleri duyup gelir, susturucu gizler); yüksekten atlayınca momentumla düşüş, havada sıçrama pozu, inişte dizler bükülür
+- **Atış:** Taarruz tüfeği ve hafif makinelilerde nişanda daha isabetli atış, daha az ve dikey geri tepme, tetik bırakınca nişan eski yerine döner; nişanda daha rahat yürüme
+- **Bomba ve sis:** BOMBA / TAKTİK'e basılı tutunca atış yayı ve düşeceği yer görünür, bırakınca atılır; fitil basıldığı anda başlar ve 6 sn sonra patlar (molotof çarpınca kırılır)
 - **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar; kum torbası, bariyer, konteyner, varil gibi 3D siper modelleri
 - **Karakterler:** Animasyonlu 3D karakter modelleri (asker, işçi, kovboy, ninja, doktor); bekleme, koşma, ateş etme, darbe alma ve ölme animasyonları
 - **Silahlar:** Elde taşınan 3D silah modelleri: tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme
@@ -23,8 +33,8 @@
 - **Botlar:** Paraşütle iner, görüş hattı, tepki süresi, isabet sapması, el bombası, bölgeden kaçma; takım arkadaşları seni takip eder
 - **Arayüz:** Mini harita, isabet işareti, hasar sayıları, hasar yönü göstergesi, öldürme akışı, yükseklik/hız göstergesi, duraklatma menüsü
 - **Nişan alma:** NİŞAN butonu ile yakınlaştırma, daha az sekme; keskin nişancı ve 3x/6x dürbünde tam ekran dürbün görünümü
-- **Silah Atölyesi:** 5 aparat yuvası (namlu, nişangâh, alt namlu, şarjör, dipçik) ile 17 aparat, 9 kamuflaj (desenli, parlayan efsanevi/mitik olanlar dahil), hasar/atış hızı/isabet/mobilite/menzil/kontrol çubuklarında artı-eksi gösterimi, döndürülebilir 3D silah önizlemesi; seçimler maçta aldığın silahlara otomatik uygulanır
-- **Lobi:** Karakterin silahıyla (ve maskesiyle) ortada; profil (dokununca PROFİL ekranı), GÜÇ ve KUPA, şans çarkı, OYUN MODU kartı, günlük zaferler, BAŞLAT, Silah Atölyesi, Karakterler, Kariyer, Envanter, Mağaza
+- **Silah Atölyesi:** Her sınıfın silah modelleri resimli kartlarla gruplanmış (29 model), seçilen model maçta kullanılır; ŞANS ÇEKİLİŞİ düğmesi; 5 aparat yuvası (namlu, nişangâh, alt namlu, şarjör, dipçik) ile 17 aparat, 9 kamuflaj (desenli, parlayan efsanevi/mitik olanlar dahil), hasar/atış hızı/isabet/mobilite/menzil/kontrol çubuklarında artı-eksi gösterimi, döndürülebilir 3D silah önizlemesi; seçimler maçta aldığın silahlara otomatik uygulanır
+- **Lobi:** Karakter, şehrin üstündeki profesyonel sahnede (LED şeritli kavisli fon, ışıklı kaide, parlak zemin; çözünürlükten bağımsız prosedürel çizim) silahıyla ve maskesiyle ortada; profil (dokununca PROFİL ekranı), GÜÇ ve KUPA, şans çarkı, OYUN MODU kartı, günlük zaferler, BAŞLAT, Silah Atölyesi, Karakterler, Kariyer, Envanter, Mağaza
 - **Oyun modları (OYUN MODU ekranı):** Battle Royale (Solo/Duo/Squad), 5v5 Takım Ölüm Maçı, **Hakimiyet** (A/B/C bölgelerini tut, 200 puan), **Herkes Tek** (8 oyuncu, 20 öldürme), **Soygun** (kasadaki para çantasını üssüne taşı, 5 çanta). Hakimiyet ve Herkes Tek çevrimiçi de oynanır; Soygun şimdilik botlarla
 - **Envanter:** Kask, yelek, bot (zırh); patlayıcı, taktik ve sağlık eşyası (teçhizat); 3 güçlendirici kart; 10 hayvan maskesi. Kutulardan gelen kartlar ve Kredi ile seviye atlar (zırh/teçhizat 10, güçlendirici 5 yıldız); GÜÇ hepsini toplar. Maçta etkili: kafa vuruşu ve arkadan hasar azaltma, başlangıç zırhı, hız, sessiz adım, hızlı şarjör, keskin göz, son nefes, toparlanma, avcı, bombacı, doktor, gece görüşü
 - **Atılabilirler:** El bombası, molotof (yeri yakar), patlayıcı paket (yapışır, büyük patlama), sis (görüşü keser, botlar da göremez), flaş (bakanı kör eder), gaz (zırhı deler); BOMBA ve TAKTİK düğmeleri; el bombası, sis, flaş ve gaz gerçek modelleriyle uçar
