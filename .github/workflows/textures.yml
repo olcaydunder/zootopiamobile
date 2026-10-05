@@ -2,6 +2,10 @@ name: Doku indir (Poly Haven CC0)
 
 on:
   workflow_dispatch:
+    inputs:
+      cozunurluk:
+        description: 'Doku çözünürlüğü (1k, 2k, 4k)'
+        default: '2k'
 
 permissions:
   contents: write
@@ -15,6 +19,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Download textures
+        env:
+          TEX_RES: ${{ github.event.inputs.cozunurluk || '2k' }}
         run: python Tools/fetch_textures.py
       - name: Commit textures
         run: |

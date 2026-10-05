@@ -2,12 +2,12 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>Import settings for the photo textures in Resources/Textures: normal maps as normal maps,
-/// 1K max, mipmaps, trilinear, repeat, compressed (ETC2/ASTC on Android). UI icons, the logo and the
+/// 2K max, mipmaps, trilinear, repeat, compressed (ETC2/ASTC on Android). UI icons, the logo and the
 /// map pictures get UI settings.</summary>
 public class ZootopiaTextureImport : AssetPostprocessor
 {
     /// <summary>Bump when these rules change so Unity re-imports the affected assets.</summary>
-    public override uint GetVersion() { return 4; }
+    public override uint GetVersion() { return 5; }
 
     private void OnPreprocessTexture()
     {
@@ -43,7 +43,7 @@ public class ZootopiaTextureImport : AssetPostprocessor
             return;
         var ti = (TextureImporter)assetImporter;
         ti.textureType = assetPath.EndsWith("_nor.jpg") ? TextureImporterType.NormalMap : TextureImporterType.Default;
-        ti.maxTextureSize = 1024;
+        ti.maxTextureSize = 2048;   // 2K photo textures (the DÜŞÜK preset shows them at half size)
         ti.mipmapEnabled = true;
         ti.anisoLevel = 4;
         ti.filterMode = FilterMode.Trilinear;

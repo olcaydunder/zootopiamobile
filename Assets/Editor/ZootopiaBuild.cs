@@ -246,6 +246,10 @@ public static class ZootopiaBuild
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
         PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
 
+        // Sharper textures: ASTC compression (better quality than ETC2 at the same size; Android 7+ GPUs have it).
+        // The game draws at the screen's own resolution (GameSettings: render scale 100%, ULTRA always native).
+        EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
+
         // Landscape only, like other mobile shooters.
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
         PlayerSettings.allowedAutorotateToLandscapeLeft = true;

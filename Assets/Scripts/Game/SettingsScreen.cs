@@ -228,8 +228,13 @@ public class SettingsScreen : MonoBehaviour
             GameSettings.Quality = v;
             GameSettings.Shadows = v > 0;
             GameSettings.Bloom = v > 0;
-            GameSettings.ViewDistance = v;
-            GameSettings.GrassDensity = v == 0 ? 0 : (v == 3 ? 3 : 2);
+            GameSettings.ViewDistance = Mathf.Min(v, 3);
+            GameSettings.GrassDensity = v == 0 ? 0 : (v >= 3 ? 3 : 2);
+            if (v >= 4)
+            {
+                GameSettings.AntiAliasing = true;
+                GameSettings.RenderScale = 1f;
+            }
         });
         Segments("KARE HIZI", GameSettings.FrameRateNames, () => GameSettings.FrameRate, v => GameSettings.FrameRate = v);
         Segments("DÜZGÜNLEŞTİRME", new[] { "AÇIK", "KAPALI" }, () => GameSettings.AntiAliasing ? 0 : 1, v => GameSettings.AntiAliasing = v == 0);
@@ -238,7 +243,7 @@ public class SettingsScreen : MonoBehaviour
         Segments("GÖRÜŞ MESAFESİ", GameSettings.ViewDistanceNames, () => GameSettings.ViewDistance, v => GameSettings.ViewDistance = v);
         Segments("ÇİMEN YOĞUNLUĞU", GameSettings.GrassNames, () => GameSettings.GrassDensity, v => GameSettings.GrassDensity = v);
         Slider("ÇÖZÜNÜRLÜK", 50f, 100f, 5f, () => GameSettings.RenderScale * 100f, v => GameSettings.RenderScale = v / 100f, "0'%'");
-        Note("Telefon ısınırsa veya FPS düşerse kaliteyi ORTA ya da DÜŞÜK yap.");
+        Note("ULTRA: ekranın tam çözünürlüğü, 2K dokular, 4x kenar yumuşatma, uzak ve keskin gölgeler. Telefon ısınırsa veya FPS düşerse kaliteyi YÜKSEK ya da ORTA yap.");
 
         Header("SES");
         Slider("ANA SES", 0f, 100f, 5f, () => GameSettings.Volume * 100f, v => GameSettings.Volume = v / 100f, "0'%'");

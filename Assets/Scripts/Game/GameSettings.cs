@@ -26,7 +26,7 @@ public static class GameSettings
     public static float ButtonOpacity = 1f;      // 0.3 .. 1 (on-screen buttons)
 
     // Graphics & sound
-    public static int Quality = 1;               // 0 low, 1 medium, 2 high, 3 max
+    public static int Quality = 1;               // 0 low, 1 medium, 2 high, 3 max, 4 ultra
     public static int FrameRate = 1;             // 0 = 30, 1 = 60, 2 = max
     public static bool AntiAliasing = true;
     public static bool Shadows = true;
@@ -54,7 +54,7 @@ public static class GameSettings
     };
     private static int nativeW, nativeH;
 
-    public static readonly string[] QualityNames = { "DÜŞÜK", "ORTA", "YÜKSEK", "MAKS." };
+    public static readonly string[] QualityNames = { "DÜŞÜK", "ORTA", "YÜKSEK", "MAKS.", "ULTRA" };
     public static readonly string[] FrameRateNames = { "30 FPS", "60 FPS", "MAKS." };
     public static readonly string[] FirePresetNames = { "Tek Dokunuşla Nişangâh", "Nişan Almadan Atış", "Otomatik", "Kişisel" };
     public static readonly string[] GyroNames = { "KAPALI", "NİŞAN ALIRKEN", "HER ZAMAN" };
@@ -79,16 +79,16 @@ public static class GameSettings
         JoystickMode = Mathf.Clamp(PlayerPrefs.GetInt("zm_joystick", 1), 0, 1);
         ButtonOpacity = Mathf.Clamp(PlayerPrefs.GetFloat("zm_btn_alpha", 1f), 0.3f, 1f);
 
-        Quality = Mathf.Clamp(PlayerPrefs.GetInt("zm_quality", DefaultQuality()), 0, 3);
+        Quality = Mathf.Clamp(PlayerPrefs.GetInt("zm_quality", DefaultQuality()), 0, QualityNames.Length - 1);
         FrameRate = Mathf.Clamp(PlayerPrefs.GetInt("zm_fps", 1), 0, 2);
         AntiAliasing = PlayerPrefs.GetInt("zm_aa", 1) == 1;
         Shadows = PlayerPrefs.GetInt("zm_shadows", Quality == 0 ? 0 : 1) == 1;
         Bloom = PlayerPrefs.GetInt("zm_bloom", Quality == 0 ? 0 : 1) == 1;
         Volume = Mathf.Clamp01(PlayerPrefs.GetFloat("zm_volume", 1f));
         Fov = Mathf.Clamp(PlayerPrefs.GetInt("zm_fov", 70), 60, 90);
-        ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt("zm_view", Quality), 0, 3);
+        ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt("zm_view", Mathf.Min(Quality, 3)), 0, 3);
         RenderScale = Mathf.Clamp(PlayerPrefs.GetFloat("zm_render_scale", 1f), 0.5f, 1f);
-        GrassDensity = Mathf.Clamp(PlayerPrefs.GetInt("zm_grass", Quality == 0 ? 0 : 2), 0, 3);
+        GrassDensity = Mathf.Clamp(PlayerPrefs.GetInt("zm_grass", Quality == 0 ? 0 : Quality >= 3 ? 3 : 2), 0, 3);
         CrosshairColor = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross", 0), 0, CrosshairColors.Length - 1);
         CrosshairStyle = Mathf.Clamp(PlayerPrefs.GetInt("zm_cross_style", 0), 0, Crosshair.StyleNames.Length - 1);
         DamageNumbers = PlayerPrefs.GetInt("zm_dmg_numbers", 1) == 1;
@@ -166,9 +166,9 @@ public static class GameSettings
                 Shadows = Quality > 0;
                 Bloom = Quality > 0;
                 Volume = 1f;
-                ViewDistance = Quality == 0 ? 0 : 1;
+                ViewDistance = Mathf.Min(Quality, 3);
                 RenderScale = 1f;
-                GrassDensity = Quality == 0 ? 0 : 2;
+                GrassDensity = Quality == 0 ? 0 : Quality >= 3 ? 3 : 2;
                 break;
             default:
                 Sensitivity = 1f;
@@ -193,10 +193,19 @@ public static class GameSettings
         return FirePreset;
     }
 
-    /// <summary>Low-memory phones start on the low preset.</summary>
+    /// <summary>First start: the preset from the phone's memory (a rough measure of how strong it is).</summary>
     private static int DefaultQuality()
     {
-        return SystemInfo.systemMemorySize > 0 && SystemInfo.systemMemorySize < 3000 ? 0 : 1;
+        int ram = SystemInfo.systemMemorySize;
+        if (ram <= 0)
+            return 1;
+        if (ram < 3000)
+            return 0;
+        if (ram < 5500)
+            return 1;
+        if (ram < 7500)
+            return 2;
+        return 3;
     }
 
     public static void Apply()
@@ -220,6 +229,12 @@ public static class GameSettings
                 QualitySettings.shadowResolution = ShadowResolution.VeryHigh;
                 QualitySettings.lodBias = 2f;
                 break;
+            case 4:
+                // Ultra: the sharpest picture the phone can show (native resolution, far crisp shadows, 4x MSAA).
+                QualitySettings.shadowDistance = 120f;
+                QualitySettings.shadowResolution = ShadowResolution.VeryHigh;
+                QualitySettings.lodBias = 2.5f;
+                break;
             default:
                 QualitySettings.shadowDistance = 45f;
                 QualitySettings.shadowResolution = ShadowResolution.Medium;
@@ -227,9 +242,9 @@ public static class GameSettings
                 break;
         }
         QualitySettings.shadows = !Shadows ? ShadowQuality.Disable : (Quality >= 2 ? ShadowQuality.All : ShadowQuality.HardOnly);
-        QualitySettings.shadowCascades = Quality >= 2 ? 2 : 1;
+        QualitySettings.shadowCascades = Quality >= 4 ? 4 : Quality >= 2 ? 2 : 1;
         QualitySettings.anisotropicFiltering = Quality == 0 ? AnisotropicFiltering.Disable : AnisotropicFiltering.ForceEnable;
-        QualitySettings.globalTextureMipmapLimit = 0;   // full-resolution textures
+        QualitySettings.globalTextureMipmapLimit = Quality == 0 ? 1 : 0;   // low: half-size textures; otherwise full (2K) textures
         QualitySettings.skinWeights = Quality == 0 ? SkinWeights.TwoBones : SkinWeights.FourBones;
         QualitySettings.softParticles = false;
         QualitySettings.vSyncCount = 0;
@@ -246,7 +261,8 @@ public static class GameSettings
         }
         if (nativeW > 0 && Application.isMobilePlatform)
         {
-            int w = Mathf.RoundToInt(nativeW * RenderScale), h = Mathf.RoundToInt(nativeH * RenderScale);
+            float scale = Quality >= 4 ? 1f : RenderScale;   // ultra always draws every pixel of the screen
+            int w = Mathf.RoundToInt(nativeW * scale), h = Mathf.RoundToInt(nativeH * scale);
             if (Mathf.Abs(Mathf.Max(Screen.width, Screen.height) - w) > 2)
                 Screen.SetResolution(w, h, true);
         }

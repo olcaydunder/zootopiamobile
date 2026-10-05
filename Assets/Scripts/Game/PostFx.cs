@@ -98,7 +98,7 @@ public static class PostFx
             cam.allowMSAA = msaa;
             cam.allowHDR = false;
         }
-        QualitySettings.antiAliasing = !msaa ? 0 : (quality == 1 ? 2 : 4);
+        QualitySettings.antiAliasing = !msaa ? 0 : (quality == 1 ? 2 : 4);   // ultra: 4x as well (8x costs too much on phones)
 
         if (layer == null)
             return;
@@ -120,7 +120,7 @@ public static class PostFx
         if (ao != null)
             ao.enabled.Override(quality >= 2);
         if (ao != null)
-            ao.quality.Override(quality >= 3 ? AmbientOcclusionQuality.Medium : AmbientOcclusionQuality.Low);
+            ao.quality.Override(quality >= 4 ? AmbientOcclusionQuality.High : quality >= 3 ? AmbientOcclusionQuality.Medium : AmbientOcclusionQuality.Low);
         if (cam != null)
         {
             if (quality >= 2)
