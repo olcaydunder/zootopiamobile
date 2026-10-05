@@ -78,6 +78,7 @@ public class NetPuppet : MonoBehaviour, IDamageable
         p.rig = CharacterRig.Build(go, shirt, new Color(0.22f, 0.23f, 0.25f), new Color(0.82f, 0.64f, 0.48f),
             new Color(0.3f, 0.35f, 0.25f), new Color(0.38f, 0.32f, 0.22f), skin);
         p.rig.weaponHold = p.weapon.transform;
+        p.rig.footstep = p.OnStep;
         if (!string.IsNullOrEmpty(parachute))
             p.rig.parachuteCamo = parachute;
         else
@@ -101,6 +102,16 @@ public class NetPuppet : MonoBehaviour, IDamageable
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
         return p;
+    }
+
+    /// <summary>Other players' (and server bots') footsteps when they are close: enemies only.</summary>
+    private void OnStep(bool left)
+    {
+        var p = PlayerController.LocalPlayer;
+        if (p == null || team == 0 || IsDead)
+            return;
+        if (Vector3.Distance(p.transform.position, transform.position) < 30f)
+            Footsteps.Play(transform.position - Vector3.up * 0.9f, 0.95f, false);
     }
 
     /// <summary>New state from a snapshot (server time in seconds since the match started).</summary>

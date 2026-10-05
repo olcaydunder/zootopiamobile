@@ -25,6 +25,12 @@ public partial class PlayerController
 
         if (state != PlayerState.Ground || isDead || isDowned)
             aimingDownSights = false;
+
+        // Crouching and standing up move the eye smoothly (the knees bend in the rig at the same pace).
+        var pivotPos = cameraPivot.localPosition;
+        pivotPos.y = Mathf.Lerp(pivotPos.y, isCrouching ? 0.25f : 0.75f, 1f - Mathf.Exp(-Time.deltaTime * 9f));
+        cameraPivot.localPosition = pivotPos;
+        UpdatePunch();
         float wantedDistance = aimingDownSights ? 1.6f : camTarget;
         camDistance = Mathf.Lerp(camDistance, wantedDistance, Time.deltaTime * (aimingDownSights ? 8f : 3f));
         float wantedFov = aimingDownSights ? ZoomFov() : GameSettings.Fov;
@@ -42,8 +48,10 @@ public partial class PlayerController
             dist = Mathf.Max(0.6f, camDistance * Mathf.Clamp01(allowed / full));
         }
 
+        // Smooth shake (noise, not a random jump every frame).
         shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
-        Vector3 jitter = Random.insideUnitSphere * shake * 0.25f;
+        float st = Time.time * 23f;
+        Vector3 jitter = new Vector3(Mathf.PerlinNoise(st, 1.7f) - 0.5f, Mathf.PerlinNoise(4.1f, st) - 0.5f, 0f) * shake * 0.5f;
         bool scopedNow = IsScoped;
         if (scopedNow != gunHiddenForScope || (scopedNow && scopedWeapon != currentWeapon))
         {
@@ -76,6 +84,58 @@ public partial class PlayerController
         if (!GameSettings.CameraShake)
             return;
         shake = Mathf.Max(shake, amount);
+    }
+
+    // ----- Camera punch: a short kick of the view (being hit, recoil) that springs back -----
+
+    private Vector3 punch, punchVelocity;
+    private float pendingRecoil;
+
+    /// <summary>Kicks the view (degrees: x = pitch, y = yaw, z = roll); it springs back by itself.</summary>
+    public void Punch(Vector3 degrees)
+    {
+        if (!GameSettings.CameraShake)
+            degrees *= 0.35f;
+        punchVelocity += degrees * 28f;
+    }
+
+    private void UpdatePunch()
+    {
+        float dt = Mathf.Min(Time.deltaTime, 0.05f);
+        // Critically-damped-ish spring back to rest.
+        punchVelocity += (-punch * 220f - punchVelocity * 22f) * dt;
+        punch += punchVelocity * dt;
+        if (punch.sqrMagnitude < 1e-6f && punchVelocity.sqrMagnitude < 1e-4f)
+            punch = punchVelocity = Vector3.zero;
+        playerCamera.transform.localRotation = Quaternion.Euler(punch);
+        // Recoil climbs the aim over a few frames instead of jumping.
+        if (pendingRecoil > 0.001f)
+        {
+            float step = pendingRecoil * Mathf.Min(1f, Time.deltaTime * 28f);
+            pendingRecoil -= step;
+            pitch = Mathf.Clamp(pitch - step, -60f, 60f);
+            cameraPivot.localRotation = Quaternion.Euler(pitch, state == PlayerState.Driving ? lookYaw : 0f, 0f);
+        }
+    }
+
+    /// <summary>Flinch when hit: the view jerks away from where the shot came from (stronger for big hits).</summary>
+    private void HitFlinch(float amount, bool hasSource, Vector3 from)
+    {
+        float k = Mathf.Clamp(amount / 25f, 0.35f, 1.6f);
+        float side = 0f;
+        if (hasSource)
+        {
+            Vector3 to = from - transform.position;
+            to.y = 0f;
+            side = Mathf.Clamp(Vector3.Dot(to.normalized, transform.right), -1f, 1f);
+        }
+        else
+        {
+            side = Random.Range(-1f, 1f);
+        }
+        Punch(new Vector3(-2.2f * k, -side * 1.6f * k, side * 3.2f * k + Random.Range(-0.6f, 0.6f)));
+        Shake(0.06f + 0.05f * k);
+        Haptics.Tap(amount >= 30f ? 45 : 25);
     }
 
     private void HandleLook(IPlayerInput tc)

@@ -52,18 +52,20 @@ public partial class PlayerController
 
         controller.Move((move * speed + Vector3.up * velocity.y) * Time.deltaTime);
 
-        if (controller.isGrounded && move.sqrMagnitude > 0.05f)
-        {
-            stepDistance += move.magnitude * speed * Time.deltaTime;
-            float stride = isSprinting ? 2.6f : 2.1f;
-            if (stepDistance > stride)
-            {
-                stepDistance = 0f;
-                float vol = (isCrouching ? 0.08f : 0.22f) * (Ability != null && Ability.cls == PlayerClass.Shadow ? 0.3f : 1f);
-                Sfx.Play(SoundBank.Footstep, vol, Random.Range(0.85f, 1.1f));
-            }
-        }
+        // Footsteps come from the animation (OnFootstep), when a foot touches the ground.
+        rig.grounded = controller.isGrounded;
         rig.crouched = isCrouching;
+    }
+
+    /// <summary>The rig's walk/run cycle put a foot down: a step sound for the ground under it.</summary>
+    private void OnFootstep(bool left)
+    {
+        if (state != PlayerState.Ground || isSwimming || isDowned || isDead || lobbyView || !controller.isGrounded)
+            return;
+        float vol = isCrouching ? 0.22f : isSprinting ? 0.62f : 0.45f;
+        if (Ability != null && Ability.cls == PlayerClass.Shadow)
+            vol *= 0.3f;
+        Footsteps.Play(transform.position + controller.center - Vector3.up * (controller.height * 0.5f), vol, true);
     }
 
     private void SetCrouch(bool crouched)
@@ -71,8 +73,7 @@ public partial class PlayerController
         isCrouching = crouched;
         controller.height = crouched ? 1.2f : 1.8f;
         controller.center = crouched ? new Vector3(0f, -0.3f, 0f) : Vector3.zero;
-        cameraPivot.localPosition = crouched ? new Vector3(0f, 0.25f, 0f) : new Vector3(0f, 0.75f, 0f);
-        rig.crouched = crouched;
+        rig.crouched = crouched;   // the camera follows smoothly (LateUpdate), the knees bend in the rig
     }
 
     // ----- Plane / skydive / parachute -----

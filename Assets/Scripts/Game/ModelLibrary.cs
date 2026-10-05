@@ -36,6 +36,33 @@ public static class ModelLibrary
         { "MercenaryUrban", "Mercenary" },
     };
 
+    /// <summary>
+    /// Ground speed (m/s) at which each character's run clip, played at normal speed, keeps the planted foot still
+    /// (measured from the clips at 1.8 m height). The rig plays the clip at speed / this, so feet don't slide.
+    /// </summary>
+    public static float RunStrideSpeed(string characterPath)
+    {
+        string skin = characterPath != null ? characterPath.Substring(characterPath.LastIndexOf('/') + 1) : "";
+        switch (skin)
+        {
+            case "CowboyMale": return 2.6f;
+            case "DoctorMaleYoung": return 2.9f;
+            case "NinjaSand": return 3.1f;
+            case "SoldierMale": return 3.0f;
+            case "WorkerFemale": return 2.9f;
+            case "WorkerMale": return 2.9f;
+            case "LadyButcher": return 3.4f;
+            case "Masked": return 4.2f;
+            case "Operator": return 4.4f;
+            case "Mercenary": return 4.5f;
+            case "Infantry": return 4.6f;
+            default: return 3.5f;
+        }
+    }
+
+    /// <summary>Where the feet touch down in the run clips (fraction of the cycle): right, then left.</summary>
+    public const float RunStepRight = 0.29f, RunStepLeft = 0.79f;
+
     // ----- Weapon model variants ("" = the standard model) -----
 
     public static string[] GunSkins(WeaponType type)

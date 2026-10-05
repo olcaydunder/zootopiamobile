@@ -1064,6 +1064,12 @@ public class UIManager : MonoBehaviour
 
     public void ShowBattleHud()
     {
+        hudHealth = hudAmmo = int.MinValue;
+        hudAlive = hudKills = -1;
+        hudWeapon = null;
+        hudSlowTick = 0f;
+        if (weaponText != null)
+            weaponText.text = ammoText.text = "";
         HideAll();
         killFeed.Clear();
         killFeedText.text = "";
@@ -1213,6 +1219,10 @@ public class UIManager : MonoBehaviour
         p.text.rectTransform.anchoredPosition = p.start;
     }
 
+    private int hudHealth = int.MinValue, hudAmmo = int.MinValue, hudAlive = -1, hudKills = -1;
+    private WeaponData hudWeapon;
+    private float hudSlowTick;
+
     private void Update()
     {
         if (canvas == null)
@@ -1238,18 +1248,34 @@ public class UIManager : MonoBehaviour
             scopeOverlay.SetActive(scoped);
         armorFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.armor / player.maxArmor), armorFill.sizeDelta.y);
         boostFill.sizeDelta = new Vector2(BarWidth * Mathf.Clamp01(player.BoostRemaining / 60f), boostFill.sizeDelta.y);
-        healthText.text = Mathf.CeilToInt(player.health).ToString();
+        // Texts are only rebuilt when what they show changes (no new strings every frame: smoother, less garbage).
+        int hp = Mathf.CeilToInt(player.health);
+        if (hp != hudHealth)
+        {
+            hudHealth = hp;
+            healthText.text = hp.ToString();
+        }
 
         bool onFoot = player.state == PlayerState.Ground;
         var w = player.currentWeapon;
         if (onFoot && w != null && w.weaponData != null)
         {
-            weaponText.text = w.weaponData.weaponName;
-            ammoText.text = w.isReloading ? "Dolduruluyor..." : w.currentAmmo + " / " + w.reserveAmmo;
+            int key = w.isReloading ? -1 : w.currentAmmo * 100000 + w.reserveAmmo;
+            if (key != hudAmmo || w.weaponData != hudWeapon)
+            {
+                hudAmmo = key;
+                hudWeapon = w.weaponData;
+                weaponText.text = w.weaponData.weaponName;
+                ammoText.text = w.isReloading ? "Dolduruluyor..." : w.currentAmmo + " / " + w.reserveAmmo;
+            }
         }
-        else
+        else if (hudAmmo != int.MinValue || player.state == PlayerState.Driving)
         {
-            weaponText.text = player.state == PlayerState.Driving && player.vehicle != null ? player.vehicle.DisplayName : "";
+            hudAmmo = int.MinValue;
+            hudWeapon = null;
+            string vehicleName = player.state == PlayerState.Driving && player.vehicle != null ? player.vehicle.DisplayName : "";
+            if (weaponText.text != vehicleName)
+                weaponText.text = vehicleName;
             ammoText.text = "";
         }
 
@@ -1281,16 +1307,32 @@ public class UIManager : MonoBehaviour
             aliveText.gameObject.SetActive(!team);
             killsText.rectTransform.anchoredPosition = team ? new Vector2(420f, -45f) : new Vector2(110f, -45f);
         }
-        if (team)
+        if (Time.unscaledTime >= hudSlowTick)
         {
-            teamScoreOurs.text = TeamMatch.Score[0].ToString();
-            teamScoreTheirs.text = TeamMatch.Score[1].ToString();
-            teamScoreTime.text = TeamMatch.TimeText;
+            // Counters and the zone line: a few times a second is plenty.
+            hudSlowTick = Time.unscaledTime + 0.2f;
+            if (team)
+            {
+                teamScoreOurs.text = TeamMatch.Score[0].ToString();
+                teamScoreTheirs.text = TeamMatch.Score[1].ToString();
+                teamScoreTime.text = TeamMatch.TimeText;
+            }
+            else
+            {
+                int alive = gm.AliveCount();
+                if (alive != hudAlive)
+                {
+                    hudAlive = alive;
+                    aliveText.text = "Kalan: " + alive;
+                }
+            }
+            if (player.kills != hudKills)
+            {
+                hudKills = player.kills;
+                killsText.text = "Öldürme: " + player.kills;
+            }
+            zoneText.text = gm.safeZone != null && !team ? gm.safeZone.StatusText : "";
         }
-        else
-            aliveText.text = "Kalan: " + gm.AliveCount();
-        killsText.text = "Öldürme: " + player.kills;
-        zoneText.text = gm.safeZone != null && !team ? gm.safeZone.StatusText : "";
         zoneWarningText.enabled = gm.safeZone != null && gm.safeZone.active && !player.IsAirborne && gm.safeZone.IsOutside(player.transform.position);
 
         bool vehicleNearby = onFoot && gm.NearestVehicle(player.transform.position, 4.5f) != null;

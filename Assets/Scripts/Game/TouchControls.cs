@@ -52,8 +52,8 @@ public class TouchControls : MonoBehaviour
     private HoldButton leftFire;
     private RectTransform rightFireRect;
     private Vector2 rightFireHome;
-    private bool lookIsFireFinger;
     private int fireFinger = -1;
+    private Vector2 fireLookLast;
     private Vector2 fireFollowStart;
     private CanvasGroup group;
     private Image sprintImage;
@@ -418,7 +418,6 @@ public class TouchControls : MonoBehaviour
         LookDelta = Vector2.zero;
         moveFinger = -1;
         lookFinger = -1;
-        lookIsFireFinger = false;
         fireFinger = -1;
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
@@ -472,14 +471,10 @@ public class TouchControls : MonoBehaviour
                         if (rightFireRect != null && rightFireRect.gameObject.activeInHierarchy &&
                             RectTransformUtility.RectangleContainsScreenPoint(rightFireRect, t.position, null))
                         {
+                            // Its own look track: works even while another finger is already looking.
                             fireFinger = t.fingerId;
                             fireFollowStart = t.position;
-                            if (lookFinger == -1 && GameSettings.FireButtonLook)
-                            {
-                                lookFinger = t.fingerId;
-                                lastLookScreen = t.position;
-                                lookIsFireFinger = true;
-                            }
+                            fireLookLast = t.position;
                         }
                         break;
                     }
@@ -507,7 +502,6 @@ public class TouchControls : MonoBehaviour
                     {
                         lookFinger = t.fingerId;
                         lastLookScreen = t.position;
-                        lookIsFireFinger = false;
                     }
                     break;
 
@@ -525,8 +519,15 @@ public class TouchControls : MonoBehaviour
                         LookDelta += (t.position - lastLookScreen) / scale;
                         lastLookScreen = t.position;
                     }
-                    if (t.fingerId == fireFinger && GameSettings.FireButtonFollow && rightFireRect != null)
-                        rightFireRect.anchoredPosition = rightFireHome + Vector2.ClampMagnitude((t.position - fireFollowStart) / scale, 150f);
+                    if (t.fingerId == fireFinger)
+                    {
+                        // Shooting and turning with the same thumb: slide it while holding fire.
+                        if (GameSettings.FireButtonLook)
+                            LookDelta += (t.position - fireLookLast) / scale;
+                        fireLookLast = t.position;
+                        if (GameSettings.FireButtonFollow && rightFireRect != null)
+                            rightFireRect.anchoredPosition = rightFireHome + Vector2.ClampMagnitude((t.position - fireFollowStart) / scale, 150f);
+                    }
                     break;
 
                 case TouchPhase.Ended:
@@ -541,7 +542,6 @@ public class TouchControls : MonoBehaviour
                     else if (t.fingerId == lookFinger)
                     {
                         lookFinger = -1;
-                        lookIsFireFinger = false;
                     }
                     if (t.fingerId == fireFinger)
                     {

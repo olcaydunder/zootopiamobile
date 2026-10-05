@@ -44,7 +44,6 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     private float verticalVelocity;
     private float nextGrenadeTime;
     private int grenades;
-    private float stepDistance;
     private const float Gravity = -20f;
 
     // Drop
@@ -102,6 +101,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         rig = CharacterRig.Build(gameObject, color, new Color(0.22f, 0.23f, 0.25f),
             Skins[Random.Range(0, Skins.Length)], Helmets[Random.Range(0, Helmets.Length)], new Color(0.38f, 0.32f, 0.22f), skin);
         rig.weaponHold = weapon.transform;
+        rig.footstep = OnStep;
         if (teamId == 0 && !NetGame.IsServer)
         {
             // Green marker over teammates' heads.
@@ -313,24 +313,25 @@ public partial class BotAgent : MonoBehaviour, IDamageable
 
         controller.Move((move * moveSpeed + Vector3.up * verticalVelocity) * Time.deltaTime);
 
-        // Footsteps you can hear when they are close.
-        if (controller.isGrounded && move.sqrMagnitude > 0.05f)
-        {
-            stepDistance += move.magnitude * moveSpeed * Time.deltaTime;
-            if (stepDistance > 2.3f)
-            {
-                stepDistance = 0f;
-                var p = PlayerController.LocalPlayer;
-                if (p != null && team != 0 && !ClassAbility.IsSilent(this) && Vector3.Distance(p.transform.position, transform.position) < 28f)
-                    Sfx.PlayAt(SoundBank.Footstep, transform.position - Vector3.up * 0.8f, 0.8f, Random.Range(0.85f, 1.1f));
-            }
-        }
+        // Footsteps come from the animation (OnStep).
+        rig.grounded = controller.isGrounded;
 
         rig.aiming = target != null && targetVisible;
         rig.aimPitch = 0f;
 
         if (transform.position.y < -15f)
             TakeDamage(9999f, -1);
+    }
+
+    /// <summary>Footsteps you can hear when enemies are close (the rig's run cycle put a foot down).</summary>
+    private void OnStep(bool left)
+    {
+        var p = PlayerController.LocalPlayer;
+        if (p == null || team == 0 || isDead || ClassAbility.IsSilent(this) || NetGame.IsServer)
+            return;
+        float d = Vector3.Distance(p.transform.position, transform.position);
+        if (d < 30f)
+            Footsteps.Play(transform.position - Vector3.up * 0.9f, 0.95f, false);
     }
 
     private void Think(GameManager gm)

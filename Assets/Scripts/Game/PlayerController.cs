@@ -57,7 +57,6 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     private float camDistance = 3.6f;
     private float camTarget = 3.6f;
     private float shake;
-    private float stepDistance;
     private float boostRemaining;
     private float lastFireTime = -10f;
 
@@ -102,6 +101,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         CreateWeapon();
         rig.weaponHold = currentWeapon.transform;
         rig.aimReference = cameraPivot;
+        rig.footstep = OnFootstep;
 
         wind = Sfx.CreateLoop(transform, SoundBank.WindLoop, 0.5f, false);
 
@@ -211,7 +211,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         }
 
         rig.aimPitch = pitch;
-        rig.aiming = Time.time - lastFireTime < 1.2f;
+        rig.aiming = (aimingDownSights || Time.time - lastFireTime < 1.2f) && !isSprinting;
     }
 
     // ----- Lobby showcase -----
@@ -221,6 +221,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
     public void SetLobbyView(bool on)
     {
         lobbyView = on;
+        rig.showcase = on;
         ClearScope();
         if (on)
             cameraPivot.localRotation = Quaternion.Euler(28f, -50f, 0f);   // gun held low across the body
@@ -251,6 +252,8 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         rig.weaponHold = currentWeapon.transform;
         rig.aimReference = cameraPivot;
         rig.crouched = isCrouching;
+        rig.showcase = lobbyView;
+        rig.footstep = OnFootstep;
         if (old != null)
             old.Teardown();
         currentSkin = skin;
@@ -282,7 +285,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         if (gm != null && gm.uiManager != null && attackerTeam >= 0)
         {
             gm.uiManager.FlashDamage();
-            Shake(0.15f);
+            HitFlinch(amount, lastHitHasSource, lastHitFrom);
             rig.PlayHit();
             if (lastHitHasSource)
                 gm.uiManager.ShowDamageDirection(lastHitFrom);

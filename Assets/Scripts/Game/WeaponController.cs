@@ -61,8 +61,8 @@ public class WeaponController : MonoBehaviour
                 gunModel.transform.localPosition = Vector3.zero;   // keep the prefab's own axis-fix rotation
                 ModelLibrary.ShareMaterials(gunModel, true);
                 ModelLibrary.SetLayer(gunModel, gameObject.layer);
-                FixGunScale(gunModel, data.weaponType);
-                WeaponDressing.Dress(gunModel, data, transform);
+                float scale = FixGunScale(gunModel, data.weaponType);
+                WeaponDressing.Dress(gunModel, data, transform, scale);
             }
         }
         hasGunModel = gunModel != null;
@@ -79,8 +79,9 @@ public class WeaponController : MonoBehaviour
         EnsureFlash();
     }
 
-    /// <summary>Guards against FBX unit differences (cm vs m): the gun should be about its real length.</summary>
-    private static void FixGunScale(GameObject gun, WeaponType type)
+    /// <summary>Guards against FBX unit differences (cm vs m): the gun should be about its real length.
+    /// Returns the factor applied (1 = none).</summary>
+    private static float FixGunScale(GameObject gun, WeaponType type)
     {
         float expected = ModelLibrary.MuzzleDistance(type) * 1.45f;
         float longest = 0f;
@@ -92,7 +93,17 @@ public class WeaponController : MonoBehaviour
             longest = Mathf.Max(longest, Mathf.Max(Mathf.Abs(size.x), Mathf.Max(Mathf.Abs(size.y), Mathf.Abs(size.z))));
         }
         if (longest > 0.0001f && (longest > expected * 2.5f || longest < expected / 2.5f))
+        {
             gun.transform.localScale *= expected / longest;
+            return expected / longest;
+        }
+        return 1f;
+    }
+
+    /// <summary>World position of the muzzle (with barrel attachments), where shots visibly come out.</summary>
+    public Vector3 MuzzlePosition
+    {
+        get { return hasGunModel && weaponData != null ? transform.TransformPoint(WeaponDressing.MuzzleTip(weaponData)) : transform.position; }
     }
 
     public bool CanFire
@@ -165,7 +176,7 @@ public class WeaponController : MonoBehaviour
                 tracerEnd = end;
         }
 
-        ShowTracer(transform.position, tracerEnd);
+        ShowTracer(MuzzlePosition, tracerEnd);
         if (!weaponData.suppressed)
             ShowFlash();
         NetGame.WeaponFired(this, tracerEnd);
@@ -209,7 +220,7 @@ public class WeaponController : MonoBehaviour
             return;
         EnsureTracer();
         EnsureFlash();
-        ShowTracer(transform.position, end);
+        ShowTracer(MuzzlePosition, end);
         if (!weaponData.suppressed)
             ShowFlash();
         Sfx.PlayAt(SoundBank.Gunshot(weaponData.weaponType), transform.position, 0.9f, Random.Range(0.94f, 1.06f));
@@ -339,7 +350,7 @@ public class WeaponController : MonoBehaviour
             return;
         if (hasGunModel && weaponData != null)
         {
-            flash.localPosition = new Vector3(0f, 0.04f, ModelLibrary.MuzzleDistance(weaponData.weaponType) + 0.08f);
+            flash.localPosition = WeaponDressing.MuzzleTip(weaponData);
         }
         else
         {

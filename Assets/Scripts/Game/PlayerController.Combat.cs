@@ -255,9 +255,11 @@ public partial class PlayerController
                     gm.uiManager.CrosshairKick(0.18f + currentWeapon.weaponData.Recoil * 0.06f);
                 if (Ability != null)
                     Ability.EndStealth();   // shooting gives you away
-                pitch -= currentWeapon.weaponData.Recoil;
-                transform.Rotate(0f, Random.Range(-0.3f, 0.3f) * currentWeapon.weaponData.Recoil, 0f);
-                Shake(0.08f + currentWeapon.weaponData.Recoil * 0.04f);
+                float recoil = currentWeapon.weaponData.Recoil;
+                pendingRecoil += recoil;   // the aim climbs over a few frames (UpdatePunch)
+                transform.Rotate(0f, Random.Range(-0.3f, 0.3f) * recoil, 0f);
+                Punch(new Vector3(-recoil * (aimingDownSights ? 0.45f : 0.7f), Random.Range(-0.25f, 0.25f) * recoil, Random.Range(-0.4f, 0.4f) * recoil));
+                Shake(0.04f + recoil * 0.025f);
                 if (killed)
                     gm.OnPlayerKill();
             }

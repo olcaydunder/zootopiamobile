@@ -256,14 +256,22 @@ public class LootSystem : MonoBehaviour
 
     private void Update()
     {
+        if (NetGame.IsServer)
+            return;
         float t = Time.time;
-        float spin = 45f * Time.deltaTime;
+        // Only the crates near the camera spin and bob (moving hundreds of far ones every frame costs for nothing).
+        var cam = Camera.main;
+        Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
+        float angle = t * 45f;
         foreach (var c in crates)
         {
             if (c.obj == null)
                 continue;
-            c.obj.transform.Rotate(0f, spin, 0f, Space.World);
-            c.obj.transform.position = c.basePos + Vector3.up * (Mathf.Sin(t * 2f + c.basePos.x) * 0.05f);
+            Vector3 d = c.basePos - eye;
+            if (cam != null && d.x * d.x + d.z * d.z > 55f * 55f)
+                continue;
+            c.obj.transform.SetPositionAndRotation(c.basePos + Vector3.up * (Mathf.Sin(t * 2f + c.basePos.x) * 0.05f),
+                Quaternion.Euler(0f, angle + c.basePos.z * 7f, 0f));
         }
     }
 
