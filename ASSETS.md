@@ -25,6 +25,8 @@ re-oriented; the character got the game's animations retargeted onto its Mixamo 
 | Kasap Leydi (character, `Models/Characters/LadyButcher.fbx`) | [Lady Butcher (WIP)](https://sketchfab.com/3d-models/lady-butcher-wip-9def0fb13b2c4bd8aabf16728622b10a) | [Loves_Art](https://sketchfab.com/Loves_Art) | CC-BY 4.0 |
 | Alev Kartalı pistol (`Models/Guns/Pistol_Flame.fbx`) | [Custom Desert Eagle – Flame Edition (PBR)](https://sketchfab.com/3d-models/custom-desert-eagle-flame-edition-pbr-27790d1905ce41938619) | [Fevzi_Beydili](https://sketchfab.com/Fevzi_Beydili) | CC-BY 4.0 |
 | AK-19 Taktik rifle (`Models/Guns/Rifle_AK19.fbx`) | [low-poly AK-19](https://sketchfab.com/3d-models/low-poly-ak-19-ab301629b9c44c80a2f9bb2aecd858c7) | [D_U](https://sketchfab.com/DU1701) | CC-BY 4.0 |
+| AR-15 Saha rifle (`Models/Guns/Rifle_AR15.fbx`) | [AR-15 style rifle](https://sketchfab.com/3d-models/ar-15-style-rifle-50d33435445e439c95e3b36e9d4bd798) (optic, GPS and sling left out) | [Mateusz Woliński](https://sketchfab.com/jeandiz) | CC-BY 4.0 |
+| Gravürlü 1911 pistol (`Models/Guns/Pistol_Engraved.fbx`) | [Pistol with Engravings](https://sketchfab.com/3d-models/pistol-with-engravings-bccd75a0016d49448243135a56facb96) | [Mateusz Woliński](https://sketchfab.com/jeandiz) | CC-BY 4.0 |
 | Gölge Avcı sniper (`Models/Guns/Sniper_Shadow.fbx`) | [Sniper](https://sketchfab.com/3d-models/sniper-b5c9cf7f76754805b3a756988da526e1) | [PSICOPATO](https://sketchfab.com/emily.archeo) | CC-BY 4.0 |
 | Armour loot: helmet (`Models/Props/ArmorHelmet.fbx`) | [Tactical Helmet with Headset (Game-Ready)](https://sketchfab.com/3d-models/tactical-helmet-with-headset-game-ready-82adf376164f4d99a4) | [Exactly](https://sketchfab.com/txyrm70) | CC-BY 4.0 |
 | Armour loot: vest (`Models/Props/ArmorVest.fbx`) | [Tactical Plate Carrier Vest – Game Ready](https://sketchfab.com/3d-models/tactical-plate-carrier-vest-game-ready-3b51e6329dbb4b0aa14) | [Exactly](https://sketchfab.com/txyrm70) | CC-BY 4.0 |
@@ -44,6 +46,15 @@ The colour variants are the same models with recoloured clothing textures (`Tool
 | Piyade, Orman Piyadesi | `Infantry.fbx` (+ `Variants/InfantryWoodland`) | [Ukrainian Soldier](https://skfb.ly/ot9Ny) | [doctortex](https://sketchfab.com/doctortex) | CC-BY 4.0 |
 | Paralı Asker, Kent Komandosu | `Mercenary.fbx` (+ `Variants/MercenaryUrban`) | [Terrorista](https://skfb.ly/6xsAy) | [jeferson](https://sketchfab.com/djotagame) | CC-BY 4.0 |
 | Maskeli | `Masked.fbx` | [terrorist](https://skfb.ly/6AnKG) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+| SWAT | `SwatOperator.fbx` | [S.W.A.T. Operator](https://sketchfab.com/3d-models/swat-operator-9e82fabf26194896b5ad4a364d864eab) | [Mateusz Woliński](https://sketchfab.com/jeandiz) | CC-BY 4.0 |
+| Özel Tim | `SwatElite.fbx` | [S.W.A.T. Operator- 4k Followers Special Remaster](https://sketchfab.com/3d-models/swat-operator-4k-followers-special-remaster-f6923917c8014578b1c1cb2b4c249268) | [Mateusz Woliński](https://sketchfab.com/jeandiz) | CC-BY 4.0 |
+| Nova, Nova Kızıl, Nova Gece, Nova Orman | `Asuna.fbx` (+ `Variants/AsunaRed`, `AsunaBlack`, `AsunaGreen`) | [Free Test Character Asuna](https://sketchfab.com/3d-models/free-test-character-asuna-cc63f3c02d46486fb1243e3c06072a94) | [MSGDI (Markus Schüler)](https://sketchfab.com/MSGDI) | CC-BY 4.0 |
+
+The SWAT models and the AR-15 / 1911 below were uploaded by the project owner (release `assets-v2`); Nova comes from the
+author's own pack (release `assets-v1`, the same model the author publishes on Sketchfab under CC-BY 4.0). Converted with
+`convert_character.py` (`prep_asuna.py` first for Nova: its own skeleton renamed to Mixamo names, base colours of the four
+body and five hair colours put on): decimated, all parts joined, one 2048 px atlas per character (alpha-tested where the
+hair cards are), the game's clips retargeted, unused bones (fingers, hair, face) folded into their parents.
 
 Changes: decimated, textures reduced to 1K base colour, rescaled, re-rigged/retargeted animations, recoloured variants.
 Not used from that repo: three Mixamo characters (Adobe licence, no redistribution) and `militia.glb` (no CC licence stated).
@@ -53,6 +64,9 @@ The same credits are shown in the game under Ayarlar → Künye.
 Not used (license or IP reasons): Adam Smasher (Cyberpunk 2077), Warthog (Halo), Warden (Valorant), Vantage (Apex Legends),
 Mercedes SLS (car brand), MD 500 (CC-BY-NC-SA), AK LR / XM25 (Sketchfab Standard – not allowed in a public repo),
 two static figure scans, and an AK-47 pack without license information.
+From the owner's uploads (`assets-v1`/`assets-v2`) also not used: "Amber" (Character Creator export of unknown origin;
+Reallusion content may not be redistributed, 1.6 M triangles), "Stylized Female Character FREE" (RetroStyle Games – no
+licence stated, so not allowed in a public repository) and "Survival Character" (Unreal Engine project files only, no FBX).
 
 ## Photo textures (Poly Haven, CC0)
 

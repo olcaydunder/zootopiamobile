@@ -10,19 +10,24 @@ public static class ModelLibrary
     public const string PlayerSkin = "SoldierMale";
     public static readonly string[] EnemySkins = {
         "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher",
-        "Operator", "OperatorDesert", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked" };
+        "Operator", "OperatorDesert", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
+        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack" };
     /// <summary>Characters the player can pick: the basic ones are free, the others are bought in the store
     /// with Kredi (ShopPrices), won from gift boxes or received as gifts.</summary>
     public static readonly string[] ShopSkins = {
         "SoldierMale", "Operator", "OperatorDesert", "OperatorNight", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
-        "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
+        "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung",
+        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack", "AsunaGreen" };
     public static readonly string[] ShopNames = {
         "Asker", "Operatör", "Çöl Operatörü", "Gece Operatörü", "Piyade", "Orman Piyadesi", "Paralı Asker", "Kent Komandosu", "Maskeli",
-        "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor" };
+        "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor",
+        "SWAT", "Özel Tim", "Nova", "Nova Kızıl", "Nova Gece", "Nova Orman" };
     public static readonly string[] ShopRoles = {
         "Dengeli piyade", "Özel harekât", "Çöl harekâtı", "Gece baskını", "Hücum piyadesi", "Orman keşifçisi", "Ağır zırhlı", "Şehir çatışması", "Hızlı baskıncı",
-        "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci" };
-    public static readonly int[] ShopPrices = { 0, 1500, 1800, 2200, 0, 1200, 2000, 2400, 2800, 3500, 0, 0, 0, 3000, 0 };
+        "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci",
+        "Baskın timi", "Gece görüşlü komando", "Siber ajan", "Siber ajan", "Siber ajan", "Siber ajan" };
+    public static readonly int[] ShopPrices = { 0, 1500, 1800, 2200, 0, 1200, 2000, 2400, 2800, 3500, 0, 0, 0, 3000, 0,
+        2600, 3200, 2400, 2700, 2900, 2200 };
 
     /// <summary>
     /// Colour variants: same model and animations as the base character, with the textures in
@@ -34,6 +39,9 @@ public static class ModelLibrary
         { "OperatorNight", "Operator" },
         { "InfantryWoodland", "Infantry" },
         { "MercenaryUrban", "Mercenary" },
+        { "AsunaRed", "Asuna" },
+        { "AsunaBlack", "Asuna" },
+        { "AsunaGreen", "Asuna" },
     };
 
     /// <summary>
@@ -56,6 +64,9 @@ public static class ModelLibrary
             case "Operator": return 4.4f;
             case "Mercenary": return 4.5f;
             case "Infantry": return 4.6f;
+            case "SwatOperator": return 5.1f;
+            case "SwatElite": return 4.9f;
+            case "Asuna": return 4.5f;
             default: return 3.5f;
         }
     }
@@ -69,8 +80,8 @@ public static class ModelLibrary
     {
         switch (type)
         {
-            case WeaponType.Pistol: return new[] { "", "Flame" };
-            case WeaponType.Rifle: return new[] { "", "AK19" };
+            case WeaponType.Pistol: return new[] { "", "Flame", "Engraved" };
+            case WeaponType.Rifle: return new[] { "", "AK19", "AR15" };
             case WeaponType.Sniper: return new[] { "", "Shadow" };
             default: return new[] { "" };
         }
@@ -82,6 +93,8 @@ public static class ModelLibrary
         {
             case "Flame": return "Alev Kartalı";
             case "AK19": return "AK-19 Taktik";
+            case "AR15": return "AR-15 Saha";
+            case "Engraved": return "Gravürlü 1911";
             case "Shadow": return "Gölge Avcı";
             default: return "Standart";
         }
@@ -268,7 +281,9 @@ public static class ModelLibrary
         Material m;
         if (textured.TryGetValue(source, out m) && m != null)
             return m;
-        m = new Material(MaterialCache.Lit(Color.white));
+        // "..._cutout" textures (character atlases with hair cards) are drawn alpha-tested.
+        bool cutout = source.mainTexture.name.EndsWith("_cutout");
+        m = new Material(cutout ? MaterialCache.CutoutBase : MaterialCache.Lit(Color.white));
         m.name = source.name + "_zm";
         m.mainTexture = source.mainTexture;
         m.color = source.HasProperty("_Color") ? source.color : Color.white;

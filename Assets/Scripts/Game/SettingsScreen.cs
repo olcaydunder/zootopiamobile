@@ -284,6 +284,9 @@ public class SettingsScreen : MonoBehaviour
         Note("Piyade, Orman Piyadesi – \"Ukrainian Soldier\", doctortex (skfb.ly/ot9Ny)");
         Note("Paralı Asker, Kent Komandosu – \"Terrorista\", jeferson (skfb.ly/6xsAy)");
         Note("Maskeli – \"terrorist\", DJMaesen (skfb.ly/6AnKG)");
+        Note("SWAT ve Özel Tim – \"S.W.A.T. Operator\", \"S.W.A.T. Operator- 4k Followers Special Remaster\", Mateusz Woliński (sketchfab.com/jeandiz)");
+        Note("AR-15 Saha tüfek, Gravürlü 1911 tabanca – \"AR-15 style rifle\", \"Pistol with Engravings\", Mateusz Woliński (sketchfab.com/jeandiz)");
+        Note("Nova (Kızıl/Gece/Orman) – \"Free Test Character Asuna\", Markus Schüler / MSGDI (sketchfab.com/MSGDI)");
         Note("Lisans: creativecommons.org/licenses/by/4.0 – modeller oyun için küçültüldü, yeniden boyandı ve animasyonları aktarıldı.");
         Header("CC0 VE HARİTA");
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");

@@ -31,6 +31,31 @@ public static class MaterialCache
         }
     }
 
+    private static Material cutoutBase;
+
+    /// <summary>Alpha-tested version of the lit material (hair cards, lashes): Resources/ZootopiaLitCutout.mat keeps
+    /// the Standard shader's _ALPHATEST_ON variant in the build.</summary>
+    public static Material CutoutBase
+    {
+        get
+        {
+            if (cutoutBase == null)
+            {
+                cutoutBase = Resources.Load<Material>("ZootopiaLitCutout");
+                if (cutoutBase == null)
+                {
+                    cutoutBase = new Material(Base);
+                    cutoutBase.SetFloat("_Mode", 1f);
+                    cutoutBase.SetFloat("_Cutoff", 0.5f);
+                    cutoutBase.EnableKeyword("_ALPHATEST_ON");
+                    cutoutBase.SetOverrideTag("RenderType", "TransparentCutout");
+                    cutoutBase.renderQueue = 2450;
+                }
+            }
+            return cutoutBase;
+        }
+    }
+
     public static Material Lit(Color color)
     {
         Material mat;
