@@ -17,7 +17,18 @@ public class NetLobbyScreen : MonoBehaviour
     private readonly List<Text> playerTexts = new List<Text>();
     private GameObject statusGroup, joinGroup, renameGroup, codeGroup, listGroup;
     private GameObject startButton, okButton, leaveButton, voiceGroup, inviteButton;
-    private Text micLabel, speakerLabel, talkingText;
+    private Text micLabel, speakerLabel, talkingText, chatLog;
+    private GameObject chatGroup, emoteGroup;
+    private InputField chatField;
+    private int shownChat = -1;
+    private readonly List<EmotePop> pops = new List<EmotePop>();
+
+    private class EmotePop
+    {
+        public RectTransform rect;
+        public CanvasGroup group;
+        public float t;
+    }
     private InputField nameField;
     private string code = "";
     private bool waitingHttp;
@@ -75,13 +86,13 @@ public class NetLobbyScreen : MonoBehaviour
         var share = UIUtil.CreateText(codeGroup.transform, "Arkadaşların ODAYA KATIL'a\nbu kodu yazsın", c, new Vector2(0f, -95f), new Vector2(420f, 70f), 22, TextAnchor.MiddleCenter);
         share.color = Theme.TextDim;
 
-        listGroup = Theme.Box(sg, "Players", c, new Vector2(170f, 20f), new Vector2(900f, 470f), Theme.Panel, false).gameObject;
+        listGroup = Theme.Box(sg, "Players", c, new Vector2(170f, 40f), new Vector2(900f, 420f), Theme.Panel, false).gameObject;
         playersTitle = UIUtil.CreateText(listGroup.transform, "OYUNCULAR", new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(840f, 44f), 30, TextAnchor.MiddleLeft);
         playersTitle.fontStyle = FontStyle.Bold;
         for (int i = 0; i < NetProtocol.MaxHumans; i++)
         {
             float x = i < 8 ? -215f : 225f;
-            float y = 150f - (i % 8) * 46f;
+            float y = 150f - (i % 8) * 43f;
             var pt = UIUtil.CreateText(listGroup.transform, "", c, new Vector2(x, y), new Vector2(420f, 42f), 26, TextAnchor.MiddleLeft);
             playerTexts.Add(pt);
         }
@@ -111,6 +122,43 @@ public class NetLobbyScreen : MonoBehaviour
         var invite = UIUtil.CreateButton(sg, "ARKADAŞ ÇAĞIR", new Vector2(0.5f, 0.5f), new Vector2(-560f, -205f), new Vector2(460f, 90f), new Color(0.16f, 0.45f, 0.95f, 0.95f), false, 30, out label);
         invite.onClick.AddListener(() => GameManager.Instance.uiManager.OpenSocialFromRoom(gameObject));
         inviteButton = invite.gameObject;
+
+        // Room chat (everyone in the waiting room) and emotes everyone sees.
+        chatGroup = UIUtil.CreateRect(sg, "Chat", c, Vector2.zero, new Vector2(10f, 10f)).gameObject;
+        var cg = chatGroup.transform;
+        var logBg = UIUtil.CreateImage(cg, "Log", c, new Vector2(170f, -222f), new Vector2(900f, 90f), new Color(0f, 0f, 0f, 0.35f), false);
+        logBg.raycastTarget = false;
+        chatLog = UIUtil.CreateText(logBg.transform, "", c, Vector2.zero, new Vector2(870f, 84f), 24, TextAnchor.LowerLeft);
+        chatLog.horizontalOverflow = HorizontalWrapMode.Wrap;
+        chatLog.verticalOverflow = VerticalWrapMode.Truncate;
+        chatLog.supportRichText = true;
+        var chatBg = UIUtil.CreateImage(cg, "ChatField", c, new Vector2(-235f, -312f), new Vector2(600f, 70f), new Color(1f, 1f, 1f, 0.1f), false);
+        var ft = UIUtil.CreateText(chatBg.transform, "", c, Vector2.zero, new Vector2(570f, 60f), 28, TextAnchor.MiddleLeft);
+        ft.supportRichText = false;
+        var fph = UIUtil.CreateText(chatBg.transform, "Odaya yaz...", c, Vector2.zero, new Vector2(570f, 60f), 28, TextAnchor.MiddleLeft);
+        fph.color = new Color(1f, 1f, 1f, 0.35f);
+        chatField = chatBg.gameObject.AddComponent<InputField>();
+        chatField.textComponent = ft;
+        chatField.placeholder = fph;
+        chatField.characterLimit = NetChat.MaxChat;
+        chatField.lineType = InputField.LineType.SingleLine;
+        var send = UIUtil.CreateButton(cg, "YAZ", c, new Vector2(150f, -312f), new Vector2(150f, 70f), Theme.PanelLight, false, 28, out label);
+        send.onClick.AddListener(SendChat);
+        var emotes = UIUtil.CreateRect(sg, "Emotes", new Vector2(1f, 0.5f), Vector2.zero, new Vector2(10f, 10f));
+        emoteGroup = emotes.gameObject;
+        for (int i = 0; i < NetChat.Emotes.Length; i++)
+        {
+            int index = i;
+            var eb = UIUtil.CreateButton(emotes, "", new Vector2(0.5f, 0.5f), new Vector2(-70f, 366f - i * 66f), new Vector2(62f, 62f), new Color(1f, 1f, 1f, 0.08f), true, 20, out label);
+            var img = UIUtil.CreateRect(eb.transform, "E", c, Vector2.zero, new Vector2(52f, 52f)).gameObject.AddComponent<RawImage>();
+            img.texture = Resources.Load<Texture2D>("UI/Emotes/" + NetChat.Emotes[i]);
+            img.raycastTarget = false;
+            eb.onClick.AddListener(() =>
+            {
+                if (NetClient.Instance != null)
+                    NetClient.Instance.SendEmote(index);
+            });
+        }
 
         var ok = UIUtil.CreateButton(sg, "TAMAM", new Vector2(0.5f, 0f), new Vector2(260f, 110f), new Vector2(420f, 110f), new Color(0.2f, 0.5f, 1f, 0.95f), false, 40, out label);
         ok.onClick.AddListener(Close);
@@ -353,6 +401,68 @@ public class NetLobbyScreen : MonoBehaviour
         shownRevision = -1;
     }
 
+    // ----- Room chat and emotes -----
+
+    private static string Escape(string s)
+    {
+        return (s ?? "").Replace("<", "‹").Replace(">", "›");
+    }
+
+    private void SendChat()
+    {
+        string text = (chatField.text ?? "").Trim();
+        if (text.Length == 0 || NetClient.Instance == null)
+            return;
+        NetClient.Instance.SendChat(text);
+        chatField.text = "";
+    }
+
+    /// <summary>A big emote with the sender's name, rising over the room (everyone in the room sees it).</summary>
+    private void PopEmote(NetClient.EmoteEvent e)
+    {
+        if (e.emote < 0 || e.emote >= NetChat.Emotes.Length)
+            return;
+        var c = new Vector2(0.5f, 0.5f);
+        var root = UIUtil.CreateRect(statusGroup.transform, "Pop", c, new Vector2(Random.Range(-250f, 600f), Random.Range(-120f, 60f)), new Vector2(200f, 240f));
+        var group = root.gameObject.AddComponent<CanvasGroup>();
+        group.blocksRaycasts = false;
+        var img = UIUtil.CreateRect(root, "E", c, new Vector2(0f, 20f), new Vector2(170f, 170f)).gameObject.AddComponent<RawImage>();
+        img.texture = Resources.Load<Texture2D>("UI/Emotes/" + NetChat.Emotes[e.emote]);
+        img.raycastTarget = false;
+        var name = UIUtil.CreateText(root, e.name, c, new Vector2(0f, -88f), new Vector2(300f, 40f), 28, TextAnchor.MiddleCenter);
+        name.fontStyle = FontStyle.Bold;
+        root.localScale = Vector3.zero;
+        pops.Add(new EmotePop { rect = root, group = group });
+        Sfx.Play(SoundBank.Pickup, 0.35f, 1.4f + e.emote * 0.03f);
+        while (pops.Count > 8)
+        {
+            Destroy(pops[0].rect.gameObject);
+            pops.RemoveAt(0);
+        }
+    }
+
+    private void AnimatePops()
+    {
+        float dt = Time.unscaledDeltaTime;
+        for (int i = pops.Count - 1; i >= 0; i--)
+        {
+            var p = pops[i];
+            p.t += dt;
+            if (p.rect == null || p.t > 2.6f)
+            {
+                if (p.rect != null)
+                    Destroy(p.rect.gameObject);
+                pops.RemoveAt(i);
+                continue;
+            }
+            float pop = p.t < 0.25f ? Mathf.Sin(p.t / 0.25f * Mathf.PI * 0.5f) * 1.2f : Mathf.Lerp(1.2f, 1f, Mathf.Clamp01((p.t - 0.25f) / 0.2f));
+            p.rect.localScale = Vector3.one * pop;
+            p.rect.anchoredPosition += new Vector2(Mathf.Sin(p.t * 6f) * 20f * dt, 90f * dt);
+            p.rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(p.t * 9f) * 8f);
+            p.group.alpha = Mathf.Clamp01((2.6f - p.t) / 0.6f);
+        }
+    }
+
     private void ShowBusy(string text)
     {
         waitingHttp = true;
@@ -415,6 +525,33 @@ public class NetLobbyScreen : MonoBehaviour
             string talking = VoiceChat.TalkingNow();
             talkingText.text = talking.Length > 0 ? "Konuşuyor: " + talking : (net.LobbyIds.Count > 1 ? "Sesli sohbet açık" : "");
         }
+
+        bool room = net.State == NetClient.Phase.Lobby;
+        if (chatGroup.activeSelf != room)
+            chatGroup.SetActive(room);
+        if (emoteGroup.activeSelf != room)
+            emoteGroup.SetActive(room);
+        if (room && net.ChatRevision != shownChat)
+        {
+            shownChat = net.ChatRevision;
+            var sb = new System.Text.StringBuilder();
+            int from = Mathf.Max(0, net.Chat.Count - 3);
+            for (int i = from; i < net.Chat.Count; i++)
+            {
+                var line = net.Chat[i];
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append(line.mine ? "<color=#ffd24a>" : "<color=#8fd0ff>").Append(Escape(line.name)).Append(":</color> ").Append(Escape(line.text));
+            }
+            chatLog.text = sb.ToString();
+        }
+        while (net.EmoteQueue.Count > 0)
+        {
+            var e = net.EmoteQueue.Dequeue();
+            if (room)
+                PopEmote(e);
+        }
+        AnimatePops();
 
         int seconds = net.LobbyPhase == NetProtocol.LobbyCountdown && net.CountdownEnds > 0
             ? Mathf.Max(0, Mathf.CeilToInt((float)(net.CountdownEnds - Time.realtimeSinceStartupAsDouble)))

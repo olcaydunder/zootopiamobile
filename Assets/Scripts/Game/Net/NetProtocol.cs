@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 3;   // 3: the hello carries the map
+    public const int Version = 4;   // 3: the hello carries the map; 4: room chat and emotes
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game
@@ -24,6 +24,8 @@ public static class NetProtocol
     public const byte C_Grenade = 7;    // Pos, float vx vy vz
     public const byte C_Start = 8;      // (private room leader) start now
     public const byte C_Voice = 9;      // voice frame: byte seq, short predictor, byte index, ADPCM bytes (unreliable)
+    public const byte C_Chat = 10;      // string text (room chat; in a match: team chat)
+    public const byte C_Emote = 11;     // byte emote (NetChat.Emotes)
 
     // Server -> phone
     public const byte S_Lobby = 20;       // byte phase, float seconds left, byte mode, bool private, ushort leader, string code, byte n {ushort id, string name, string account}
@@ -42,6 +44,8 @@ public static class NetProtocol
     public const byte S_MatchEnd = 33;    // byte winner team (255 none), string names
     public const byte S_Toast = 34;       // string
     public const byte S_Voice = 35;       // ushort speaker, then the C_Voice payload after its id byte
+    public const byte S_Chat = 36;        // ushort id, string name, string account, string text
+    public const byte S_Emote = 37;       // ushort id, string name, byte emote
 
     // Entity flags (C_State and snapshots)
     public const int F_Dead = 1, F_Plane = 2, F_Freefall = 4, F_Parachute = 8, F_Crouch = 16, F_Swim = 32, F_Aim = 64;

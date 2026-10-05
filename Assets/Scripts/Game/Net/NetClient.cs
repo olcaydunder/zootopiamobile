@@ -196,6 +196,9 @@ public sealed class NetClient : MonoBehaviour
         LobbyIds.Clear();
         LobbyNames.Clear();
         LobbyAccounts.Clear();
+        Chat.Clear();
+        EmoteQueue.Clear();
+        ChatRevision++;
         Revision++;
     }
 
@@ -400,6 +403,30 @@ public sealed class NetClient : MonoBehaviour
                     }
                     break;
                 }
+                case NetProtocol.S_Chat:
+                {
+                    int from = reader.UShort();
+                    string name = reader.String();
+                    string account = reader.String();
+                    string text = reader.String();
+                    if (!VoiceChat.IsBlocked(account))
+                    {
+                        Chat.Add(new ChatLine { id = from, name = name, text = text, mine = from == MyId });
+                        if (Chat.Count > 30)
+                            Chat.RemoveAt(0);
+                        ChatRevision++;
+                    }
+                    break;
+                }
+                case NetProtocol.S_Emote:
+                {
+                    int from = reader.UShort();
+                    string name = reader.String();
+                    int emote = reader.Byte();
+                    if (!VoiceChat.IsBlocked(AccountOf(from)) && EmoteQueue.Count < 20)
+                        EmoteQueue.Enqueue(new EmoteEvent { id = from, name = name, emote = emote });
+                    break;
+                }
                 case NetProtocol.S_Voice:
                 {
                     int speaker = reader.UShort();
@@ -559,6 +586,46 @@ public sealed class NetClient : MonoBehaviour
                 if (LobbyIds[i] != MyId)
                     into.Add(new MetPlayer { name = LobbyNames[i], account = i < LobbyAccounts.Count ? LobbyAccounts[i] : "", match = RoomCode, teammate = true });
         }
+    }
+
+    public struct ChatLine
+    {
+        public int id;
+        public string name, text;
+        public bool mine;
+    }
+
+    public struct EmoteEvent
+    {
+        public int id, emote;
+        public string name;
+    }
+
+    /// <summary>Room (and team) chat of this session, newest last.</summary>
+    public readonly List<ChatLine> Chat = new List<ChatLine>();
+    public int ChatRevision;
+    /// <summary>Emotes to show (the waiting room pops them up).</summary>
+    public readonly Queue<EmoteEvent> EmoteQueue = new Queue<EmoteEvent>();
+
+    public void SendChat(string text)
+    {
+        text = NetChat.Clean(text);
+        if (conn == null || text.Length == 0 || (State != Phase.Lobby && State != Phase.Playing))
+            return;
+        w.Reset();
+        w.Byte(NetProtocol.C_Chat);
+        w.String(text, NetChat.MaxChat * 2);
+        conn.SendReliable(w.ToArray());
+    }
+
+    public void SendEmote(int emote)
+    {
+        if (conn == null || emote < 0 || emote >= NetChat.Emotes.Length || (State != Phase.Lobby && State != Phase.Playing))
+            return;
+        w.Reset();
+        w.Byte(NetProtocol.C_Emote);
+        w.Byte(emote);
+        conn.SendReliable(w.ToArray());
     }
 
     public void SendVoice(byte[] payload, int length)

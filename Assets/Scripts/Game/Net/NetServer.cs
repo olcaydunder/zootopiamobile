@@ -29,6 +29,7 @@ public sealed class NetServer : MonoBehaviour
         public bool verified;
         public int voiceThisSecond;
         public double voiceSecond;
+        public double nextChat, nextEmote;
         public Entity entity;
         public bool gone;
         public int lastSeq = -1;
@@ -751,6 +752,8 @@ public sealed class NetServer : MonoBehaviour
                 case NetProtocol.C_Door: OnDoor(p); break;
                 case NetProtocol.C_Grenade: OnGrenade(p); break;
                 case NetProtocol.C_Voice: OnVoice(p, buf, off, len); break;
+                case NetProtocol.C_Chat: OnChat(p); break;
+                case NetProtocol.C_Emote: OnEmote(p); break;
             }
         }
         catch (NetFormatException) { }
@@ -1026,6 +1029,51 @@ public sealed class NetServer : MonoBehaviour
                 msg = w.ToArray();
             o.conn.SendUnreliable(msg);
         }
+    }
+
+    /// <summary>Who hears a room message: everyone in the waiting room; in a match, the sender's team.</summary>
+    private void RoomBroadcast(Peer from, byte[] msg)
+    {
+        bool lobby = phase == Phase.Waiting || phase == Phase.Countdown;
+        foreach (var o in peers)
+        {
+            if (o.gone)
+                continue;
+            if (!lobby && (o.entity == null || from.entity == null || o.entity.team != from.entity.team))
+                continue;
+            o.conn.SendReliable(msg);
+        }
+    }
+
+    private void OnChat(Peer p)
+    {
+        string text = NetChat.Clean(reader.String());
+        double now = Now;
+        if (text.Length == 0 || now < p.nextChat)
+            return;
+        p.nextChat = now + 0.8;
+        w.Reset();
+        w.Byte(NetProtocol.S_Chat);
+        w.UShort(p.id);
+        w.String(p.name, 40);
+        w.String(p.account, 12);
+        w.String(text, NetChat.MaxChat * 2);
+        RoomBroadcast(p, w.ToArray());
+    }
+
+    private void OnEmote(Peer p)
+    {
+        int emote = reader.Byte();
+        double now = Now;
+        if (emote >= NetChat.Emotes.Length || now < p.nextEmote)
+            return;
+        p.nextEmote = now + 1.0;
+        w.Reset();
+        w.Byte(NetProtocol.S_Emote);
+        w.UShort(p.id);
+        w.String(p.name, 40);
+        w.Byte(emote);
+        RoomBroadcast(p, w.ToArray());
     }
 
     private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel)

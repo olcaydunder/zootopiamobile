@@ -26,11 +26,12 @@ public class Phone
     public static string MapId = Environment.GetEnvironmentVariable("ZM_MAP") ?? "eksioglu";
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(3); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(4); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
     public static V3 Pos(NetReader r) { float x = r.Short() * 0.05f, y = r.Short() * 0.05f, z = r.Short() * 0.05f; return new V3(x, y, z); }
+    public List<string> chats = new List<string>(); public int emotes, lastEmote = -1;
     public void Rel(params Action<NetWriter>[] parts) { w.Reset(); foreach (var p in parts) p(w); conn.SendReliable(w.ToArray()); }
     public void Unrel(Action<NetWriter> f) { w.Reset(); f(w); conn.SendUnreliable(w.ToArray()); }
 
@@ -79,6 +80,8 @@ public class Phone
             case 33: endWinner = r.Byte(); Console.WriteLine(name + ": MATCH END winner team " + endWinner + " (" + r.String() + ")"); break;
             case 34: Console.WriteLine(name + ": TOAST " + r.String()); break;
             case 35: lastVoiceFrom = r.UShort(); voiceFrames++; break;
+            case 36: r.UShort(); r.String(); r.String(); chats.Add(r.String()); break;
+            case 37: r.UShort(); r.String(); lastEmote = r.Byte(); emotes++; break;
         }
     }
 }
@@ -118,6 +121,16 @@ public static class FakePhoneTest
         for (int i = 0; i < 5; i++) A.Unrel(x => { x.Byte(9); for (int k = 0; k < 164; k++) x.Byte(k); });
         RunUntil(2, ps, () => B.voiceFrames >= 5);
         Check(B.voiceFrames >= 5 && B.lastVoiceFrom == A.id, "B heard A in the room: " + B.voiceFrames + " frames");
+        Console.WriteLine("== room chat and emotes");
+        A.Rel(x => x.Byte(10), x => x.String("selam amk nasılsınız", 240));
+        A.Rel(x => x.Byte(11), x => x.Byte(4));
+        RunUntil(5, ps, () => B.chats.Count > 0 && B.emotes > 0 && A.emotes > 0);
+        Check(B.chats.Count == 1 && B.chats[0] == "selam *** nasılsınız", "B got A's chat, filtered: " + (B.chats.Count > 0 ? B.chats[0] : "-"));
+        Check(A.chats.Count == 1, "A sees its own line too");
+        Check(B.emotes == 1 && B.lastEmote == 4 && A.emotes == 1, "everyone in the room saw the emote " + B.lastEmote);
+        A.Rel(x => x.Byte(11), x => x.Byte(2));
+        RunUntil(1, ps, () => false);
+        Check(B.emotes == 1, "emote spam limited");
         Check(A.voiceFrames == 0, "A does not hear itself");
         Console.WriteLine("== start (leader)");
         B.Rel(x => x.Byte(8));   // not the leader: ignored
