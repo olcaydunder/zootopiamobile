@@ -1,0 +1,112 @@
+{
+ "id": "kafeler",
+ "query": "Kutlubey, Isparta Merkez, Isparta",
+ "places": [
+  {
+   "query": "Kafeler Caddesi, Isparta",
+   "results": []
+  },
+  {
+   "query": "Kutlubey, Isparta Merkez, Isparta",
+   "results": [
+    {
+     "place_id": 54996059,
+     "licence": "Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+     "osm_type": "relation",
+     "osm_id": 12089453,
+     "lat": "37.7649377",
+     "lon": "30.5558330",
+     "class": "boundary",
+     "type": "administrative",
+     "place_rank": 16,
+     "importance": 0.18672416189822227,
+     "addresstype": "suburb",
+     "name": "Kutlubey Mahallesi",
+     "display_name": "Kutlubey Mahallesi, Isparta Belediyesi, Isparta Merkez, Isparta, Akdeniz B\u00f6lgesi, T\u00fcrkiye",
+     "boundingbox": [
+      "37.7629695",
+      "37.7680249",
+      "30.5529963",
+      "30.5583242"
+     ]
+    }
+   ]
+  },
+  {
+   "query": "Kutlubey Mahallesi, Isparta",
+   "results": [
+    {
+     "place_id": 54996059,
+     "licence": "Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+     "osm_type": "relation",
+     "osm_id": 12089453,
+     "lat": "37.7649377",
+     "lon": "30.5558330",
+     "class": "boundary",
+     "type": "administrative",
+     "place_rank": 16,
+     "importance": 0.18672416189822227,
+     "addresstype": "suburb",
+     "name": "Kutlubey Mahallesi",
+     "display_name": "Kutlubey Mahallesi, Isparta Belediyesi, Isparta Merkez, Isparta, Akdeniz B\u00f6lgesi, T\u00fcrkiye",
+     "boundingbox": [
+      "37.7629695",
+      "37.7680249",
+      "30.5529963",
+      "30.5583242"
+     ]
+    }
+   ]
+  }
+ ],
+ "center": [
+  37.7649377,
+  30.555833
+ ],
+ "bbox": [
+  37.754157965900106,
+  30.54219691409093,
+  37.77571743409989,
+  30.56946908590907
+ ],
+ "half_km": 1.2,
+ "zoom": 15,
+ "tiles": [
+  [
+   19164,
+   12665
+  ],
+  [
+   19164,
+   12666
+  ],
+  [
+   19164,
+   12667
+  ],
+  [
+   19165,
+   12665
+  ],
+  [
+   19165,
+   12666
+  ],
+  [
+   19165,
+   12667
+  ],
+  [
+   19166,
+   12665
+  ],
+  [
+   19166,
+   12666
+  ],
+  [
+   19166,
+   12667
+  ]
+ ]
+}
