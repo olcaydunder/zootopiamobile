@@ -310,6 +310,7 @@ public class LootSystem : MonoBehaviour
             if (ui != null)
                 ui.Toast(message);
             Sfx.Play(SoundBank.Pickup, 0.45f);
+            MatchStats.Loot++;
             Destroy(c.obj);
             crates.RemoveAt(i);
         }
@@ -344,6 +345,7 @@ public class LootSystem : MonoBehaviour
         if (ui != null)
             ui.Toast(message);
         Sfx.Play(SoundBank.Pickup, 0.45f);
+        MatchStats.Loot++;
     }
 
     private static string Apply(PlayerController player, LootType type)

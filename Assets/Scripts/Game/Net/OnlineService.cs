@@ -72,6 +72,97 @@ public class OnlineService : MonoBehaviour
         public Person[] outgoing = new Person[0];
         public Person[] invites = new Person[0];
         public Person[] blocked = new Person[0];
+        public int unread;       // unread messages
+        public int gifts;        // gifts waiting to be opened
+        public int followers;
+        public int following;
+    }
+
+    /// <summary>A player in search results and follow lists.</summary>
+    [System.Serializable]
+    public class Player
+    {
+        public string id = "";
+        public string name = "";
+        public bool online;
+        public bool friend;
+        public bool followed;     // I follow them
+        public bool followsMe;
+        public int followers;
+    }
+
+    /// <summary>Answers that can carry an error message (filled in here when the request failed).</summary>
+    public interface IAnswer
+    {
+        void Fail(string message);
+    }
+
+    [System.Serializable]
+    public class PlayersView : IAnswer
+    {
+        public void Fail(string message) { ok = false; error = message; }
+        public bool ok;
+        public string error = "";
+        public Player[] people = new Player[0];
+        public Player[] following = new Player[0];
+        public Player[] followers = new Player[0];
+    }
+
+    [System.Serializable]
+    public class ChatThread
+    {
+        public string id = "";
+        public string name = "";
+        public bool online;
+        public string last = "";
+        public bool mine;
+        public long time;
+        public int unread;
+    }
+
+    [System.Serializable]
+    public class Message
+    {
+        public long id;
+        public bool mine;
+        public string text = "";
+        public long time;
+    }
+
+    [System.Serializable]
+    public class ChatView : IAnswer
+    {
+        public void Fail(string message) { ok = false; error = message; }
+        public bool ok;
+        public string error = "";
+        public ChatThread[] threads = new ChatThread[0];
+        public Player with;
+        public bool canTalk;
+        public Message[] messages = new Message[0];
+    }
+
+    [System.Serializable]
+    public class Gift
+    {
+        public long id;
+        public string from = "";
+        public string name = "";
+        public string kind = "";    // credits, box, skin, camo
+        public string item = "";
+        public int amount;
+        public string note = "";
+        public long time;
+    }
+
+    [System.Serializable]
+    public class GiftsView : IAnswer
+    {
+        public void Fail(string message) { ok = false; error = message; }
+        public bool ok;
+        public string error = "";
+        public string message = "";
+        public Gift[] gifts = new Gift[0];
+        public Gift claimed;
     }
 
     private static OnlineService runner, socialRunner;
@@ -194,6 +285,72 @@ public class OnlineService : MonoBehaviour
     public static void ReportPlayer(string id, string reason, string text, string match, System.Action<SocialView> done)
     {
         SocialPost("/report/player", id, ",\"reason\":\"" + Safe(reason) + "\",\"text\":\"" + Json(text) + "\",\"match\":\"" + Safe(match) + "\"", done);
+    }
+
+    // ----- Following, search, messages, gifts -----
+
+    public static void Search(string text, System.Action<PlayersView> done)
+    {
+        Api("/search", "{\"q\":\"" + Json(text) + "\"}", done);
+    }
+
+    public static void Follow(string id, bool follow, System.Action<PlayersView> done)
+    {
+        Api(follow ? "/follow" : "/unfollow", "{\"id\":\"" + Safe(id) + "\"}", done);
+    }
+
+    public static void Follows(System.Action<PlayersView> done) { Api("/follows", "{}", done); }
+
+    public static void Threads(System.Action<ChatView> done) { Api("/msg/threads", "{}", done); }
+
+    /// <summary>The conversation with a player (only messages after <paramref name="after"/> when given); marks it read.</summary>
+    public static void Thread(string id, long after, System.Action<ChatView> done)
+    {
+        Api("/msg/thread", "{\"id\":\"" + Safe(id) + "\",\"after\":" + after + "}", done);
+    }
+
+    public static void SendMessage(string id, string text, System.Action<ChatView> done)
+    {
+        Api("/msg/send", "{\"id\":\"" + Safe(id) + "\",\"text\":\"" + Json(text) + "\"}", done);
+    }
+
+    /// <summary>kind: credits (amount), box (item = crate id), skin (item = skin), camo (item = "w:id", "v:id" or "p:id").</summary>
+    public static void SendGift(string id, string kind, string item, int amount, string note, System.Action<GiftsView> done)
+    {
+        Api("/gift/send", "{\"id\":\"" + Safe(id) + "\",\"kind\":\"" + Safe(kind) + "\",\"item\":\"" + Json(item) +
+            "\",\"amount\":" + amount + ",\"note\":\"" + Json(note) + "\"}", done);
+    }
+
+    public static void GiftInbox(System.Action<GiftsView> done) { Api("/gift/inbox", "{}", done); }
+
+    public static void ClaimGift(long giftId, System.Action<GiftsView> done)
+    {
+        Api("/gift/claim", "{\"gift\":" + giftId + "}", done);
+    }
+
+    /// <summary>A social request answered with a view of type T (ok / error fields); never cancelled by CancelAll.</summary>
+    private static void Api<T>(string path, string body, System.Action<T> done) where T : class, IAnswer, new()
+    {
+        SocialRunner.StartCoroutine(SocialRunner.ApiCall(path, body, done));
+    }
+
+    private IEnumerator ApiCall<T>(string path, string body, System.Action<T> done) where T : class, IAnswer, new()
+    {
+        long status = 0;
+        string text = null, error = null;
+        yield return Request("POST", path, body, (s2, t, e) => { status = s2; text = t; error = e; });
+        T view = null;
+        if (!string.IsNullOrEmpty(text))
+        {
+            try { view = JsonUtility.FromJson<T>(text); } catch (System.Exception) { }
+        }
+        if (view == null)
+        {
+            view = new T();
+            view.Fail(error ?? ("Sunucu yanıt vermedi (" + status + ")"));
+        }
+        if (done != null)
+            done(view);
     }
 
     public static void BugReport(string text, string log, System.Action<SocialView> done)

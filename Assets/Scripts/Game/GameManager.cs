@@ -360,6 +360,7 @@ public class GameManager : MonoBehaviour
 
     private void ClearRound()
     {
+        MatchStats.Reset();
         foreach (var bot in bots)
         {
             if (bot != null)
@@ -495,6 +496,7 @@ public class GameManager : MonoBehaviour
         int coins = 20 + kills * 10 + Mathf.RoundToInt(60f * placeShare) + (won ? 100 : 0);
 
         profile.AddMatchResult(won, kills, xp, coins);
+        Missions.OnMatchEnd(won, place, kills, false);
         uiManager.ShowResult(won, place, teams, kills, xp, coins);
     }
 

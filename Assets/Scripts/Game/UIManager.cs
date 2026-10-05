@@ -149,6 +149,8 @@ public class UIManager : MonoBehaviour
         if (netLobby != null) netLobby.Hide();
         if (social != null) social.Hide();
         if (mapSelect != null) mapSelect.gameObject.SetActive(false);
+        if (store != null) store.Hide();
+        if (missions != null) missions.Hide();
         if (inviteBanner != null) inviteBanner.SetActive(false);
         if (shopPanel != null) shopPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -208,8 +210,23 @@ public class UIManager : MonoBehaviour
         friendsBadgeText = UIUtil.CreateText(fb.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40f, 40f), 22, TextAnchor.MiddleCenter);
         friendsBadge = fb.gameObject;
         friendsBadge.SetActive(false);
-        UIUtil.CreateButton(t, "HATA BİLDİR", new Vector2(1f, 1f), new Vector2(-950f, -70f), new Vector2(240f, 80f), Theme.Panel, false, 26, out unused)
-            .onClick.AddListener(() => { HideAll(); social.Open(SocialScreen.Tab.Bug, ShowLobby); });
+        var storeButton = UIUtil.CreateButton(t, "   MAĞAZA", new Vector2(1f, 1f), new Vector2(-950f, -70f), new Vector2(240f, 80f), new Color(0.55f, 0.35f, 0.08f, 0.95f), false, 28, out unused);
+        Icons.Create(storeButton.transform, "store", new Vector2(0f, 0.5f), new Vector2(38f, 0f), new Vector2(60f, 60f));
+        storeButton.onClick.AddListener(() => { HideAll(); store.Open(StoreScreen.Tab.Boxes, ShowLobby); });
+
+        // Missions (bottom-left, under the tiles), with how many are ready to collect.
+        var missionsButton = UIUtil.CreateButton(t, "", new Vector2(0f, 0.5f), new Vector2(260f, -345f), new Vector2(440f, 88f), Theme.Panel, false, 20, out unused);
+        missionsButton.onClick.AddListener(() => { HideAll(); missions.Open(ShowLobby); });
+        UIUtil.CreateImage(missionsButton.transform, "Accent", new Vector2(0f, 0.5f), new Vector2(4f, 0f), new Vector2(8f, 88f), Theme.Good, false).raycastTarget = false;
+        Icons.Create(missionsButton.transform, "missions", new Vector2(0f, 0.5f), new Vector2(58f, 0f), new Vector2(72f, 72f));
+        var mTitle = UIUtil.CreateText(missionsButton.transform, "GÖREVLER", new Vector2(0f, 0.5f), new Vector2(230f, 12f), new Vector2(240f, 44f), 32, TextAnchor.MiddleLeft);
+        mTitle.fontStyle = FontStyle.Bold;
+        lobbyMissionsText = UIUtil.CreateText(missionsButton.transform, "", new Vector2(0f, 0.5f), new Vector2(230f, -22f), new Vector2(240f, 30f), 20, TextAnchor.MiddleLeft);
+        lobbyMissionsText.color = Theme.TextDim;
+        var mb = UIUtil.CreateImage(missionsButton.transform, "Badge", new Vector2(1f, 1f), new Vector2(-6f, -6f), new Vector2(40f, 40f), Theme.Red, true);
+        mb.raycastTarget = false;
+        missionsBadgeText = UIUtil.CreateText(mb.transform, "", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(40f, 40f), 22, TextAnchor.MiddleCenter);
+        missionsBadge = mb.gameObject;
 
         // Room invite from a friend (shown over the lobby).
         var banner = Theme.Box(canvas.transform, "InviteBanner", new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(860f, 120f), new Color(0.1f, 0.2f, 0.4f, 0.97f), true);
@@ -340,6 +357,8 @@ public class UIManager : MonoBehaviour
         netLobby = NetLobbyScreen.Create(canvas.transform);
         social = SocialScreen.Create(canvas.transform);
         mapSelect = MapSelectScreen.Create(canvas.transform);
+        store = StoreScreen.Create(canvas.transform);
+        missions = MissionsScreen.Create(canvas.transform);
         matchPrep.gameObject.AddComponent<PopIn>();
         gunsmith.gameObject.AddComponent<PopIn>();
         SelectMode(0);
@@ -607,6 +626,13 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>Join a private room by its code (friend's invite or the friends list).</summary>
+    /// <summary>The store in gift mode: what to send to this friend.</summary>
+    public void OpenStoreForGift(string personId, string personName)
+    {
+        HideAll();
+        store.OpenForGift(personId, personName, StoreScreen.Tab.Characters, ShowLobby);
+    }
+
     public void JoinRoomByCode(string code)
     {
         HideAll();
@@ -630,7 +656,7 @@ public class UIManager : MonoBehaviour
             socialPolling = false;
             if (!view.ok || view.friends == null)
                 return;
-            int count = view.incoming.Length + view.invites.Length;
+            int count = view.incoming.Length + view.invites.Length + view.unread + view.gifts;
             friendsBadge.SetActive(count > 0);
             friendsBadgeText.text = count.ToString();
             foreach (var inv in view.invites)
@@ -792,6 +818,10 @@ public class UIManager : MonoBehaviour
     private NetLobbyScreen netLobby;
     private SocialScreen social;
     private MapSelectScreen mapSelect;
+    private StoreScreen store;
+    private MissionsScreen missions;
+    private GameObject missionsBadge;
+    private Text missionsBadgeText, lobbyMissionsText;
     private GameObject friendsBadge, inviteBanner;
     private Text friendsBadgeText, inviteText;
     private string inviteRoom = "", inviteFrom = "";
@@ -984,6 +1014,10 @@ public class UIManager : MonoBehaviour
         Icons.Set(lobbyClassIcon, cls.icon);
         lobbyClassText.text = "Sınıf: " + cls.name + "  •  jeton ve kamuflaj";
         lobbyCoinsText.text = p.coins.ToString("N0");
+        int ready = Missions.ReadyCount();
+        missionsBadge.SetActive(ready > 0);
+        missionsBadgeText.text = ready.ToString();
+        lobbyMissionsText.text = ready > 0 ? ready + " ödül toplanmayı bekliyor" : "Günlük ve haftalık görevler";
         float winRate = p.matches > 0 ? 100f * p.wins / p.matches : 0f;
         lobbyStatsText.text = "Maç " + p.matches + "    Zafer " + p.wins + "    %" + Mathf.RoundToInt(winRate) + "\nToplam öldürme " + p.totalKills;
         var rifle = Gunsmith.Apply(WeaponData.CreateRifle());

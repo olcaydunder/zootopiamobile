@@ -11,7 +11,9 @@ Zootopia Mobile match orchestrator (runs on the game server as the "zootopia" se
   Maps: eksioglu (Ekşioğlu), senir (Senir Kasabası), firat (Fırat Üniversitesi).
     POST /report   (from match processes, localhost only) {code, state, players}
     GET  /status                                -> health / what is running
-- Player accounts (SQLite, zootopia.db): friend codes, friends and invites, blocking, reports, bug reports, bans.
+- Player accounts (SQLite, zootopia.db): friend codes, friends and invites, following, player search,
+  private messages (friends / mutual follows, word filter), gifts (credits, gift boxes, characters, camos),
+  blocking, reports, bug reports, bans.
 - Admin panel at /admin (password generated on the server into admin_password.txt; only the owner can read it).
 - Updates itself: re-downloads orchestrator.py from the repo and restarts when it changed.
 
@@ -329,6 +331,15 @@ def db_init():
         device TEXT, version TEXT, created REAL, status TEXT DEFAULT 'open');
     CREATE TABLE IF NOT EXISTS match_history (code TEXT, mode TEXT, kind TEXT, started REAL, ended REAL,
         players INTEGER, exit INTEGER, version TEXT, errors TEXT);
+    CREATE TABLE IF NOT EXISTS follows (follower TEXT, target TEXT, created REAL, PRIMARY KEY (follower, target));
+    CREATE INDEX IF NOT EXISTS follows_target ON follows(target);
+    CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT, to_id TEXT, text TEXT,
+        created REAL, read INTEGER DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS messages_to ON messages(to_id, read);
+    CREATE INDEX IF NOT EXISTS messages_pair ON messages(from_id, to_id, id);
+    CREATE TABLE IF NOT EXISTS gifts (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT, to_id TEXT, kind TEXT,
+        item TEXT, amount INTEGER, note TEXT, created REAL, claimed REAL DEFAULT 0);
+    CREATE INDEX IF NOT EXISTS gifts_to ON gifts(to_id, claimed);
     """)
     db.commit()
 
@@ -385,6 +396,50 @@ def too_many(ip, kind, limit, window=60):
         return True
     times.append(now)
     return False
+
+
+# Words masked in messages (Turkish swearing; whole words and their common endings).
+BAD_ROOTS = ("orospu", "siktir", "sikerim", "sikeyim", "siktiğim", "siktigim", "sikim", "sikik", "sikiş", "sikis",
+             "yarrak", "yarak", "amına", "amina", "amcık", "amcik", "pezevenk", "kahpe", "ibne", "gavat", "kaltak",
+             "şerefsiz", "serefsiz", "puşt", "pust", "yavşak", "yavsak", "götveren", "gotveren")
+BAD_WORDS = ("amk", "aq", "amq", "mk", "oç", "oc", "piç", "pic", "göt", "got", "sik", "am", "sg", "siktir")
+TR_LOWER = str.maketrans("İIÇĞÖŞÜ", "iıçğöşü")
+
+
+def clean_text(text, limit=200):
+    """A chat line: printable, short, swear words masked."""
+    text = "".join(c for c in str(text or "") if c.isprintable()).strip()[:limit]
+
+    def mask(m):
+        w = m.group(0)
+        low = w.translate(TR_LOWER).lower()
+        if low in BAD_WORDS or any(low.startswith(r) for r in BAD_ROOTS):
+            return "*" * len(w)
+        return w
+    return re.sub(r"\w+", mask, text)
+
+
+def is_blocked(a, b):
+    """Either of the two blocked the other."""
+    return q_one("SELECT 1 FROM blocks WHERE (owner=? AND target=?) OR (owner=? AND target=?)", (a, b, b, a)) is not None
+
+
+def are_friends(a, b):
+    return q_one("SELECT 1 FROM friends WHERE state='accepted' AND ((a=? AND b=?) OR (a=? AND b=?))", (a, b, b, a)) is not None
+
+
+def can_talk(a, b):
+    """Messages and gifts: friends, or two players who follow each other, and nobody blocked."""
+    if a == b or is_blocked(a, b):
+        return False
+    if are_friends(a, b):
+        return True
+    return q_one("SELECT 1 FROM follows WHERE follower=? AND target=?", (a, b)) is not None and \
+        q_one("SELECT 1 FROM follows WHERE follower=? AND target=?", (b, a)) is not None
+
+
+GIFT_KINDS = ("credits", "box", "skin", "camo")
+GIFT_DAILY = {"credits": 3000, "box": 5, "skin": 5, "camo": 10}   # per sender per day (credits: total amount)
 
 
 def record_match_end(m, now, errors):
@@ -560,8 +615,69 @@ class Handler(BaseHTTPRequestHandler):
         invites = q_all("""SELECT i.from_id AS id, a.name, i.room, i.mode FROM invites i JOIN accounts a ON a.id=i.from_id
                            WHERE i.to_id=? AND i.created>?""", (me["id"], now - 300))
         blocked = q_all("SELECT b.target AS id, a.name FROM blocks b JOIN accounts a ON a.id=b.target WHERE b.owner=?", (me["id"],))
+        unread = q_one("SELECT COUNT(*) n FROM messages WHERE to_id=? AND read=0", (me["id"],))["n"]
+        gifts = q_one("SELECT COUNT(*) n FROM gifts WHERE to_id=? AND claimed=0", (me["id"],))["n"]
+        followers = q_one("SELECT COUNT(*) n FROM follows WHERE target=?", (me["id"],))["n"]
+        following = q_one("SELECT COUNT(*) n FROM follows WHERE follower=?", (me["id"],))["n"]
         return {"ok": True, "me": {"id": me["id"], "name": me["name"]}, "friends": friends, "incoming": incoming,
-                "outgoing": outgoing, "invites": invites, "blocked": blocked}
+                "outgoing": outgoing, "invites": invites, "blocked": blocked, "unread": unread, "gifts": gifts,
+                "followers": followers, "following": following}
+
+    def person(self, me, r, now):
+        """One player in a list (search, follows): presence and how they relate to me."""
+        pid = r["id"]
+        return {"id": pid, "name": r["name"], "online": now - (r.get("last_seen") or 0) < ONLINE_SECONDS,
+                "friend": are_friends(me["id"], pid),
+                "followed": q_one("SELECT 1 FROM follows WHERE follower=? AND target=?", (me["id"], pid)) is not None,
+                "followsMe": q_one("SELECT 1 FROM follows WHERE follower=? AND target=?", (pid, me["id"])) is not None,
+                "followers": q_one("SELECT COUNT(*) n FROM follows WHERE target=?", (pid,))["n"]}
+
+    def follows_view(self, me):
+        now = time.time()
+        following = q_all("""SELECT a.id, a.name, a.last_seen FROM follows f JOIN accounts a ON a.id=f.target
+                             WHERE f.follower=? ORDER BY f.created DESC LIMIT 200""", (me["id"],))
+        followers = q_all("""SELECT a.id, a.name, a.last_seen FROM follows f JOIN accounts a ON a.id=f.follower
+                             WHERE f.target=? ORDER BY f.created DESC LIMIT 200""", (me["id"],))
+        return {"ok": True, "following": [self.person(me, r, now) for r in following],
+                "followers": [self.person(me, r, now) for r in followers]}
+
+    def threads_view(self, me):
+        """Conversations: the other player, the last line, unread count."""
+        rows = q_all("""SELECT CASE WHEN from_id=? THEN to_id ELSE from_id END AS other, MAX(id) AS last_id,
+                               SUM(CASE WHEN to_id=? AND read=0 THEN 1 ELSE 0 END) AS unread
+                        FROM messages WHERE from_id=? OR to_id=? GROUP BY other ORDER BY last_id DESC LIMIT 50""",
+                     (me["id"], me["id"], me["id"], me["id"]))
+        out = []
+        now = time.time()
+        for r in rows:
+            acc = q_one("SELECT id, name, last_seen FROM accounts WHERE id=?", (r["other"],))
+            last = q_one("SELECT from_id, text, created FROM messages WHERE id=?", (r["last_id"],))
+            if not acc or not last:
+                continue
+            out.append({"id": acc["id"], "name": acc["name"], "online": now - (acc["last_seen"] or 0) < ONLINE_SECONDS,
+                        "last": last["text"], "mine": last["from_id"] == me["id"], "time": int(last["created"]),
+                        "unread": r["unread"] or 0})
+        return {"ok": True, "threads": out}
+
+    def thread_view(self, me, other, after=0):
+        rows = q_all("""SELECT id, from_id, text, created FROM messages
+                        WHERE ((from_id=? AND to_id=?) OR (from_id=? AND to_id=?)) AND id>?
+                        ORDER BY id DESC LIMIT 60""", (me["id"], other, other, me["id"], after))
+        rows.reverse()
+        q_run("UPDATE messages SET read=1 WHERE to_id=? AND from_id=? AND read=0", (me["id"], other))
+        acc = q_one("SELECT id, name, last_seen FROM accounts WHERE id=?", (other,))
+        return {"ok": True, "with": {"id": other, "name": acc["name"] if acc else "?",
+                                    "online": bool(acc) and time.time() - (acc["last_seen"] or 0) < ONLINE_SECONDS},
+                "canTalk": can_talk(me["id"], other),
+                "messages": [{"id": r["id"], "mine": r["from_id"] == me["id"], "text": r["text"], "time": int(r["created"])}
+                             for r in rows]}
+
+    def gifts_view(self, me):
+        rows = q_all("""SELECT g.id, g.from_id, a.name, g.kind, g.item, g.amount, g.note, g.created FROM gifts g
+                        LEFT JOIN accounts a ON a.id=g.from_id WHERE g.to_id=? AND g.claimed=0 ORDER BY g.id LIMIT 50""", (me["id"],))
+        return {"ok": True, "gifts": [{"id": r["id"], "from": r["from_id"], "name": r["name"] or "?", "kind": r["kind"],
+                                       "item": r["item"] or "", "amount": r["amount"] or 0, "note": r["note"] or "",
+                                       "time": int(r["created"])} for r in rows]}
 
     def handle_account_post(self, path, q, body):
         ip = self.ip()
@@ -637,10 +753,114 @@ class Handler(BaseHTTPRequestHandler):
                 q_run("INSERT OR IGNORE INTO blocks VALUES (?,?,?)", (me["id"], other, time.time()))
                 q_run("DELETE FROM friends WHERE (a=? AND b=?) OR (a=? AND b=?)", (me["id"], other, other, me["id"]))
                 q_run("DELETE FROM invites WHERE from_id=? AND to_id=?", (other, me["id"]))
+                q_run("DELETE FROM follows WHERE (follower=? AND target=?) OR (follower=? AND target=?)", (me["id"], other, other, me["id"]))
             self.reply(200, self.friends_view(me))
         elif path == "/unblock":
             q_run("DELETE FROM blocks WHERE owner=? AND target=?", (me["id"], other))
             self.reply(200, self.friends_view(me))
+        elif path in ("/follow", "/unfollow"):
+            if path == "/follow":
+                if too_many(ip, "follow", 40):
+                    self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
+                    return
+                if not other or other == me["id"] or not q_one("SELECT 1 FROM accounts WHERE id=?", (other,)):
+                    self.reply(404, {"ok": False, "error": "Oyuncu bulunamadı"})
+                    return
+                if not is_blocked(me["id"], other):
+                    q_run("INSERT OR IGNORE INTO follows VALUES (?,?,?)", (me["id"], other, time.time()))
+            else:
+                q_run("DELETE FROM follows WHERE follower=? AND target=?", (me["id"], other))
+            self.reply(200, self.follows_view(me))
+        elif path == "/follows":
+            self.reply(200, self.follows_view(me))
+        elif path == "/search":
+            if too_many(ip, "search", 30):
+                self.reply(429, {"ok": False, "error": "Çok sık arama, biraz bekle"})
+                return
+            text = str(data.get("q", "")).strip()[:16]
+            code = text.upper().replace("-", "")
+            now = time.time()
+            rows = []
+            if re.fullmatch(r"[A-Z0-9]{6}", code):
+                rows = q_all("SELECT id, name, last_seen FROM accounts WHERE id=? AND banned=0", (code,))
+            if len(text) >= 2:
+                like = "%" + text.replace("%", "").replace("_", "") + "%"
+                rows += q_all("""SELECT id, name, last_seen FROM accounts WHERE name LIKE ? AND banned=0 AND id<>?
+                                 ORDER BY last_seen DESC LIMIT 25""", (like, me["id"]))
+            seen, people = set(), []
+            for r in rows:
+                if r["id"] in seen or r["id"] == me["id"] or is_blocked(me["id"], r["id"]):
+                    continue
+                seen.add(r["id"])
+                people.append(self.person(me, r, now))
+            self.reply(200, {"ok": True, "people": people[:25]})
+        elif path == "/msg/threads":
+            self.reply(200, self.threads_view(me))
+        elif path == "/msg/thread":
+            try:
+                after = int(data.get("after", 0))
+            except (TypeError, ValueError):
+                after = 0
+            self.reply(200, self.thread_view(me, other, after))
+        elif path == "/msg/send":
+            if too_many(ip, "msg", 30):
+                self.reply(429, {"ok": False, "error": "Çok hızlı yazıyorsun, biraz bekle"})
+                return
+            text = clean_text(data.get("text", ""))
+            if not text:
+                self.reply(400, {"ok": False, "error": "Boş mesaj"})
+                return
+            if not can_talk(me["id"], other):
+                self.reply(403, {"ok": False, "error": "Yalnız arkadaşlarına ve karşılıklı takipleştiğin oyunculara yazabilirsin"})
+                return
+            q_run("INSERT INTO messages (from_id, to_id, text, created) VALUES (?,?,?,?)", (me["id"], other, text, time.time()))
+            q_run("DELETE FROM messages WHERE created < ?", (time.time() - 60 * 86400,))
+            self.reply(200, self.thread_view(me, other))
+        elif path == "/gift/send":
+            if too_many(ip, "gift", 20):
+                self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
+                return
+            kind = str(data.get("kind", ""))
+            item = re.sub(r"[^A-Za-z0-9_:\-]", "", str(data.get("item", "")))[:40]
+            try:
+                amount = int(data.get("amount", 0))
+            except (TypeError, ValueError):
+                amount = 0
+            if kind not in GIFT_KINDS or (kind == "credits" and not 50 <= amount <= 1000) or (kind != "credits" and not item):
+                self.reply(400, {"ok": False, "error": "Geçersiz hediye"})
+                return
+            if not can_talk(me["id"], other):
+                self.reply(403, {"ok": False, "error": "Yalnız arkadaşlarına ve karşılıklı takipleştiğin oyunculara hediye gönderebilirsin"})
+                return
+            today = q_one("""SELECT COUNT(*) n, COALESCE(SUM(amount), 0) total FROM gifts
+                             WHERE from_id=? AND kind=? AND created>?""", (me["id"], kind, time.time() - 86400))
+            used = today["total"] if kind == "credits" else today["n"]
+            add = amount if kind == "credits" else 1
+            if used + add > GIFT_DAILY[kind]:
+                self.reply(429, {"ok": False, "error": "Bugünlük hediye sınırına ulaştın (" + str(GIFT_DAILY[kind]) +
+                                 (" kredi" if kind == "credits" else " adet") + ")"})
+                return
+            q_run("INSERT INTO gifts (from_id, to_id, kind, item, amount, note, created) VALUES (?,?,?,?,?,?,?)",
+                  (me["id"], other, kind, item, amount if kind == "credits" else 1, clean_text(data.get("note", ""), 80), time.time()))
+            self.reply(200, {"ok": True, "message": "Hediye gönderildi"})
+        elif path == "/gift/inbox":
+            self.reply(200, self.gifts_view(me))
+        elif path == "/gift/claim":
+            try:
+                gid = int(data.get("gift", 0))
+            except (TypeError, ValueError):
+                gid = 0
+            with db_lock:
+                g = q_one("SELECT * FROM gifts WHERE id=? AND to_id=? AND claimed=0", (gid, me["id"]))
+                if g:
+                    q_run("UPDATE gifts SET claimed=? WHERE id=?", (time.time(), gid))
+            if not g:
+                self.reply(404, {"ok": False, "error": "Hediye bulunamadı"})
+                return
+            view = self.gifts_view(me)
+            view["claimed"] = {"id": g["id"], "from": g["from_id"], "kind": g["kind"], "item": g["item"] or "",
+                               "amount": g["amount"] or 0}
+            self.reply(200, view)
         elif path == "/report/player":
             if too_many(ip, "report", 10, 600):
                 self.reply(429, {"ok": False, "error": "Çok fazla şikayet gönderdin, biraz bekle"})
@@ -879,7 +1099,8 @@ class Handler(BaseHTTPRequestHandler):
                         q_run("UPDATE accounts SET matches=matches+1 WHERE id=?", (a,))
             self.reply(200, {"ok": True})
             return
-        if path.startswith("/account/") or path.startswith("/friends") or path in ("/block", "/unblock", "/bug", "/report/player"):
+        if path.startswith("/account/") or path.startswith("/friends") or path.startswith("/msg/") or path.startswith("/gift/") \
+                or path in ("/block", "/unblock", "/bug", "/report/player", "/follow", "/unfollow", "/follows", "/search"):
             self.handle_account_post(path, q, body)
             return
 

@@ -184,6 +184,12 @@ public class WeaponController : MonoBehaviour
 
         if (playerOwned && totalDamage > 0f)
         {
+            MatchStats.Damage += totalDamage;
+            if (anyHead)
+                MatchStats.Headshots++;
+        }
+        if (playerOwned && totalDamage > 0f)
+        {
             var gm = GameManager.Instance;
             if (gm != null && gm.uiManager != null)
                 gm.uiManager.ShowHit(hitPoint, totalDamage, killed, anyHead);

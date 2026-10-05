@@ -11,7 +11,8 @@ public static class ModelLibrary
     public static readonly string[] EnemySkins = {
         "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher",
         "Operator", "OperatorDesert", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked" };
-    /// <summary>Characters the player can pick (all free).</summary>
+    /// <summary>Characters the player can pick: the basic ones are free, the others are bought in the store
+    /// with Kredi (ShopPrices), won from gift boxes or received as gifts.</summary>
     public static readonly string[] ShopSkins = {
         "SoldierMale", "Operator", "OperatorDesert", "OperatorNight", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
         "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung" };
@@ -21,7 +22,7 @@ public static class ModelLibrary
     public static readonly string[] ShopRoles = {
         "Dengeli piyade", "Özel harekât", "Çöl harekâtı", "Gece baskını", "Hücum piyadesi", "Orman keşifçisi", "Ağır zırhlı", "Şehir çatışması", "Hızlı baskıncı",
         "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci" };
-    public static readonly int[] ShopPrices = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    public static readonly int[] ShopPrices = { 0, 1500, 1800, 2200, 0, 1200, 2000, 2400, 2800, 3500, 0, 0, 0, 3000, 0 };
 
     /// <summary>
     /// Colour variants: same model and animations as the base character, with the textures in

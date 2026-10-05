@@ -15,7 +15,9 @@ public enum RewardKind
     VehicleCamo,
     ParachuteCamo,
     Attachment,
-    Token
+    Token,
+    Skin,      // a character (id = skin)
+    Crate      // an unopened gift box (id = crate id)
 }
 
 /// <summary>One level's reward.</summary>
@@ -33,6 +35,8 @@ public struct Reward
             {
                 case RewardKind.Credits: return amount.ToString("N0") + " Kredi";
                 case RewardKind.Token: return Progression.TokenNames[amount];
+                case RewardKind.Skin: return Shop.SkinName(id) + " (Karakter)";
+                case RewardKind.Crate: return Shop.Crate(id).name;
                 case RewardKind.Attachment:
                 {
                     var a = Gunsmith.FindAttachment(id);
@@ -60,6 +64,8 @@ public struct Reward
                     return Cosmetics.FindAny(id).rarity;
                 case RewardKind.Token: return "Epik";
                 case RewardKind.Attachment: return "Nadir";
+                case RewardKind.Skin: return Shop.SkinRarity(id);
+                case RewardKind.Crate: return Shop.Crate(id).rarity;
                 default: return "Sıradan";
             }
         }
@@ -74,6 +80,8 @@ public struct Reward
             {
                 case RewardKind.Credits: return "currency";
                 case RewardKind.Token: return Progression.TokenIcons[amount];
+                case RewardKind.Skin: return "skin";
+                case RewardKind.Crate: return "crate_" + id;
                 case RewardKind.Attachment:
                 {
                     var a = Gunsmith.FindAttachment(id);

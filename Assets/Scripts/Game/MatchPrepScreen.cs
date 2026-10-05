@@ -33,6 +33,10 @@ public class MatchPrepScreen : MonoBehaviour
     private MatchMode mode;
     private readonly List<Image> charButtons = new List<Image>();
     private readonly List<Text> charNames = new List<Text>();
+    private readonly List<Text> charPrices = new List<Text>();
+    private GameObject buyButton;
+    private Text buyLabel;
+    private int shownChar;
     private readonly List<Image> weaponButtons = new List<Image>();
     private readonly List<Text> weaponNames = new List<Text>();
     private RectTransform primarySkinRow, pistolSkinRow;
@@ -104,14 +108,23 @@ public class MatchPrepScreen : MonoBehaviour
             n.fontStyle = FontStyle.Bold;
             var r = UIUtil.CreateText(b.transform, ModelLibrary.ShopRoles[i], new Vector2(0.5f, 0.5f), new Vector2(0f, -24f), new Vector2(260f, 30f), 20, TextAnchor.MiddleCenter);
             r.color = Theme.TextDim;
+            var price = UIUtil.CreateText(b.transform, "", new Vector2(1f, 1f), new Vector2(-62f, -16f), new Vector2(120f, 26f), 18, TextAnchor.MiddleRight);
+            price.color = new Color(1f, 0.85f, 0.3f);
             charButtons.Add(b.GetComponent<Image>());
             charNames.Add(n);
+            charPrices.Add(price);
         }
         charTitle = UIUtil.CreateText(left, "", new Vector2(0.5f, 0f), new Vector2(0f, 90f), new Vector2(560f, 50f), 36, TextAnchor.MiddleLeft);
         charTitle.fontStyle = FontStyle.Bold;
         charTitle.color = Theme.Accent;
         charRole = UIUtil.CreateText(left, "", new Vector2(0.5f, 0f), new Vector2(0f, 48f), new Vector2(560f, 40f), 24, TextAnchor.MiddleLeft);
         charRole.color = Theme.TextDim;
+        // Paid characters: try them on here, buy with Kredi.
+        var buy = UIUtil.CreateButton(left, "SATIN AL", new Vector2(1f, 0f), new Vector2(-130f, 90f), new Vector2(240f, 70f), Theme.Accent, false, 26, out buyLabel);
+        buyLabel.color = new Color(0.1f, 0.08f, 0.02f);
+        buyLabel.GetComponent<Shadow>().enabled = false;
+        buy.onClick.AddListener(BuyShown);
+        buyButton = buy.gameObject;
 
         // ---- Right: weapons
         var right = UIUtil.CreateRect(t, "Weapons", new Vector2(1f, 0.5f), new Vector2(-330f, -20f), new Vector2(600f, 860f));
@@ -163,7 +176,10 @@ public class MatchPrepScreen : MonoBehaviour
             UiSound.Confirm();
             Haptics.Tap(40);
             gameObject.SetActive(false);
-            GameManager.Instance.StartMatch(mode);
+            var gm = GameManager.Instance;
+            if (gm.player != null)
+                gm.player.ApplySkin(gm.profile.equippedSkin);   // drop the tried-on locked character
+            gm.StartMatch(mode);
         });
         var hint = UIUtil.CreateText(t, "Seçimlerin kaydedilir. Aparat ve kamuflaj için Silah Atölyesi'ni kullan.", new Vector2(0.5f, 0f), new Vector2(0f, 175f), new Vector2(1000f, 34f), 22, TextAnchor.MiddleCenter);
         hint.color = Theme.TextDim;
@@ -188,6 +204,9 @@ public class MatchPrepScreen : MonoBehaviour
 
     private void Back()
     {
+        var gm = GameManager.Instance;
+        if (gm.player != null)
+            gm.player.ApplySkin(gm.profile.equippedSkin);
         Hide();
         GameManager.Instance.uiManager.ShowLobby();
     }
@@ -196,9 +215,16 @@ public class MatchPrepScreen : MonoBehaviour
     {
         var gm = GameManager.Instance;
         string skin = ModelLibrary.ShopSkins[index];
-        if (!gm.profile.OwnsSkin(skin))
+        int price = ModelLibrary.ShopPrices[index];
+        shownChar = index;
+        if (!gm.profile.OwnsSkin(skin) && price <= 0)
             gm.profile.BuySkin(skin, 0);
-        gm.profile.EquipSkin(skin);
+        bool owned = gm.profile.OwnsSkin(skin);
+        if (owned)
+            gm.profile.EquipSkin(skin);   // a locked one is only tried on: the match uses the last owned pick
+        buyButton.SetActive(!owned);
+        buyLabel.text = "SATIN AL  " + price.ToString("N0");
+        RefreshPrices();
         if (gm.player != null)
         {
             gm.player.ApplySkin(skin);
@@ -211,9 +237,35 @@ public class MatchPrepScreen : MonoBehaviour
             charNames[i].color = sel ? new Color(0.08f, 0.08f, 0.1f) : Color.white;
             charNames[i].GetComponent<Shadow>().enabled = !sel;
         }
-        charTitle.text = ModelLibrary.ShopNames[index].ToUpper();
+        charTitle.text = MapCatalog.TrUpper(ModelLibrary.ShopNames[index]);
         ScrollToCharacter(index);
-        charRole.text = ModelLibrary.ShopRoles[index];
+        charRole.text = owned ? ModelLibrary.ShopRoles[index]
+            : "Kilitli  •  " + price.ToString("N0") + " Kredi  (sende " + gm.profile.coins.ToString("N0") + ")";
+    }
+
+    private void RefreshPrices()
+    {
+        var p = GameManager.Instance.profile;
+        for (int i = 0; i < charPrices.Count; i++)
+        {
+            string skin = ModelLibrary.ShopSkins[i];
+            charPrices[i].text = p.OwnsSkin(skin) || ModelLibrary.ShopPrices[i] <= 0 ? "" : ModelLibrary.ShopPrices[i].ToString("N0") + " K";
+        }
+    }
+
+    private void BuyShown()
+    {
+        var gm = GameManager.Instance;
+        string skin = ModelLibrary.ShopSkins[shownChar];
+        int price = ModelLibrary.ShopPrices[shownChar];
+        if (!gm.profile.BuySkin(skin, price))
+        {
+            gm.uiManager.Toast("Yetersiz Kredi: " + price.ToString("N0") + " gerekli. Görevler ve kutularla Kredi kazan.");
+            return;
+        }
+        UiSound.Confirm();
+        gm.uiManager.Toast(ModelLibrary.ShopNames[shownChar] + " artık senin!");
+        SelectCharacter(shownChar);
     }
 
     /// <summary>Scrolls the character grid so the selected row is visible.</summary>
