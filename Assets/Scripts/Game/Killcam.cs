@@ -102,7 +102,7 @@ public class Killcam : MonoBehaviour
         // killer's weapon card (bottom-left) and health (bottom-right)
         var card = UIUtil.CreateImage(root, "WeaponCard", new Vector2(0f, 0f), new Vector2(250f, 230f), new Vector2(400f, 200f), new Color(0.42f, 0.18f, 0.6f, 0.92f), false);
         card.raycastTarget = false;
-        weaponPic = UIUtil.CreateRect(card.transform, "Gun", c, new Vector2(0f, 18f), new Vector2(360f, 180f * 0.82f)).gameObject.AddComponent<RawImage>();
+        weaponPic = UIUtil.CreateRect(card.transform, "Gun", c, new Vector2(0f, 20f), new Vector2(280f, 140f)).gameObject.AddComponent<RawImage>();   // 2:1 pictures
         weaponPic.raycastTarget = false;
         weaponText = UIUtil.CreateText(card.transform, "", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(380f, 36f), 28, TextAnchor.MiddleCenter);
         weaponText.fontStyle = FontStyle.Bold;

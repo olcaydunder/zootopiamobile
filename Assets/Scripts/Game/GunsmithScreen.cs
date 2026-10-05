@@ -557,14 +557,14 @@ public class GunsmithScreen : MonoBehaviour, IDragHandler
         var tex = Resources.Load<Texture2D>("UI/Guns/" + (skin.Length == 0 ? w.ToString() : w + "_" + skin));
         if (tex != null)
         {
-            var pic = UIUtil.CreateRect(rect, "Picture", new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(width - 20f, (width - 20f) * 0.5f * 0.82f));
+            var pic = UIUtil.CreateRect(rect, "Picture", new Vector2(0.5f, 1f), new Vector2(0f, -54f), new Vector2(176f, 88f));   // the pictures are 2:1
             var raw = pic.gameObject.AddComponent<RawImage>();
             raw.texture = tex;
             raw.raycastTarget = false;
         }
-        var name = UIUtil.CreateText(rect, ModelLibrary.GunSkinName(w, skin), new Vector2(0.5f, 0f), new Vector2(0f, 48f), new Vector2(width - 16f, 30f), 22, TextAnchor.MiddleCenter);
+        var name = UIUtil.CreateText(rect, ModelLibrary.GunSkinName(w, skin), new Vector2(0.5f, 0f), new Vector2(0f, 42f), new Vector2(width - 16f, 30f), 22, TextAnchor.MiddleCenter);
         name.fontStyle = FontStyle.Bold;
-        var st = UIUtil.CreateText(rect, selected ? "SEÇİLİ" : "SEÇ", new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(width - 16f, 28f), 20, TextAnchor.MiddleCenter);
+        var st = UIUtil.CreateText(rect, selected ? "SEÇİLİ" : "SEÇ", new Vector2(0.5f, 0f), new Vector2(0f, 15f), new Vector2(width - 16f, 26f), 20, TextAnchor.MiddleCenter);
         st.fontStyle = FontStyle.Bold;
         st.color = selected ? Theme.Accent : Theme.TextDim;
         b.onClick.AddListener(() => ChooseModel(w, skin));
