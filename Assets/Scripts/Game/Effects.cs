@@ -5,6 +5,9 @@ public static class Effects
 {
     private static ParticleSystem sparks;
     private static ParticleSystem smoke;
+    private static ParticleSystem clouds;   // big soft puffs (smoke and gas grenades)
+    private static ParticleSystem flames;
+    private static Texture2D softTex;
 
     private static ParticleSystem Create(string name, float gravity, bool growing)
     {
@@ -60,6 +63,81 @@ public static class Effects
             sparks = Create("FX_Sparks", 1.5f, false);
         if (smoke == null)
             smoke = Create("FX_Smoke", -0.05f, true);
+    }
+
+    /// <summary>A round puff that fades to nothing at its edge (clouds read as volume, not discs).</summary>
+    private static Texture2D Soft()
+    {
+        if (softTex != null)
+            return softTex;
+        const int n = 64;
+        softTex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        softTex.wrapMode = TextureWrapMode.Clamp;
+        var px = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n - 0.5f, dy = (y + 0.5f) / n - 0.5f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy) * 2f;
+                float a = Mathf.Clamp01(1f - r);
+                a = a * a * (3f - 2f * a);
+                px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+            }
+        softTex.SetPixels32(px);
+        softTex.Apply();
+        return softTex;
+    }
+
+    private static void EnsureAreas()
+    {
+        Ensure();
+        if (clouds == null)
+        {
+            clouds = Create("FX_Clouds", -0.01f, true);
+            var main = clouds.main;
+            main.maxParticles = 900;
+            clouds.GetComponent<ParticleSystemRenderer>().sharedMaterial.mainTexture = Soft();
+        }
+        if (flames == null)
+        {
+            flames = Create("FX_Flames", -0.6f, false);
+            var main = flames.main;
+            main.maxParticles = 700;
+            var size = flames.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.2f));
+            flames.GetComponent<ParticleSystemRenderer>().sharedMaterial.mainTexture = Soft();
+        }
+    }
+
+    /// <summary>One flame tongue of a burning patch (molotov).</summary>
+    public static void Flame(Vector3 point)
+    {
+        if (NetGame.IsServer)
+            return;
+        EnsureAreas();
+        Color c = Color.Lerp(new Color(1f, 0.85f, 0.3f, 0.95f), new Color(1f, 0.35f, 0.08f, 0.9f), Random.value);
+        Emit(flames, point, new Vector3(Random.Range(-0.2f, 0.2f), Random.Range(1.2f, 2.4f), Random.Range(-0.2f, 0.2f)), Random.Range(0.5f, 1.1f), Random.Range(0.45f, 0.8f), c);
+    }
+
+    /// <summary>One big puff of a smoke or gas cloud (lives a few seconds, keeps the cloud thick while it is fed).</summary>
+    public static void Cloud(Vector3 point, float size, Color color)
+    {
+        if (NetGame.IsServer)
+            return;
+        EnsureAreas();
+        Emit(clouds, point, Random.insideUnitSphere * 0.35f + Vector3.up * 0.1f, size * Random.Range(0.8f, 1.2f), Random.Range(3f, 4f), color);
+    }
+
+    /// <summary>The bang of a flash grenade: a white burst and sparks.</summary>
+    public static void FlashBurst(Vector3 point)
+    {
+        if (NetGame.IsServer)
+            return;
+        EnsureAreas();
+        Emit(clouds, point, Vector3.zero, 6f, 0.35f, new Color(1f, 1f, 0.95f, 1f));
+        for (int i = 0; i < 24; i++)
+            Emit(sparks, point, Random.insideUnitSphere * Random.Range(4f, 10f), Random.Range(0.05f, 0.12f), Random.Range(0.3f, 0.6f), new Color(1f, 1f, 0.85f));
     }
 
     private static void Emit(ParticleSystem ps, Vector3 pos, Vector3 velocity, float size, float life, Color color)

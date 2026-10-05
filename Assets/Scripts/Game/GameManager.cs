@@ -494,6 +494,7 @@ public class GameManager : MonoBehaviour
         bots.Clear();
         Door.ResetAll();
         AbilityFx.ClearAll();
+        AreaEffect.ClearAll();
         UpgradeStation.ClearAll();
         VehicleSpawns.ClearPads();
         Marks.Clear();
@@ -529,6 +530,7 @@ public class GameManager : MonoBehaviour
     public void OnPlayerKill()
     {
         player.kills++;
+        player.OnGearKill();
         uiManager.Toast("Düşman elendi! (" + player.kills + ")");
     }
 

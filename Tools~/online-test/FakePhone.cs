@@ -26,7 +26,7 @@ public class Phone
     public static string MapId = Environment.GetEnvironmentVariable("ZM_MAP") ?? "eksioglu";
     public void Hello(string version, string code)
     {
-        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(5); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId);
+        w.Reset(); w.Byte('Z'); w.Byte('M'); w.Byte(1); w.Byte(6); w.UInt(nonce); w.String(version); w.String(code); w.String(name); w.String("NinjaSand"); w.String(""); w.String("ACC" + name.Length); w.String("secret"); w.String(MapId); w.String("k_cat");
         sock.Send(w.Buffer, w.Length, server);
     }
     public static void Pos(NetWriter w, V3 p) { w.Short((int)Math.Round(p.x * 20)); w.Short((int)Math.Round(p.y * 20)); w.Short((int)Math.Round(p.z * 20)); }
@@ -61,7 +61,7 @@ public class Phone
         switch (t)
         {
             case 20: lobbyPhase = r.Byte(); r.Float(); r.Byte(); r.Bool(); leader = r.UShort(); r.String(); { int n = r.Byte(); lobbyNames.Clear(); for (int i = 0; i < n; i++) { r.UShort(); lobbyNames.Add(r.String()); r.String(); } } break;
-            case 21: { int n = r.Byte(); for (int i = 0; i < n; i++) { var e = new Ent { id = r.UShort(), team = r.Byte(), bot = r.Bool(), name = r.String(), skin = r.String() }; r.String(); r.String(); ents[e.id] = e; } } break;
+            case 21: { int n = r.Byte(); for (int i = 0; i < n; i++) { var e = new Ent { id = r.UShort(), team = r.Byte(), bot = r.Bool(), name = r.String(), skin = r.String() }; r.String(); r.String(); r.String(); ents[e.id] = e; } } break;
             case 22: id = r.UShort(); team = r.Byte(); r.Byte(); { var ps = Pos(r); var pe = Pos(r); r.Float(); r.Float(); zoneR = r.Float(); doorCount = r.UShort(); teams = r.Byte(); pos = ps; inMatch = true; Console.WriteLine(name + ": MATCH START id=" + id + " team=" + team + " teams=" + teams + " plane " + ps + "->" + pe + " zoneR=" + zoneR + " doors=" + doorCount + " ents=" + ents.Count); } break;
             case 23: { int n = r.UShort(); for (int i = 0; i < n; i++) { int lid = r.UShort(); int ty = r.Byte(); loot[lid] = Pos(r); lootType[lid] = ty; } } break;
             case 24: lootTakenId = r.UShort(); lootTakenOk = r.Bool(); break;
@@ -76,7 +76,7 @@ public class Phone
             case 28: { float a = r.UShort() / 10f; lastAttacker = r.UShort(); Pos(r); r.Bool(); lastHow = r.Byte(); damageMsgs++; damageTotal += a; } break;
             case 29: { int k = r.UShort(); int v = r.UShort(); int how = r.Byte(); killLog.Add(k + ">" + v + "(" + how + ")"); if (k == id) kills++; } break;
             case 30: r.UShort(); r.Bool(); Pos(r); doorMsgs++; break;
-            case 31: r.UShort(); Pos(r); r.Float(); r.Float(); r.Float(); grenades++; break;
+            case 31: r.UShort(); Pos(r); r.Float(); r.Float(); r.Float(); r.Byte(); grenades++; break;
             case 32: placement = r.Byte(); r.Byte(); break;
             case 33: endWinner = r.Byte(); Console.WriteLine(name + ": MATCH END winner team " + endWinner + " (" + r.String() + ")"); break;
             case 34: Console.WriteLine(name + ": TOAST " + r.String()); break;

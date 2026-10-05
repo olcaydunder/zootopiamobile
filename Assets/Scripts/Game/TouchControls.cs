@@ -38,7 +38,7 @@ public class TouchControls : MonoBehaviour
     private Image cannonReady;
 
     private bool jumpQueued, crouchQueued, reloadQueued, medkitQueued;
-    private bool drinkQueued, grenadeQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued, airdropQueued, boostQueued;
+    private bool drinkQueued, grenadeQueued, tacticalQueued, swapQueued, vehicleQueued, airQueued, aimQueued, doorQueued, abilityQueued, airdropQueued, boostQueued;
     private Image aimImage;
 
     private Canvas canvas;
@@ -57,9 +57,10 @@ public class TouchControls : MonoBehaviour
     private Vector2 fireFollowStart;
     private CanvasGroup group;
     private Image sprintImage;
-    private Text medkitLabel, drinkLabel, grenadeLabel, swapLabel, vehicleLabel, airLabel;
+    private Text medkitLabel, drinkLabel, grenadeLabel, tacticalLabel, swapLabel, vehicleLabel, airLabel;
     private GameObject combatGroup;
-    private GameObject swapButton;
+    private GameObject swapButton, tacticalButton;
+    private int itemsKey = -1;
     private GameObject vehicleButton;
     private GameObject doorButton;
     private GameObject airdropTokenButton, boostTokenButton;
@@ -87,6 +88,7 @@ public class TouchControls : MonoBehaviour
     public bool ConsumeMedkit() { bool v = medkitQueued; medkitQueued = false; return v; }
     public bool ConsumeDrink() { bool v = drinkQueued; drinkQueued = false; return v; }
     public bool ConsumeGrenade() { bool v = grenadeQueued; grenadeQueued = false; return v; }
+    public bool ConsumeTactical() { bool v = tacticalQueued; tacticalQueued = false; return v; }
     public bool ConsumeSwap() { bool v = swapQueued; swapQueued = false; return v; }
     public bool ConsumeVehicle() { bool v = vehicleQueued; vehicleQueued = false; return v; }
     public bool ConsumeAirAction() { bool v = airQueued; airQueued = false; return v; }
@@ -139,6 +141,9 @@ public class TouchControls : MonoBehaviour
         reload.onClick.AddListener(() => reloadQueued = true);
         var grenade = UIUtil.CreateButton(g, "BOMBA", new Vector2(1f, 0f), new Vector2(-660f, 300f), new Vector2(115f, 115f), new Color(0.35f, 0.5f, 0.25f, 0.5f), true, 18, out grenadeLabel);
         grenade.onClick.AddListener(() => grenadeQueued = true);
+        var tactical = UIUtil.CreateButton(g, "TAKTİK", new Vector2(1f, 0f), new Vector2(-660f, 140f), new Vector2(105f, 105f), new Color(0.45f, 0.5f, 0.6f, 0.5f), true, 17, out tacticalLabel);
+        tactical.onClick.AddListener(() => tacticalQueued = true);
+        tacticalButton = tactical.gameObject;
 
         var aim = UIUtil.CreateButton(g, "NİŞAN", new Vector2(1f, 0f), new Vector2(-660f, 470f), new Vector2(115f, 115f), ButtonColor, true, 20, out unused);
         aim.onClick.AddListener(() => aimQueued = true);
@@ -227,6 +232,7 @@ public class TouchControls : MonoBehaviour
         RegisterHud("crouch", "EĞİL", crouch);
         RegisterHud("reload", "DOLDUR", reload);
         RegisterHud("grenade", "BOMBA", grenade);
+        RegisterHud("tactical", "TAKTİK", tactical);
         RegisterHud("aim", "NİŞAN", aim);
         RegisterHud("swap", "DEĞİŞ", swap);
         RegisterHud("medkit", "İLK YARDIM", medkit);
@@ -316,9 +322,19 @@ public class TouchControls : MonoBehaviour
         if (player.isDowned && combatGroup.activeSelf)
             combatGroup.SetActive(false);
 
-        medkitLabel.text = "İLK YARDIM x" + player.inventory.medkits;
-        drinkLabel.text = "İÇECEK x" + player.inventory.drinks;
-        grenadeLabel.text = "BOMBA\nx" + player.inventory.grenades;
+        int key = player.inventory.medkits * 1000000 + player.inventory.drinks * 10000 + player.inventory.grenades * 100 + player.inventory.tacticals;
+        if (key != itemsKey)
+        {
+            itemsKey = key;
+            string med = Gear.MedicalId == "m_adrenaline" ? "ADRENALİN" : Gear.MedicalId == "m_pack" ? "SAĞLIK PAKETİ" : "İLK YARDIM";
+            medkitLabel.text = med + " x" + player.inventory.medkits;
+            drinkLabel.text = "İÇECEK x" + player.inventory.drinks;
+            grenadeLabel.text = Grenade.Name(player.ExplosiveKind) + "\nx" + player.inventory.grenades;
+            tacticalLabel.text = Grenade.Name(player.TacticalKind) + "\nx" + player.inventory.tacticals;
+        }
+        bool tacOn = player.HasTactical;
+        if (tacticalButton.activeSelf != tacOn)
+            tacticalButton.SetActive(tacOn);
         bool hasOther = player.HasOtherWeapon;
         if (swapButton.activeSelf != hasOther)
             swapButton.SetActive(hasOther);
@@ -422,7 +438,7 @@ public class TouchControls : MonoBehaviour
         if (rightFireRect != null)
             rightFireRect.anchoredPosition = rightFireHome;
         jumpQueued = crouchQueued = reloadQueued = medkitQueued = false;
-        drinkQueued = grenadeQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = airdropQueued = boostQueued = false;
+        drinkQueued = grenadeQueued = tacticalQueued = swapQueued = vehicleQueued = airQueued = aimQueued = doorQueued = abilityQueued = airdropQueued = boostQueued = false;
         SprintOn = false;
         if (sprintImage != null)
             sprintImage.color = ButtonColor;

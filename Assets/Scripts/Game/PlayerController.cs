@@ -202,6 +202,7 @@ public partial class PlayerController : MonoBehaviour, IDamageable
                 break;
         }
 
+        GearTick();
         if (boostRemaining > 0f && health < maxHealth)
         {
             float rate = Ability != null && Ability.cls == PlayerClass.Medic ? 6f : 3f;   // Sahra Hekimi: drinks work twice as fast
@@ -279,8 +280,25 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             return false;
         }
 
-        // Zone damage (attackerTeam -1) ignores armor.
-        if (attackerTeam >= 0 && armor > 0f)
+        // Envanter: the helmet softens head shots, Sırt Plakası shots from behind.
+        bool head = HitContext.Head || nextHitHead;
+        nextHitHead = false;
+        if (attackerTeam >= 0)
+        {
+            if (head)
+                amount *= Gear.HeadshotTakenMul;
+            if (lastHitHasSource)
+            {
+                Vector3 to = lastHitFrom - transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude > 0.01f && Vector3.Dot(transform.forward, to.normalized) < -0.35f)
+                    amount *= Gear.BackTakenMul;
+            }
+            lastDamageTime = Time.time;
+        }
+
+        // Zone damage (attackerTeam -1) and poison ignore armor.
+        if (attackerTeam >= 0 && armor > 0f && !HitContext.Pierce)
         {
             float absorbed = Mathf.Min(armor, amount * 0.5f);
             armor -= absorbed;
@@ -330,6 +348,41 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         return false;
     }
 
+    // ----- Envanter effects -----
+
+    /// <summary>Online: the next hit (S_Damage) was a head shot.</summary>
+    [System.NonSerialized] public bool nextHitHead;
+    private float lastDamageTime, adrenalineUntil, healOverTime, healRate;
+    private float speedMul = 1f, crouchMul = 1f;
+
+    /// <summary>Movement multiplier from the boots, perks and heavy armour, and the adrenaline burst.</summary>
+    public float GearSpeed { get { return speedMul * (Time.time < adrenalineUntil ? 1.2f : 1f); } }
+
+    /// <summary>Toparlanma (health back after 5 s without damage) and the health pack's slow heal.</summary>
+    private void GearTick()
+    {
+        if (isDead || isDowned)
+            return;
+        float dt = Time.deltaTime;
+        if (healOverTime > 0f)
+        {
+            float h = Mathf.Min(healOverTime, healRate * dt);
+            healOverTime -= h;
+            health = Mathf.Min(maxHealth, health + h);
+        }
+        float regen = Gear.RegenPerSecond;
+        if (regen > 0f && health < maxHealth && Time.time - lastDamageTime > 5f && state == PlayerState.Ground)
+            health = Mathf.Min(maxHealth, health + regen * dt);
+    }
+
+    /// <summary>Avcı: health back for a kill.</summary>
+    public void OnGearKill()
+    {
+        float h = Gear.KillHeal;
+        if (h > 0f && !isDead && !isDowned)
+            health = Mathf.Min(maxHealth, health + h);
+    }
+
     /// <summary>Team of whoever hurt the player last (5v5 scoring offline; -1 none).</summary>
     public int lastDamageTeam = -1;
 
@@ -343,9 +396,10 @@ public partial class PlayerController : MonoBehaviour, IDamageable
             kills = keepKills;
         lastDamageTeam = -1;
         GiveWeapon(Gunsmith.BaseWeapon(Loadout.PrimaryType));
-        armor = 50f;
+        armor = Mathf.Min(maxArmor, 50f + Gear.StartArmor);
         inventory.medkits = 2;
-        inventory.grenades = 2;
+        inventory.grenades = 1 + Gear.StartExplosives;
+        inventory.tacticals = HasTactical ? 1 : 0;
         Vector3 d = lookAt - transform.position;
         d.y = 0f;
         if (d.sqrMagnitude > 0.01f)
@@ -385,6 +439,15 @@ public partial class PlayerController : MonoBehaviour, IDamageable
         isSprinting = false;
         SetCrouch(false);
         inventory.Reset();
+        // Envanter: the vest's armour, the explosives and the tactical item come along.
+        armor = Mathf.Min(maxArmor, Gear.StartArmor);
+        inventory.grenades = Mathf.Min(Inventory.MaxGrenades, Gear.StartExplosives - 1);
+        inventory.tacticals = HasTactical ? 1 : 0;
+        speedMul = Gear.SpeedMul;
+        crouchMul = Gear.CrouchSpeedMul;
+        adrenalineUntil = 0f;
+        healOverTime = 0f;
+        lastDamageTime = Time.time;
         rig.ResetPose();
         wind.Stop();
         camTarget = 3.6f;

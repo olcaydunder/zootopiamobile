@@ -159,6 +159,15 @@ public class WeaponController : MonoBehaviour
                 {
                     bool head = body && hit.point.y - target.transform.position.y > 0.55f;
                     float damage = weaponData.damage * (head ? 2f : 1f) * (owner != null ? owner.DamageMultiplier(target) : 1f);
+                    if (playerOwned)
+                    {
+                        // Envanter perks: Keskin Göz (head shots), Son Nefes (the lower your health, the harder you hit).
+                        if (head)
+                            damage *= Gear.HeadshotDealtMul;
+                        var me = shooter as PlayerController;
+                        if (me != null)
+                            damage *= Gear.LowHealthDamageMul(me.health / Mathf.Max(1f, me.maxHealth));
+                    }
                     var hitPlayer = target as PlayerController;
                     if (hitPlayer != null)
                         hitPlayer.MarkHitFrom(transform.position);
@@ -256,7 +265,7 @@ public class WeaponController : MonoBehaviour
         isReloading = true;
         if (playerOwned)
             Sfx.Play(SoundBank.Reload, 0.6f);
-        yield return new WaitForSeconds(weaponData.reloadTime);
+        yield return new WaitForSeconds(weaponData.reloadTime * (playerOwned ? Gear.ReloadTimeMul : 1f));   // Hızlı Eller
 
         int needed = weaponData.magazineSize - currentAmmo;
         int toLoad = Mathf.Min(needed, reserveAmmo);

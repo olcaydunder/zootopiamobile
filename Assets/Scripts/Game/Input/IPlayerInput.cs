@@ -24,6 +24,7 @@ public interface IPlayerInput
     bool ConsumeMedkit();
     bool ConsumeDrink();
     bool ConsumeGrenade();
+    bool ConsumeTactical();
     bool ConsumeSwap();
     bool ConsumeVehicle();
     bool ConsumeAirAction();

@@ -372,9 +372,16 @@ public class LootSystem : MonoBehaviour
                 return "İlk yardım çantası alındı";
 
             case LootType.Grenade:
+                // Some of the throwables are the equipped tactical item (smoke, flash or gas).
+                if (player.HasTactical && player.inventory.tacticals < Inventory.MaxTacticals &&
+                    (Random.value < 0.4f || player.inventory.grenades >= Inventory.MaxGrenades))
+                {
+                    player.inventory.AddTactical();
+                    return Grenade.Name(player.TacticalKind) + " alındı (TAKTİK)";
+                }
                 if (!player.inventory.AddGrenade())
                     return null;
-                return "El bombası alındı";
+                return Grenade.Name(player.ExplosiveKind) + " alındı";
 
             case LootType.Drink:
                 if (!player.inventory.AddDrink())

@@ -56,7 +56,7 @@ public sealed class NetClient : MonoBehaviour
     {
         public int id, team;
         public bool bot;
-        public string name, skin, para, account;
+        public string name, skin, para, account, mask;
     }
 
     private NetSocket socket;
@@ -161,6 +161,7 @@ public sealed class NetClient : MonoBehaviour
         w.String(OnlineService.AccountId, 12);
         w.String(OnlineService.SecretForHello, 64);
         w.String(MapCatalog.Current, 16);
+        w.String(Gear.MaskId ?? "", 16);
         socket.Send(w.Buffer, w.Length, server);
     }
 
@@ -513,7 +514,8 @@ public sealed class NetClient : MonoBehaviour
                 name = reader.String(),
                 skin = reader.String(),
                 para = reader.String(),
-                account = reader.String()
+                account = reader.String(),
+                mask = reader.String()
             };
             infos[e.id] = e;
         }
@@ -558,6 +560,7 @@ public sealed class NetClient : MonoBehaviour
             if (e.id == MyId)
                 continue;
             var p = NetPuppet.Create(e.id, LocalTeam(e.team), e.bot, e.name, e.skin, e.para);
+            p.rig.SetMask(Gear.Find(e.mask) != null ? e.mask : "");
             puppets[e.id] = p;
             gm.Combatants.Add(p);
         }
@@ -757,7 +760,7 @@ public sealed class NetClient : MonoBehaviour
         float amount = reader.UShort() / 10f;
         int attacker = reader.UShort();
         Vector3 from = reader.Pos();
-        reader.Bool();   // head shot (not shown yet)
+        bool head = reader.Bool();
         int how = reader.Byte();
         var player = GameManager.Instance.player;
         if (State != Phase.Playing || player == null || player.isDead)
@@ -769,6 +772,7 @@ public sealed class NetClient : MonoBehaviour
             lastAttackTime = Time.time;
         }
         player.MarkHitFrom(from);
+        player.nextHitHead = head;
         player.TakeDamage(amount, 1);
     }
 
@@ -832,8 +836,9 @@ public sealed class NetClient : MonoBehaviour
         reader.UShort();
         Vector3 pos = reader.Pos();
         Vector3 vel = reader.Vec();
+        var kind = (ThrowKind)Mathf.Clamp(reader.Byte(), 0, (int)ThrowKind.Gas);
         if (State == Phase.Playing)
-            Grenade.ThrowVisual(pos, vel);
+            Grenade.ThrowVisual(pos, vel, kind);
     }
 
     private void OnMatchEnd()
@@ -925,7 +930,7 @@ public sealed class NetClient : MonoBehaviour
         conn.SendReliable(w.ToArray());
     }
 
-    public void SendGrenade(Vector3 position, Vector3 velocity)
+    public void SendGrenade(Vector3 position, Vector3 velocity, ThrowKind kind)
     {
         if (!InMatch || conn == null)
             return;
@@ -933,6 +938,7 @@ public sealed class NetClient : MonoBehaviour
         w.Byte(NetProtocol.C_Grenade);
         w.Pos(position);
         w.Vec(velocity);
+        w.Byte((int)kind);
         conn.SendReliable(w.ToArray());
     }
 

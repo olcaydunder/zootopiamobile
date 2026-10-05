@@ -40,7 +40,7 @@ public partial class PlayerController
         Vector3 move = transform.right * input.x + transform.forward * input.y;
         move = Vector3.ClampMagnitude(move, 1f);
 
-        float speed = (isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : moveSpeed)) * SpeedBoostFactor;
+        float speed = (isCrouching ? crouchSpeed * crouchMul : (isSprinting ? sprintSpeed : moveSpeed)) * SpeedBoostFactor * GearSpeed;
         if (currentWeapon != null && currentWeapon.weaponData != null)
             speed *= Mathf.Clamp(0.85f + 0.15f * currentWeapon.weaponData.mobilityMul, 0.75f, 1.15f);
         if (aimingDownSights)
@@ -65,6 +65,7 @@ public partial class PlayerController
         float vol = isCrouching ? 0.22f : isSprinting ? 0.62f : 0.45f;
         if (Ability != null && Ability.cls == PlayerClass.Shadow)
             vol *= 0.3f;
+        vol *= Gear.StepVolumeMul;   // Dağ Botu
         Footsteps.Play(transform.position + controller.center - Vector3.up * (controller.height * 0.5f), vol, true);
     }
 

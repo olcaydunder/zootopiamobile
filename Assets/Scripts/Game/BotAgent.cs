@@ -44,7 +44,18 @@ public partial class BotAgent : MonoBehaviour, IDamageable
     private float verticalVelocity;
     private float nextGrenadeTime;
     private int grenades;
+    private float blindUntil;
     private const float Gravity = -20f;
+
+    /// <summary>Flash grenade: sees nothing and does not shoot for a while.</summary>
+    public void Blind(float seconds)
+    {
+        blindUntil = Mathf.Max(blindUntil, Time.time + seconds);
+        target = null;
+        targetVisible = false;
+    }
+
+    public bool Blinded { get { return Time.time < blindUntil; } }
 
     // Drop
     private AirPlane plane;
@@ -338,6 +349,12 @@ public partial class BotAgent : MonoBehaviour, IDamageable
 
     private void Think(GameManager gm)
     {
+        if (Blinded)
+        {
+            target = null;
+            targetVisible = false;
+            return;
+        }
         IDamageable best = null;
         float bestDist = detectRange;
         Vector3 eye = transform.position + Vector3.up * 0.6f;
@@ -369,6 +386,8 @@ public partial class BotAgent : MonoBehaviour, IDamageable
 
     private static bool HasLineOfSight(Vector3 eye, IDamageable other)
     {
+        if (AreaEffect.Active.Count > 0 && AreaEffect.SmokeBlocks(eye, other.AimPoint))
+            return false;   // nobody sees through a smoke cloud
         RaycastHit hit;
         if (Physics.Linecast(eye, other.AimPoint, out hit, ~0, QueryTriggerInteraction.Ignore))
         {
@@ -596,7 +615,9 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         // Rough lob: 45 degrees, speed for distance d (ignoring drag).
         float speed = Mathf.Sqrt(d * 20f) * Random.Range(0.85f, 1.1f);
         Vector3 vel = (flat.normalized + Vector3.up).normalized * speed;
-        Grenade.Throw(transform.position + Vector3.up * 0.9f + flat.normalized * 0.6f, vel, this);
+        // Mostly frag grenades, sometimes a molotov.
+        var kind = Random.value < 0.25f ? ThrowKind.Molotov : ThrowKind.Frag;
+        Grenade.Throw(transform.position + Vector3.up * 0.9f + flat.normalized * 0.6f, vel, this, kind, 1f);
     }
 
     private static Vector3 FlatDirection(Vector3 v)
@@ -610,7 +631,7 @@ public partial class BotAgent : MonoBehaviour, IDamageable
         if (isDead || IsAirborne)
             return false;
 
-        if (attackerTeam >= 0 && armor > 0f)
+        if (attackerTeam >= 0 && armor > 0f && !HitContext.Pierce)
         {
             float absorbed = Mathf.Min(armor, amount * 0.5f);
             armor -= absorbed;

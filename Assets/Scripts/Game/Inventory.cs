@@ -3,16 +3,27 @@ public class Inventory
     public const int MaxMedkits = 5;
     public const int MaxGrenades = 3;
     public const int MaxDrinks = 4;
+    public const int MaxTacticals = 2;
 
     public int medkits = 1;
-    public int grenades;
+    public int grenades;      // the equipped explosive (frag, molotov or charge)
+    public int tacticals;     // the equipped tactical item (smoke, flash or gas)
     public int drinks;
 
     public void Reset()
     {
         medkits = 1;
         grenades = 0;
+        tacticals = 0;
         drinks = 0;
+    }
+
+    public bool AddTactical()
+    {
+        if (tacticals >= MaxTacticals)
+            return false;
+        tacticals++;
+        return true;
     }
 
     public bool AddMedkit()

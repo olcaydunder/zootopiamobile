@@ -100,15 +100,15 @@ public static class NetGame
             NetClient.Instance.SendShot(weapon, end);
     }
 
-    public static void GrenadeThrown(Vector3 position, Vector3 velocity, IDamageable owner)
+    public static void GrenadeThrown(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind)
     {
         if (IsServer)
         {
             if (NetServer.Instance != null)
-                NetServer.Instance.OnGrenadeThrown(position, velocity, owner);
+                NetServer.Instance.OnGrenadeThrown(position, velocity, owner, kind);
         }
         else if (owner is PlayerController && InOnlineMatch)
-            NetClient.Instance.SendGrenade(position, velocity);
+            NetClient.Instance.SendGrenade(position, velocity, kind);
     }
 
     /// <summary>The local player opened or closed a door.</summary>

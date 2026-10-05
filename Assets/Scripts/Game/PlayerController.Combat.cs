@@ -83,18 +83,46 @@ public partial class PlayerController
             slots[index].reserve += amount;
     }
 
+    /// <summary>The equipped explosive (Envanter): frag grenade, molotov or charge.</summary>
+    public ThrowKind ExplosiveKind { get { return Grenade.KindOf(Gear.ExplosiveId); } }
+    /// <summary>The equipped tactical item: smoke, flash or gas (frag when none is equipped).</summary>
+    public ThrowKind TacticalKind { get { return Grenade.KindOf(Gear.TacticalId); } }
+    public bool HasTactical { get { return Gear.TacticalId.Length > 0; } }
+
     private void ThrowGrenade()
     {
         var ui = GameManager.Instance.uiManager;
         if (inventory.grenades <= 0)
         {
-            ui.Toast("El bomban yok");
+            ui.Toast("Patlayıcın yok");
             return;
         }
         inventory.grenades--;
+        ThrowItem(ExplosiveKind, Gear.ExplosiveMul);
+    }
+
+    private void ThrowTactical()
+    {
+        var ui = GameManager.Instance.uiManager;
+        if (!HasTactical)
+        {
+            ui.Toast("Taktik eşya kuşanılmamış (ENVANTER)");
+            return;
+        }
+        if (inventory.tacticals <= 0)
+        {
+            ui.Toast("Taktik eşyan kalmadı");
+            return;
+        }
+        inventory.tacticals--;
+        ThrowItem(TacticalKind, Gear.TacticalMul);
+    }
+
+    private void ThrowItem(ThrowKind kind, float power)
+    {
         Transform cam = playerCamera.transform;
         Vector3 origin = cameraPivot.position + cam.forward * 0.9f + Vector3.up * 0.2f;
-        Grenade.Throw(origin, cam.forward * 17f + Vector3.up * 5f, this);
+        Grenade.Throw(origin, cam.forward * 17f + Vector3.up * 5f, this, kind, power);
         Sfx.Play(SoundBank.Whoosh, 0.4f, 1.3f);
     }
 
@@ -133,9 +161,34 @@ public partial class PlayerController
         }
 
         inventory.medkits--;
-        float amount = Ability != null && Ability.cls == PlayerClass.Medic ? 52f : 40f;   // Sahra Hekimi: +30%
-        health = Mathf.Min(maxHealth, health + amount);
-        if (ui != null) ui.Toast("+" + Mathf.RoundToInt(amount) + " can");
+        float mul = (Ability != null && Ability.cls == PlayerClass.Medic ? 1.3f : 1f) * Gear.HealMul;   // Sahra Hekimi: +30%
+        switch (Gear.MedicalId)
+        {
+            case "m_adrenaline":
+            {
+                // Adrenalin: a little health at once and a burst of speed.
+                float amount = 25f * mul;
+                health = Mathf.Min(maxHealth, health + amount);
+                adrenalineUntil = Time.time + 6f;
+                if (ui != null) ui.Toast("ADRENALİN  +" + Mathf.RoundToInt(amount) + " can, 6 sn hız");
+                break;
+            }
+            case "m_pack":
+            {
+                // Sağlık Paketi: a lot of health over four seconds.
+                healOverTime += 70f * mul;
+                healRate = 70f * mul / 4f;
+                if (ui != null) ui.Toast("SAĞLIK PAKETİ  +" + Mathf.RoundToInt(70f * mul) + " can (4 sn)");
+                break;
+            }
+            default:
+            {
+                float amount = 40f * mul;
+                health = Mathf.Min(maxHealth, health + amount);
+                if (ui != null) ui.Toast("+" + Mathf.RoundToInt(amount) + " can");
+                break;
+            }
+        }
         Sfx.Play(SoundBank.Pickup, 0.4f, 0.7f);
         return true;
     }
@@ -153,6 +206,7 @@ public partial class PlayerController
         bool medkit = tc != null && tc.ConsumeMedkit();
         bool drink = tc != null && tc.ConsumeDrink();
         bool grenade = tc != null && tc.ConsumeGrenade();
+        bool tactical = tc != null && tc.ConsumeTactical();
         bool swap = tc != null && tc.ConsumeSwap();
         bool useVehicle = tc != null && tc.ConsumeVehicle();
         bool fire = tc != null && tc.FireHeld;
@@ -224,6 +278,8 @@ public partial class PlayerController
             UseDrink();
         if (grenade)
             ThrowGrenade();
+        if (tactical)
+            ThrowTactical();
         if (swap)
         {
             SwapWeapon();

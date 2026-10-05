@@ -49,7 +49,9 @@ public class UIManager : MonoBehaviour
     private Text killFeedText;
     private readonly List<string> killFeed = new List<string>();
     private float killFeedClearTime;
-    private Image damageFlash;
+    private Image damageFlash, smokeVeil, flashVeil;
+    private float flashStrength, flashFade, flashHold;
+    private readonly List<RectTransform> nightDots = new List<RectTransform>();
     private float damageAlpha;
     private Image[] hitMarks;
     private float hitMarkUntil;
@@ -462,6 +464,11 @@ public class UIManager : MonoBehaviour
         damageFlash = UIUtil.CreateStretch(t, "DamageFlash").gameObject.AddComponent<Image>();
         damageFlash.color = new Color(0.9f, 0f, 0f, 0f);
         damageFlash.raycastTarget = false;
+        // Inside a smoke cloud the view turns grey.
+        smokeVeil = UIUtil.CreateStretch(t, "SmokeVeil").gameObject.AddComponent<Image>();
+        smokeVeil.color = new Color(0.72f, 0.74f, 0.77f, 0f);
+        smokeVeil.raycastTarget = false;
+        smokeVeil.enabled = false;
 
         // Sniper/3x/6x scope view (under the rest of the HUD).
         scopeOverlay = UIUtil.CreateStretch(t, "ScopeOverlay").gameObject;
@@ -610,6 +617,49 @@ public class UIManager : MonoBehaviour
         talkingText.color = new Color(0.5f, 1f, 0.6f);
         micButton.SetActive(false);
         speakerButton.SetActive(false);
+
+        // Flash grenade: everything (the touch buttons too) goes white for a moment.
+        flashVeil = UIUtil.CreateStretch(canvas.transform, "FlashVeil").gameObject.AddComponent<Image>();
+        flashVeil.color = new Color(1f, 1f, 0.97f, 0f);
+        flashVeil.raycastTarget = false;
+        flashVeil.gameObject.SetActive(false);
+    }
+
+    /// <summary>Blinded by a flash grenade: strength 0..1, for about this many seconds.</summary>
+    public void Flashbang(float strength, float seconds)
+    {
+        flashStrength = Mathf.Max(flashStrength, Mathf.Clamp01(strength));
+        flashHold = Mathf.Max(flashHold, seconds * 0.45f);
+        flashFade = Mathf.Max(flashFade, seconds * 0.55f);
+        flashVeil.gameObject.SetActive(true);
+        flashVeil.transform.SetAsLastSibling();
+        Haptics.Tap(80);
+    }
+
+    private void UpdateVeils(PlayerController player)
+    {
+        float dt = Time.deltaTime;
+        if (flashVeil.gameObject.activeSelf)
+        {
+            if (flashHold > 0f)
+                flashHold -= dt;
+            else
+            {
+                flashStrength = flashFade > 0f ? Mathf.Max(0f, flashStrength - dt * flashStrength / Mathf.Max(0.05f, flashFade)) : 0f;
+                flashFade = Mathf.Max(0f, flashFade - dt);
+            }
+            flashVeil.color = new Color(1f, 1f, 0.97f, Mathf.Clamp01(flashStrength * 1.05f));
+            if (flashStrength <= 0.01f || player.isDead)
+            {
+                flashStrength = 0f;
+                flashVeil.gameObject.SetActive(false);
+            }
+        }
+        float smokeK = AreaEffect.Active.Count > 0 && player.playerCamera != null ? AreaEffect.SmokeAt(player.playerCamera.transform.position) : 0f;
+        if (smokeVeil.enabled != smokeK > 0.01f)
+            smokeVeil.enabled = smokeK > 0.01f;
+        if (smokeK > 0.01f)
+            smokeVeil.color = new Color(0.72f, 0.74f, 0.77f, smokeK * 0.88f);
     }
 
     /// <summary>Voice buttons follow the mic / speaker state; shown only when someone can hear you.</summary>
@@ -763,6 +813,13 @@ public class UIManager : MonoBehaviour
         }
         for (int i = 0; i < 4; i++)
             airdropDots.Add(Icons.Create(mapRect, "airdrop_crate", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(24f, 24f)));
+        for (int i = 0; i < 8; i++)
+        {
+            var d = UIUtil.CreateImage(mapRect, "Near", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(10f, 10f), new Color(1f, 0.35f, 0.3f, 0.9f), true);
+            d.raycastTarget = false;
+            d.gameObject.SetActive(false);
+            nightDots.Add(d.rectTransform);
+        }
         for (int i = 0; i < 10; i++)
         {
             var d = UIUtil.CreateImage(mapRect, "Marked", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f), new Color(1f, 0.2f, 0.15f), false);
@@ -1372,6 +1429,7 @@ public class UIManager : MonoBehaviour
             damageAlpha = Mathf.Max(0f, damageAlpha - Time.deltaTime * 1.2f);
             damageFlash.color = new Color(0.9f, 0f, 0f, damageAlpha);
         }
+        UpdateVeils(player);
 
         downedGroup.SetActive(player.isDowned);
         if (player.isDowned)
@@ -1554,6 +1612,29 @@ public class UIManager : MonoBehaviour
             if (show)
                 markDots[i].anchoredPosition = MapPos(marked[i].transform.position);
         }
+
+        // Gece Görüşlü Kask: enemies close by show on the map.
+        int nd = 0;
+        if (Gear.NightVision && gm.currentState == GameState.InGame)
+        {
+            Vector3 me = player.transform.position;
+            foreach (var c in gm.Combatants)
+            {
+                if (nd >= nightDots.Count)
+                    break;
+                if (c == null || c.IsDead || c.IsAirborne || c.Team == 0 || ReferenceEquals(c, player))
+                    continue;
+                if ((c.transform.position - me).sqrMagnitude > 28f * 28f)
+                    continue;
+                if (!nightDots[nd].gameObject.activeSelf)
+                    nightDots[nd].gameObject.SetActive(true);
+                nightDots[nd].anchoredPosition = MapPos(c.transform.position);
+                nd++;
+            }
+        }
+        for (; nd < nightDots.Count; nd++)
+            if (nightDots[nd].gameObject.activeSelf)
+                nightDots[nd].gameObject.SetActive(false);
     }
 
     private void Place(Image dot, Vector3 world)

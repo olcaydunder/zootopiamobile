@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public static class NetProtocol
 {
-    public const int Version = 5;   // 3: the hello carries the map; 4: room chat and emotes; 5: 5v5
+    public const int Version = 6;   // 3: the hello carries the map; 4: room chat and emotes; 5: 5v5; 6: masks, throw kinds, new modes
     public const int MaxHumans = 16;
     public const float TickInterval = 0.05f;            // 20 movement / snapshot messages per second
     public const int NoEntity = 0xFFFF;                 // zone, fall, left the game
@@ -21,7 +21,7 @@ public static class NetProtocol
     public const byte C_Died = 4;       // ushort killer, byte how (weapon+1 / HitGrenade, from the last S_Damage)
     public const byte C_Pickup = 5;     // ushort loot id
     public const byte C_Door = 6;       // ushort door, bool open, Pos from
-    public const byte C_Grenade = 7;    // Pos, float vx vy vz
+    public const byte C_Grenade = 7;    // Pos, float vx vy vz, byte ThrowKind
     public const byte C_Start = 8;      // (private room leader) start now
     public const byte C_Voice = 9;      // voice frame: byte seq, short predictor, byte index, ADPCM bytes (unreliable)
     public const byte C_Chat = 10;      // string text (room chat; in a match: team chat)
@@ -29,7 +29,7 @@ public static class NetProtocol
 
     // Server -> phone
     public const byte S_Lobby = 20;       // byte phase, float seconds left, byte mode, bool private, ushort leader, string code, byte n {ushort id, string name, string account}
-    public const byte S_Entities = 21;    // byte n {ushort id, byte team, bool bot, string name, string skin, string parachute, string account}
+    public const byte S_Entities = 21;    // byte n {ushort id, byte team, bool bot, string name, string skin, string parachute, string account, string mask}
     public const byte S_MatchStart = 22;  // ushort you, byte team, byte mode, Pos plane start, Pos plane end, float zx zz zr, ushort doors, byte teams
     public const byte S_Loot = 23;        // ushort n {ushort id, byte type, Pos}
     public const byte S_LootTaken = 24;   // ushort id, bool yours (answer to C_Pickup: only then the item is given)
@@ -39,7 +39,7 @@ public static class NetProtocol
     public const byte S_Damage = 28;      // ushort damage*10, ushort attacker, Pos from, bool head, byte how
     public const byte S_Kill = 29;        // ushort killer, ushort victim, byte how
     public const byte S_Door = 30;        // ushort door, bool open, Pos from
-    public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz
+    public const byte S_Grenade = 31;     // ushort thrower, Pos, float vx vy vz, byte ThrowKind
     public const byte S_Placement = 32;   // byte place, byte teams
     public const byte S_MatchEnd = 33;    // byte winner team (255 none), string names
     public const byte S_Toast = 34;       // string
@@ -122,7 +122,7 @@ public static class NetProtocol
     public static float MaxHitDamage(int weapon)
     {
         if (weapon == HitGrenade)
-            return Grenade.MaxDamage * 1.05f;
+            return 170f * 2f;   // the explosive charge with the best levels and perks
         float baseDamage;
         switch ((WeaponType)weapon)
         {
@@ -164,6 +164,7 @@ public static class HitContext
     public static IDamageable Attacker;
     public static Vector3 From;
     public static bool Head;
+    public static bool Pierce;       // poison: armour does not help
     public static int Weapon = -1;
 
     public static void Set(IDamageable attacker, Vector3 from, bool head, int weapon)
@@ -178,6 +179,7 @@ public static class HitContext
     {
         Attacker = null;
         Head = false;
+        Pierce = false;
         Weapon = -1;
     }
 }

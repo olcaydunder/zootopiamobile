@@ -24,7 +24,7 @@ public sealed class NetServer : MonoBehaviour
         public EndPoint ep;
         public uint nonce;
         public int id;
-        public string name, skin, para;
+        public string name, skin, para, mask = "";
         public string account = "", secret = "";
         public bool verified;
         public int voiceThisSecond;
@@ -43,7 +43,7 @@ public sealed class NetServer : MonoBehaviour
     private sealed class Entity
     {
         public int id, team;
-        public string name = "", skin = "", para = "";
+        public string name = "", skin = "", para = "", mask = "";
         public BotAgent agent;
         public ServerHuman human;
         public Peer peer;
@@ -210,6 +210,7 @@ public sealed class NetServer : MonoBehaviour
             string account = reader.String().ToUpperInvariant();
             string secret = reader.String();
             string map = reader.String();
+            string mask = reader.String();
 
             Peer existing;
             if (byNonce.TryGetValue(nonce, out existing) && !existing.gone)
@@ -251,6 +252,7 @@ public sealed class NetServer : MonoBehaviour
                 name = name,
                 skin = ValidSkin(skin),
                 para = para.Length <= 32 ? para : "",
+                mask = ValidMask(mask),
                 account = Token(account, 12),
                 secret = Token(secret, 64),
                 budgetTime = now
@@ -367,6 +369,12 @@ public sealed class NetServer : MonoBehaviour
             if (((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_') && sb.Length < max)
                 sb.Append(c);
         return sb.ToString();
+    }
+
+    private static string ValidMask(string s)
+    {
+        var g = Gear.Find(s);
+        return g != null && g.Cosmetic ? s : "";
     }
 
     private static string ValidSkin(string s)
@@ -593,7 +601,7 @@ public sealed class NetServer : MonoBehaviour
             var p = peers[i];
             var human = ServerHuman.Create(p.id, humanTeam[i], p.name, start);
             gm.Combatants.Add(human);
-            var e = new Entity { id = p.id, team = human.team, name = p.name, skin = p.skin, para = p.para, human = human, peer = p };
+            var e = new Entity { id = p.id, team = human.team, name = p.name, skin = p.skin, para = p.para, mask = p.mask ?? "", human = human, peer = p };
             p.entity = e;
             p.lastSeq = -1;
             AddEntity(e, human);
@@ -601,7 +609,7 @@ public sealed class NetServer : MonoBehaviour
         int botId = 100;
         foreach (var bot in gm.bots)
         {
-            var e = new Entity { id = botId++, team = bot.team, name = bot.botName, skin = bot.skin ?? "", agent = bot };
+            var e = new Entity { id = botId++, team = bot.team, name = bot.botName, skin = bot.skin ?? "", mask = bot.rig != null ? bot.rig.MaskShown : "", agent = bot };
             AddEntity(e, bot);
             if (bot.weapon != null)
                 byObject[bot.weapon] = e;
@@ -625,6 +633,7 @@ public sealed class NetServer : MonoBehaviour
                 w.String(e.skin, 32);
                 w.String(e.para, 32);
                 w.String(e.peer != null ? e.peer.account : "", 12);
+                w.String(e.mask, 16);
             }
             entityMessages.Add(w.ToArray());
         }
@@ -1055,9 +1064,13 @@ public sealed class NetServer : MonoBehaviour
     {
         Vector3 pos = reader.Pos();
         Vector3 vel = reader.Vec();
-        if (!Playing(p) || vel.magnitude > 60f)
+        int kind = reader.Byte();
+        if (!Playing(p) || vel.magnitude > 60f || kind > (int)ThrowKind.Gas)
             return;
-        WriteGrenade(p.id, pos, vel);
+        // Smoke and flash change what the server's bots see: simulate those here too (damage stays with the thrower's phone).
+        if ((kind == (int)ThrowKind.Smoke || kind == (int)ThrowKind.Flash) && p.entity != null)
+            Grenade.ServerEffect(pos, vel, (ThrowKind)kind, p.entity.team);
+        WriteGrenade(p.id, pos, vel, kind);
         Broadcast(w.ToArray(), true, p);
     }
 
@@ -1145,13 +1158,14 @@ public sealed class NetServer : MonoBehaviour
         RoomBroadcast(p, w.ToArray());
     }
 
-    private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel)
+    private void WriteGrenade(int thrower, Vector3 pos, Vector3 vel, int kind)
     {
         w.Reset();
         w.Byte(NetProtocol.S_Grenade);
         w.UShort(thrower);
         w.Pos(pos);
         w.Vec(vel);
+        w.Byte(kind);
     }
 
     // ----- Hooks from the game systems (server side) -----
@@ -1169,13 +1183,13 @@ public sealed class NetServer : MonoBehaviour
         Broadcast(w.ToArray(), false, null);
     }
 
-    public void OnGrenadeThrown(Vector3 position, Vector3 velocity, IDamageable owner)
+    public void OnGrenadeThrown(Vector3 position, Vector3 velocity, IDamageable owner, ThrowKind kind)
     {
         Entity e;
         var key = owner as Object;
         if (phase != Phase.Playing || key == null || !byObject.TryGetValue(key, out e) || e.agent == null)
             return;
-        WriteGrenade(e.id, position, velocity);
+        WriteGrenade(e.id, position, velocity, (int)kind);
         Broadcast(w.ToArray(), true, null);
     }
 

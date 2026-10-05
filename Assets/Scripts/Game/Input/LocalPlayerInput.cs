@@ -64,6 +64,7 @@ public class LocalPlayerInput : IPlayerInput
     public bool ConsumeMedkit() { var tc = Touch; return Input.GetKeyDown(KeyCode.X) || (tc != null && tc.ConsumeMedkit()); }
     public bool ConsumeDrink() { var tc = Touch; return Input.GetKeyDown(KeyCode.V) || (tc != null && tc.ConsumeDrink()); }
     public bool ConsumeGrenade() { var tc = Touch; return Input.GetKeyDown(KeyCode.G) || (tc != null && tc.ConsumeGrenade()); }
+    public bool ConsumeTactical() { var tc = Touch; return Input.GetKeyDown(KeyCode.T) || (tc != null && tc.ConsumeTactical()); }
     public bool ConsumeSwap() { var tc = Touch; return Input.GetKeyDown(KeyCode.Q) || (tc != null && tc.ConsumeSwap()); }
     public bool ConsumeVehicle() { var tc = Touch; return Input.GetKeyDown(KeyCode.F) || (tc != null && tc.ConsumeVehicle()); }
     public bool ConsumeAirAction() { var tc = Touch; return Input.GetKeyDown(KeyCode.Space) || (tc != null && tc.ConsumeAirAction()); }
