@@ -542,7 +542,10 @@ public class GameManager : MonoBehaviour
         var obj = new GameObject("Bot_" + botName);
         obj.transform.position = plane != null ? plane.transform.position : Vector3.up * 100f;
         var bot = obj.AddComponent<BotAgent>();
-        bot.Setup(team, botName, color, WeaponData.CreateRandomBotWeapon());
+        var weapon = WeaponData.CreateRandomBotWeapon();
+        if (!NetGame.IsServer)
+            weapon.modelSkin = ModelLibrary.RandomGunSkin(weapon.weaponType);   // a mix of gun models, not all the same
+        bot.Setup(team, botName, color, weapon);
         bots.Add(bot);
         Combatants.Add(bot);
         return bot;

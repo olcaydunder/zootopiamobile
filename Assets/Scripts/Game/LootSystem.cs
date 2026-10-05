@@ -113,6 +113,10 @@ public class LootSystem : MonoBehaviour
                 into.Add(c.basePos);
     }
 
+    // Armour lying on the ground: one of these (Models/Props; the first of each is the fallback).
+    private static readonly string[] ArmorVests = { "ArmorVest", "Vest_Tactical", "Vest_Rig", "Vest_Olive", "Vest_Black" };
+    private static readonly string[] ArmorHelmets = { "ArmorHelmet", "Helmet_MICH", "Helmet_K6" };
+
     private int SpawnCrate(Vector3 position, LootType type)
     {
         int id = nextId++;
@@ -124,9 +128,14 @@ public class LootSystem : MonoBehaviour
         Color body = ColorFor(type);
         Color band = new Color(0.15f, 0.15f, 0.15f);
         // Armour shows the real gear: a plate-carrier vest or a tactical helmet lying on the ground.
-        GameObject gear = type == LootType.Armor
-            ? ModelLibrary.Spawn(ModelLibrary.PropPath(Random.value < 0.5f ? "ArmorVest" : "ArmorHelmet"), crate.transform)
-            : null;
+        GameObject gear = null;
+        if (type == LootType.Armor)
+        {
+            string[] pool = Random.value < 0.5f ? ArmorVests : ArmorHelmets;
+            gear = ModelLibrary.Spawn(ModelLibrary.PropPath(pool[Random.Range(0, pool.Length)]), crate.transform);
+            if (gear == null)
+                gear = ModelLibrary.Spawn(ModelLibrary.PropPath(pool[0]), crate.transform);
+        }
         var model = gear == null ? ModelLibrary.Spawn(ModelLibrary.PropPath("Crate"), crate.transform) : null;
         if (gear != null)
         {

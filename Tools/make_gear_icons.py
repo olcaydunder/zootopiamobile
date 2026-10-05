@@ -1,7 +1,8 @@
 """Draws the inventory icons (SVG -> 256x256 PNG) into Assets/Resources/UI/Icons/ in the style of the other
 icons (dark outline, gradients, a highlight): helmets, vests, boots, explosives, tactical and medical items,
 perk badges, inventory categories and a few lobby icons (profile, trophy, wheel, modes, power, calendar).
-Masks get their icons from the 3D models (Tools/blender/make_masks.py).   Run:  python3 Tools/make_gear_icons.py
+Masks get their icons from the 3D models (Tools/blender/build_masks.py), and so do the helmets, vests and
+grenades listed in FROM_MODELS (Tools/blender/build_gear_models.py).   Run:  python3 Tools/make_gear_icons.py
 """
 import os
 import cairosvg
@@ -325,8 +326,14 @@ ICONS.update({"inv_head": HELMETS["gear_h_tactical"], "inv_body": VESTS["gear_b_
               "calendar": CALENDAR, "free": FREE, "star": STAR, "star_empty": STAR_EMPTY, "up": UP,
               "mode_br": MODE_BR, "mode_tdm": MODES, "mode_dom": MODE_DOM, "mode_ffa": MODE_FFA, "mode_heist": MODE_HEIST})
 
+# Rendered from the 3D models by Tools/blender/build_gear_models.py instead (assets-v3).
+FROM_MODELS = {"gear_h_tactical", "gear_h_heavy", "gear_b_light", "gear_b_plate", "gear_b_commando", "gear_b_heavy",
+               "gear_x_frag", "gear_t_smoke", "gear_t_flash", "gear_t_gas"}
+
 if __name__ == "__main__":
     for name, data in ICONS.items():
+        if name in FROM_MODELS:
+            continue
         path = os.path.join(OUT, name + ".png")
         cairosvg.svg2png(bytestring=data.encode(), write_to=path, output_width=256, output_height=256)
         print("icon", name, os.path.getsize(path))

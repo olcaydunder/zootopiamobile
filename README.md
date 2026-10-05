@@ -17,7 +17,7 @@
 - **Yapılar:** Kapılı/pencereli evler, depolar, çam ve yaprak ağaçlar, kayalar, saklanılabilen çalılar; kum torbası, bariyer, konteyner, varil gibi 3D siper modelleri
 - **Karakterler:** Animasyonlu 3D karakter modelleri (asker, işçi, kovboy, ninja, doktor); bekleme, koşma, ateş etme, darbe alma ve ölme animasyonları
 - **Silahlar:** Elde taşınan 3D silah modelleri: tabanca, SMG, tüfek, pompalı ve keskin nişancı; iki silah yuvası, kafadan vuruşta 2x hasar, geri tepme
-- **Ganimet:** Silah, mermi, ilk yardım, enerji içeceği, el bombası, zırh; elenen botlar sandık bırakır
+- **Ganimet:** Silah, mermi, ilk yardım, enerji içeceği, el bombası, zırh (yerde farklı kask ve yelek modelleri); elenen botlar sandık bırakır
 - **Araçlar:** Binilebilen ciplerle hızlı ulaşım ve ezme hasarı
 - **Güvenli bölge:** 6 aşamada daralan mavi duvar, sonraki bölge çemberi
 - **Botlar:** Paraşütle iner, görüş hattı, tepki süresi, isabet sapması, el bombası, bölgeden kaçma; takım arkadaşları seni takip eder
@@ -27,13 +27,13 @@
 - **Lobi:** Karakterin silahıyla (ve maskesiyle) ortada; profil (dokununca PROFİL ekranı), GÜÇ ve KUPA, şans çarkı, OYUN MODU kartı, günlük zaferler, BAŞLAT, Silah Atölyesi, Karakterler, Kariyer, Envanter, Mağaza
 - **Oyun modları (OYUN MODU ekranı):** Battle Royale (Solo/Duo/Squad), 5v5 Takım Ölüm Maçı, **Hakimiyet** (A/B/C bölgelerini tut, 200 puan), **Herkes Tek** (8 oyuncu, 20 öldürme), **Soygun** (kasadaki para çantasını üssüne taşı, 5 çanta). Hakimiyet ve Herkes Tek çevrimiçi de oynanır; Soygun şimdilik botlarla
 - **Envanter:** Kask, yelek, bot (zırh); patlayıcı, taktik ve sağlık eşyası (teçhizat); 3 güçlendirici kart; 10 hayvan maskesi. Kutulardan gelen kartlar ve Kredi ile seviye atlar (zırh/teçhizat 10, güçlendirici 5 yıldız); GÜÇ hepsini toplar. Maçta etkili: kafa vuruşu ve arkadan hasar azaltma, başlangıç zırhı, hız, sessiz adım, hızlı şarjör, keskin göz, son nefes, toparlanma, avcı, bombacı, doktor, gece görüşü
-- **Atılabilirler:** El bombası, molotof (yeri yakar), patlayıcı paket (yapışır, büyük patlama), sis (görüşü keser, botlar da göremez), flaş (bakanı kör eder), gaz (zırhı deler); BOMBA ve TAKTİK düğmeleri
+- **Atılabilirler:** El bombası, molotof (yeri yakar), patlayıcı paket (yapışır, büyük patlama), sis (görüşü keser, botlar da göremez), flaş (bakanı kör eder), gaz (zırhı deler); BOMBA ve TAKTİK düğmeleri; el bombası, sis, flaş ve gaz gerçek modelleriyle uçar
 - **Maskeler:** Kedi, köpek, tavşan, ayı, rakun, baykuş, penguen, kurt, aslan, ejderha; karakterin kafasına takılır, çevrimiçi herkes görür, botlar da takar
 - **Profil:** KUPA ve lig (bronz → usta), maç, zafer, kazanma oranı, öldürme, K/D, en çok öldürme, kafadan vuruş, toplam hasar, oyun süresi, kuşanılanlar
 - **Fotoğraf tabanlı dokular:** Poly Haven (CC0) asfalt, kaldırım, çim, orman zemini, toprak, sıva, beton, oluklu sac, kiremit, ağaç kabuğu; arazi 5 katmanlı karışım + normal haritalar, cephelerde gerçek pencereler (perde, jaluzi, ışıklı oda), camlarda şehir yansıması, balkonlar, şeritli/bordürlü yollar
 - **Hissiyat:** Her düğmede basılma animasyonu, tık sesi ve kısa titreşim; isabet/öldürme/hasar titreşimleri; ekranlar yumuşak açılır
 - **Giriş ekranı:** Yükleme çubuğu ve ipuçlarıyla açılış, ardından şehrin üstünde süzülen kamerayla "DOKUNARAK BAŞLA" ekranı; oyun genelinde Barlow Condensed yazı tipi
-- **Hazırlık ekranı:** BAŞLAT'tan sonra karakter (21 karakter: askerler, operatörler, SWAT, Özel Tim, Nova ve renkleri, Kasap Leydi…) ve maça birlikte girdiğin birincil silah seçilir; silah modelleri (AK-19 Taktik, AR-15 Saha, Gölge Avcı, Alev Kartalı ve Gravürlü 1911 tabanca) seçilebilir
+- **Hazırlık ekranı:** BAŞLAT'tan sonra karakter (24 karakter: askerler, operatörler, SWAT, Özel Tim, Polis Timi, Komando, Gölge, Nova ve renkleri, Kasap Leydi…) ve maça birlikte girdiğin birincil silah seçilir; her silah türünün modelleri ‹ › ile seçilir (29 model: AK Klasik, AR-15 Saha, Akrep 9, U-45, Polis 870, Hücum 12, Kar 98, SVD Avcı, Taktik DMR, Magnum 50, Klasik 45…); botlar da karışık modeller taşır
 - **Profesyonel ayarlar:** Temel (nişan yardımı, ateş etme modu: tek dokunuşla nişangâh / nişan almadan / otomatik / kişisel), Kontroller (sabit/takip ateş düğmesi, sol oyun kolu modu, sol ateş düğmesi, düğme görünürlüğü), Ses ve Grafikler (Düşük–Maks. kalite, 30/60/Maks. FPS, düzgünleştirme, gölgeler, parlaklık), Hassasiyet (hız ivmesi, kamera/nişangâh/dürbün hassasiyeti, jiroskop), Künye
 - **Alan daralması:** Her aşama 30 saniye bekler, sonra daralır; botlar haritanın farklı bölgelerine dağılarak atlar
 - **Hata modu:** Ayarlar → Hata modu AÇIK. Ekranda FPS ve kırmızı HATA rozeti görünür; HATA EKRANI tüm hataları `ZM-...` kodlarıyla listeler, RAPORU KOPYALA cihaz bilgisiyle birlikte panoya kopyalar. Önceki oturumun hataları da saklanır (`zm_hata.log`)

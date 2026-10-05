@@ -287,6 +287,17 @@ public class SettingsScreen : MonoBehaviour
         Note("SWAT ve Özel Tim – \"S.W.A.T. Operator\", \"S.W.A.T. Operator- 4k Followers Special Remaster\", Mateusz Woliński (sketchfab.com/jeandiz)");
         Note("AR-15 Saha tüfek, Gravürlü 1911 tabanca – \"AR-15 style rifle\", \"Pistol with Engravings\", Mateusz Woliński (sketchfab.com/jeandiz)");
         Note("Nova (Kızıl/Gece/Orman) – \"Free Test Character Asuna\", Markus Schüler / MSGDI (sketchfab.com/MSGDI)");
+        Note("Gölge – \"female specops\"; Vaşak 92, Kobra tabancalar ve Keskin tüfek – \"animated pistol\", \"Pistol\", \"Sniper\", DJMaesen (sketchfab.com/bumstrum)");
+        Note("Polis Timi – \"Rocketbox - German Swat 3D model\", Chernov-Egor (Microsoft Rocketbox avatarlarından, MIT)");
+        Note("Komando – \"Special Forces\", George Zhuzha (sketchfab.com/Zhork9)");
+        Note("Servis 9 ve Hücum 12 – \"9mm Pistol\", \"SPAS Shotgun\", TORI106");
+        Note("Klasik 45 – \"Colt M1911\", Ole Gunnar Isager; Magnum 50 – \"Desert Eagle\", Minte Elseviers; Altın Magnum – \"Low-Poly Desert Eagle\", TastyTony");
+        Note("AK Klasik – \"ak47\", Pieter Ferreira; Akrep 9 – \"HK MP5\", quick_loop; U-45 Taktik – \"Ump.45\", Rahul Kumar Dey");
+        Note("Paralı Avcı – \"Mercenary's Shotgun\", Katharina Alexander; Çiftlik 500 – \"Mossberg500 Shotgun low-poly\", AK (skaf13); Polis 870 – \"Remington 870 Shotgun\", Milin Andrei");
+        Note("Bob – \"Bob's sniper-rifle\", denlark; Taktik DMR – \"HK G28 Sniper Rifle\", trolosqlfod; Kar 98 – \"Kar98k with ZF4\", FF_Morph");
+        Note("Nemesis – \"Nemesis Sniper Rifle\", CaptainToggle; SVD Avcı – \"SVD (Dragunov)\", WillyG99");
+        Note("Bombalar – \"M67 Fragmentation Grenade\", Vextin; \"M18 Smoke Grenade Green\", Hitansh 3D; \"Smoke Grenade\", Roman Berezyak; \"Zarya 2 stun grenade\", alpenfant");
+        Note("Kask ve yelekler – \"Combat helmet K6-3\", shamanoff; \"MICH 2001 military helmet\", HaizorWill; \"Tactical Armor Vest\", yronthal; \"Vest Armor Holster LowPoly GameReady Pack\", 00amza");
         Note("Lisans: creativecommons.org/licenses/by/4.0 – modeller oyun için küçültüldü, yeniden boyandı ve animasyonları aktarıldı.");
         Header("CC0 VE HARİTA");
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");
@@ -331,8 +342,11 @@ public class SettingsScreen : MonoBehaviour
 
     private void Note(string text)
     {
-        var row = Row(56f);
-        var t = UIUtil.CreateText(row, text, new Vector2(0f, 0.5f), new Vector2(30f, 0f), new Vector2(1400f, 50f), 24, TextAnchor.MiddleLeft);
+        // long credits wrap: about 120 characters fit on a line of the 1400 px box
+        int lines = Mathf.Max(1, Mathf.CeilToInt(text.Length / 120f));
+        float h = 50f + (lines - 1) * 30f;
+        var row = Row(h + 6f);
+        var t = UIUtil.CreateText(row, text, new Vector2(0f, 0.5f), new Vector2(30f, 0f), new Vector2(1400f, h), 24, TextAnchor.MiddleLeft);
         t.rectTransform.pivot = new Vector2(0f, 0.5f);
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.color = Theme.TextDim;

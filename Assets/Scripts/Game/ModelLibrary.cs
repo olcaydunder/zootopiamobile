@@ -11,23 +11,23 @@ public static class ModelLibrary
     public static readonly string[] EnemySkins = {
         "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung", "SoldierMale", "LadyButcher",
         "Operator", "OperatorDesert", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
-        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack" };
+        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack", "FemaleSpecops", "PoliceSwat", "SpecialForces" };
     /// <summary>Characters the player can pick: the basic ones are free, the others are bought in the store
     /// with Kredi (ShopPrices), won from gift boxes or received as gifts.</summary>
     public static readonly string[] ShopSkins = {
         "SoldierMale", "Operator", "OperatorDesert", "OperatorNight", "Infantry", "InfantryWoodland", "Mercenary", "MercenaryUrban", "Masked",
         "LadyButcher", "WorkerMale", "WorkerFemale", "CowboyMale", "NinjaSand", "DoctorMaleYoung",
-        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack", "AsunaGreen" };
+        "SwatOperator", "SwatElite", "Asuna", "AsunaRed", "AsunaBlack", "AsunaGreen", "FemaleSpecops", "PoliceSwat", "SpecialForces" };
     public static readonly string[] ShopNames = {
         "Asker", "Operatör", "Çöl Operatörü", "Gece Operatörü", "Piyade", "Orman Piyadesi", "Paralı Asker", "Kent Komandosu", "Maskeli",
         "Kasap Leydi", "İşçi", "İşçi (K)", "Kovboy", "Ninja", "Doktor",
-        "SWAT", "Özel Tim", "Nova", "Nova Kızıl", "Nova Gece", "Nova Orman" };
+        "SWAT", "Özel Tim", "Nova", "Nova Kızıl", "Nova Gece", "Nova Orman", "Gölge", "Polis Timi", "Komando" };
     public static readonly string[] ShopRoles = {
         "Dengeli piyade", "Özel harekât", "Çöl harekâtı", "Gece baskını", "Hücum piyadesi", "Orman keşifçisi", "Ağır zırhlı", "Şehir çatışması", "Hızlı baskıncı",
         "Yakın dövüş uzmanı", "Mühendis", "Mühendis", "Keskin nişancı", "Sızma uzmanı", "Sıhhiyeci",
-        "Baskın timi", "Gece görüşlü komando", "Siber ajan", "Siber ajan", "Siber ajan", "Siber ajan" };
+        "Baskın timi", "Gece görüşlü komando", "Siber ajan", "Siber ajan", "Siber ajan", "Siber ajan", "Gizli operasyon", "Kalkanlı baskın", "Özel kuvvetler" };
     public static readonly int[] ShopPrices = { 0, 1500, 1800, 2200, 0, 1200, 2000, 2400, 2800, 3500, 0, 0, 0, 3000, 0,
-        2600, 3200, 2400, 2700, 2900, 2200 };
+        2600, 3200, 2400, 2700, 2900, 2200, 2800, 2600, 3000 };
 
     /// <summary>
     /// Colour variants: same model and animations as the base character, with the textures in
@@ -67,6 +67,9 @@ public static class ModelLibrary
             case "SwatOperator": return 5.1f;
             case "SwatElite": return 4.9f;
             case "Asuna": return 4.5f;
+            case "FemaleSpecops": return 4.5f;
+            case "PoliceSwat": return 4.8f;
+            case "SpecialForces": return 4.8f;
             default: return 3.5f;
         }
     }
@@ -80,12 +83,21 @@ public static class ModelLibrary
     {
         switch (type)
         {
-            case WeaponType.Pistol: return new[] { "", "Flame", "Engraved" };
-            case WeaponType.Rifle: return new[] { "", "AK19", "AR15" };
-            case WeaponType.Sniper: return new[] { "", "Shadow" };
+            case WeaponType.Pistol: return PistolSkins;
+            case WeaponType.Rifle: return RifleSkins;
+            case WeaponType.SMG: return SmgSkins;
+            case WeaponType.Shotgun: return ShotgunSkins;
+            case WeaponType.Sniper: return SniperSkins;
             default: return new[] { "" };
         }
     }
+
+    // Model "X" of a type is Models/Guns/<Type>_X ("" = the standard model).
+    private static readonly string[] PistolSkins = { "", "Flame", "Engraved", "Servis", "Vasak", "Klasik", "Magnum", "Retro", "Kobra" };
+    private static readonly string[] RifleSkins = { "", "AK19", "AR15", "AK47" };
+    private static readonly string[] SmgSkins = { "", "Akrep", "U45" };
+    private static readonly string[] ShotgunSkins = { "", "Avci", "M500", "P870", "S12" };
+    private static readonly string[] SniperSkins = { "", "Shadow", "Bob", "G28", "K98", "Nemesis", "Keskin", "SVD" };
 
     public static string GunSkinName(WeaponType type, string skin)
     {
@@ -96,8 +108,34 @@ public static class ModelLibrary
             case "AR15": return "AR-15 Saha";
             case "Engraved": return "Gravürlü 1911";
             case "Shadow": return "Gölge Avcı";
+            case "Servis": return "Servis 9";
+            case "Vasak": return "Vaşak 92";
+            case "Klasik": return "Klasik 45";
+            case "Magnum": return "Magnum 50";
+            case "Retro": return "Altın Magnum";
+            case "Kobra": return "Kobra";
+            case "AK47": return "AK Klasik";
+            case "Akrep": return "Akrep 9";
+            case "U45": return "U-45 Taktik";
+            case "Avci": return "Paralı Avcı";
+            case "M500": return "Çiftlik 500";
+            case "P870": return "Polis 870";
+            case "S12": return "Hücum 12";
+            case "Bob": return "Bob";
+            case "G28": return "Taktik DMR";
+            case "K98": return "Kar 98";
+            case "Nemesis": return "Nemesis";
+            case "Keskin": return "Keskin";
+            case "SVD": return "SVD Avcı";
             default: return "Standart";
         }
+    }
+
+    /// <summary>A random model of the type (bots carry a mix of models, not only the standard one).</summary>
+    public static string RandomGunSkin(WeaponType type)
+    {
+        string[] s = GunSkins(type);
+        return s[Random.Range(0, s.Length)];
     }
 
     public static string SelectedGunSkin(WeaponType type)

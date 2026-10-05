@@ -93,17 +93,23 @@ public class Grenade : MonoBehaviour
         var rend = go.GetComponent<Renderer>();
         rend.sharedMaterial = MaterialCache.Lit(Tint(kind));
 
-        if (kind == ThrowKind.Frag)
+        string modelName = ModelName(kind);
+        if (modelName != null)
         {
-            var model = ModelLibrary.Spawn(ModelLibrary.PropPath("Grenade"), go.transform);
+            var model = ModelLibrary.Spawn(ModelLibrary.PropPath(modelName), go.transform);
+            if (model == null && kind == ThrowKind.Frag)
+                model = ModelLibrary.Spawn(ModelLibrary.PropPath("Grenade"), go.transform);
             if (model != null)
             {
                 rend.enabled = false;
-                // The sphere is scaled 0.18; the pack's grenade is ~0.6 m, so scale it to ~0.16 m.
+                ModelLibrary.ShareMaterials(model, true);
+                // The sphere (the collider) is scaled 0.18: fit the model to ~0.16 m and centre it on the sphere.
                 Bounds b = ModelLibrary.RenderBounds(model);
                 float size = Mathf.Max(0.001f, Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)));
                 model.transform.localScale *= 0.16f / size;
                 model.transform.localPosition = Vector3.zero;
+                b = ModelLibrary.RenderBounds(model);
+                model.transform.position -= b.center - go.transform.position;
                 ModelLibrary.SetLayer(model, go.layer);
             }
         }
@@ -135,6 +141,19 @@ public class Grenade : MonoBehaviour
         g.power = Mathf.Clamp(power, 0.5f, 3f);
         g.fuse = kind == ThrowKind.Molotov ? 4f : kind == ThrowKind.Charge ? 3f : kind == ThrowKind.Frag ? 2.6f : 1.6f;
         return g;
+    }
+
+    /// <summary>Prop model of a thrown kind (Models/Props), null for the ones drawn from primitives.</summary>
+    private static string ModelName(ThrowKind k)
+    {
+        switch (k)
+        {
+            case ThrowKind.Frag: return "Grenade_M67";
+            case ThrowKind.Smoke: return "Grenade_Smoke";
+            case ThrowKind.Flash: return "Grenade_Flash";
+            case ThrowKind.Gas: return "Grenade_Gas";
+            default: return null;
+        }
     }
 
     private static Color Tint(ThrowKind k)

@@ -325,31 +325,25 @@ public class MatchPrepScreen : MonoBehaviour
             c.SetActive(false);
             Destroy(c);
         }
+        // A selector: previous / model name (n of N) / next. The model list grows, a row of buttons would not fit.
         string[] skins = ModelLibrary.GunSkins(type);
-        string current = ModelLibrary.SelectedGunSkin(type);
-        float w = 560f / Mathf.Max(2, skins.Length);
-        for (int i = 0; i < skins.Length; i++)
+        int current = Mathf.Max(0, System.Array.IndexOf(skins, ModelLibrary.SelectedGunSkin(type)));
+        Text label;
+        var skinLabel = UIUtil.CreateText(row, ModelLibrary.GunSkinName(type, skins[current]) + "   " + (current + 1) + "/" + skins.Length,
+            new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(360f, 60f), 26, TextAnchor.MiddleCenter);
+        skinLabel.fontStyle = FontStyle.Bold;
+        if (skins.Length < 2)
+            return;
+        for (int dir = -1; dir <= 1; dir += 2)
         {
-            string skin = skins[i];
-            bool sel = skin == current;
-            Text label;
-            var b = UIUtil.CreateButton(row, ModelLibrary.GunSkinName(type, skin), new Vector2(0f, 0.5f), new Vector2(w * (i + 0.5f), 0f), new Vector2(w - 10f, 60f),
-                sel ? Theme.Selected : Theme.PanelLight, false, 24, out label);
-            if (sel)
-            {
-                label.color = new Color(0.08f, 0.08f, 0.1f);
-                label.GetComponent<Shadow>().enabled = false;
-            }
+            int step = dir;
+            var b = UIUtil.CreateButton(row, dir < 0 ? "<" : ">", new Vector2(0.5f, 0.5f), new Vector2(dir * 230f, 0f), new Vector2(96f, 60f),
+                Theme.PanelLight, false, 36, out label);
             b.onClick.AddListener(() =>
             {
-                ModelLibrary.SelectGunSkin(type, skin);
+                ModelLibrary.SelectGunSkin(type, skins[(current + step + skins.Length) % skins.Length]);
                 RefreshWeapon();
             });
-        }
-        if (skins.Length == 1)
-        {
-            var more = UIUtil.CreateText(row, "Yakında yeni modeller", new Vector2(0f, 0.5f), new Vector2(w * 1.5f, 0f), new Vector2(w - 10f, 60f), 20, TextAnchor.MiddleCenter);
-            more.color = Theme.TextDim;
         }
     }
 }

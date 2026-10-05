@@ -68,6 +68,53 @@ From the owner's uploads (`assets-v1`/`assets-v2`) also not used: "Amber" (Chara
 Reallusion content may not be redistributed, 1.6 M triangles), "Stylized Female Character FREE" (RetroStyle Games – no
 licence stated, so not allowed in a public repository) and "Survival Character" (Unreal Engine project files only, no FBX).
 
+### Owner uploads, release `assets-v3` (CC-BY 4.0)
+
+Chosen by the project owner and uploaded to the `assets-v3` release; each GLB carries its Sketchfab licence and author.
+Guns: `convert_prop.py` (re-oriented, real length, decimated, one atlas texture; animated ones in their first frame),
+attachment points in `GunAnchors.cs` measured from mesh cross-sections. Grenades, helmets and vests:
+`build_gear_models.py` (also renders their inventory icons). Characters: `prep_specops.py` (Gölge: own skeleton renamed to
+Mixamo names, holstered pistol, knife and goggles bound to their bones) or `autorig.py` (Polis Timi, Komando: unrigged
+models, skeleton placed from the mesh, bone-heat weights from a voxel copy), then `convert_character.py`.
+
+| In game | File (`Models/…`) | Original | Author | License |
+| --- | --- | --- | --- | --- |
+| Servis 9 (pistol) | `Guns/Pistol_Servis.fbx` | [9mm Pistol](https://sketchfab.com/3d-models/9mm-pistol-43bc09f5aace4346a8a2b6e1580fc03f) | [TORI106](https://sketchfab.com/TORI106) | CC-BY 4.0 |
+| Vaşak 92 (pistol) | `Guns/Pistol_Vasak.fbx` | [animated pistol](https://sketchfab.com/3d-models/animated-pistol-bd896167e7ca44f19597d3afe6a8d83f) (first-person arms left out) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+| Klasik 45 (pistol) | `Guns/Pistol_Klasik.fbx` | [Colt M1911](https://sketchfab.com/3d-models/colt-m1911-26adfd631730494ab0fc80c806eada77) | [Ole Gunnar Isager](https://sketchfab.com/FrenchBaguette) | CC-BY 4.0 |
+| Magnum 50 (pistol) | `Guns/Pistol_Magnum.fbx` | [Desert Eagle](https://sketchfab.com/3d-models/desert-eagle-334462df58b942759122567fa0b81113) | [Minte Elseviers](https://sketchfab.com/Minte_Elseviers) | CC-BY 4.0 |
+| Altın Magnum (pistol) | `Guns/Pistol_Retro.fbx` | [Low-Poly Desert Eagle](https://sketchfab.com/3d-models/low-poly-desert-eagle-b81da261345f4462b2c4412352162287) (untextured: coloured gold) | [TastyTony](https://sketchfab.com/TastyTony) | CC-BY 4.0 |
+| Kobra (pistol) | `Guns/Pistol_Kobra.fbx` | [Pistol](https://sketchfab.com/3d-models/pistol-5f6ec54257de449cacc8c872660b40d3) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+| AK Klasik (rifle) | `Guns/Rifle_AK47.fbx` | [ak47](https://sketchfab.com/3d-models/ak47-3df7a102290140058223f5bc186d92bd) | [Pieter Ferreira](https://sketchfab.com/Badboy17Aiden) | CC-BY 4.0 |
+| Akrep 9 (SMG) | `Guns/SMG_Akrep.fbx` | [HK MP5 (9mm submachine gun)](https://sketchfab.com/3d-models/hk-mp5-9mm-submachine-gun-c503d96157614fb78b5953d49e643b78) | [quick_loop](https://sketchfab.com/so_O) | CC-BY 4.0 |
+| U-45 Taktik (SMG) | `Guns/SMG_U45.fbx` | [Ump.45](https://sketchfab.com/3d-models/ump45-152fc06d0f484056a3748f3c10771a1b) | [Rahul Kumar Dey](https://sketchfab.com/Elementbreeder) | CC-BY 4.0 |
+| Paralı Avcı (shotgun) | `Guns/Shotgun_Avci.fbx` | [Mercenary's Shotgun](https://sketchfab.com/3d-models/mercenarys-shotgun-8db1d882a9e94f4dab8d945d737e048e) | [Katharina Alexander](https://sketchfab.com/Mondpanther) | CC-BY 4.0 |
+| Çiftlik 500 (shotgun) | `Guns/Shotgun_M500.fbx` | [Mossberg500 Shotgun low-poly](https://sketchfab.com/3d-models/mossberg500-shotgun-low-poly-5ae38a34bfed4c91a3dbe78aaea51790) | [AK](https://sketchfab.com/skaf13) | CC-BY 4.0 |
+| Polis 870 (shotgun) | `Guns/Shotgun_P870.fbx` | [Remington 870 Shotgun](https://sketchfab.com/3d-models/remington-870-shotgun-6db0ad4764d14eee8f063eea3600071b) | [Milin Andrei](https://sketchfab.com/milinam2002) | CC-BY 4.0 |
+| Hücum 12 (shotgun) | `Guns/Shotgun_S12.fbx` | [SPAS Shotgun](https://sketchfab.com/3d-models/spas-shotgun-fea7b12a18d24b8da18d8019f82496b9) | [TORI106](https://sketchfab.com/TORI106) | CC-BY 4.0 |
+| Bob (sniper) | `Guns/Sniper_Bob.fbx` | [Bob's sniper-rifle](https://sketchfab.com/3d-models/bobs-sniper-rifle-b459c3df0c5d4f2ebbe9137e04d86e24) | [denlark](https://sketchfab.com/denlark) | CC-BY 4.0 |
+| Taktik DMR (sniper) | `Guns/Sniper_G28.fbx` | [HK G28 Sniper Rifle](https://sketchfab.com/3d-models/hk-g28-sniper-rifle-997840668e1e4c1384c7220563323085) | [trolosqlfod](https://sketchfab.com/trolosqlfod) | CC-BY 4.0 |
+| Kar 98 (sniper) | `Guns/Sniper_K98.fbx` | [Kar98k with ZF4](https://sketchfab.com/3d-models/kar98k-with-zf4-1ba37f4c9b104fa9ba981d22ab2d08aa) (sling and loose parts left out) | [FF_Morph](https://sketchfab.com/FF_Morph) | CC-BY 4.0 |
+| Nemesis (sniper) | `Guns/Sniper_Nemesis.fbx` | [Nemesis Sniper Rifle](https://sketchfab.com/3d-models/nemesis-sniper-rifle-c68434f1190f48e1902be623971b4031) | [CaptainToggle](https://sketchfab.com/CaptainToggle) | CC-BY 4.0 |
+| Keskin (sniper) | `Guns/Sniper_Keskin.fbx` | [Sniper](https://sketchfab.com/3d-models/sniper-ac84ffacbbb34504a528446e241465f6) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+| SVD Avcı (sniper) | `Guns/Sniper_SVD.fbx` | [SVD (Dragunov) *Updated*](https://sketchfab.com/3d-models/svd-dragunov-updated-d4a9412275aa4974b146ad8ce9dc5fc2) | [WillyG99](https://sketchfab.com/WillyG99) | CC-BY 4.0 |
+| El bombası (thrown, icon) | `Props/Grenade_M67.fbx` | [M67 Fragmentation Grenade](https://sketchfab.com/3d-models/m67-fragmentation-grenade-05e2a29118c3408eaa574bcec6997aba) | [Vextin](https://sketchfab.com/vextin) | CC-BY 4.0 |
+| Sis bombası (thrown, icon) | `Props/Grenade_Smoke.fbx` | [Smoke Grenade](https://sketchfab.com/3d-models/smoke-grenade-d61768fbc7494143bb87852c36d1beaa) | [Roman Berezyak](https://sketchfab.com/yamagsummi) | CC-BY 4.0 |
+| Gaz bombası (thrown, icon) | `Props/Grenade_Gas.fbx` | [M18 Smoke Grenade Green](https://sketchfab.com/3d-models/m18-smoke-grenade-green-7e7bbd1eb478426dbd9b4f2f5820f7e8) | [Hitansh 3D](https://sketchfab.com/Hitansh_3DArtist) | CC-BY 4.0 |
+| Flaş bombası (thrown, icon) | `Props/Grenade_Flash.fbx` | [Zarya 2 stun grenade](https://sketchfab.com/3d-models/zarya-2-stun-grenade-f19a970e9a9a4656a8c4303282e29667) | [alpenfant](https://sketchfab.com/alpenfant) | CC-BY 4.0 |
+| Taktik Kask (loot, icon) | `Props/Helmet_MICH.fbx` | [MICH 2001 military helmet](https://sketchfab.com/3d-models/mich-2001-military-helmet-ad5907514a5343e3aca5ae0357b485a3) | [HaizorWill](https://sketchfab.com/HaizorWill) | CC-BY 4.0 |
+| Ağır Muharebe Kaskı (loot, icon) | `Props/Helmet_K6.fbx` | [Combat helmet K6-3](https://sketchfab.com/3d-models/combat-helmet-k6-3-94701874d8b949718708b018c8d4f61d) | [shamanoff](https://sketchfab.com/shamanoff) | CC-BY 4.0 |
+| Ağır Zırh (loot, icon) | `Props/Vest_Tactical.fbx` | [Tactical Armor Vest](https://sketchfab.com/3d-models/tactical-armor-vest-60f6e1cee19c4ea39d6594d07a7505e1) | [yronthal](https://sketchfab.com/yronthal) | CC-BY 4.0 |
+| Hafif Yelek, Komando Yeleği, black vest (loot, icons) | `Props/Vest_Rig.fbx`, `Vest_Olive.fbx`, `Vest_Black.fbx` | [Vest Armor Holster LowPoly GameReady Pack](https://sketchfab.com/3d-models/vest-armor-holster-lowpoly-gameready-pack-7c41d35e505c4057abe60f89537408bd) (three of the seven items) | [00amza](https://sketchfab.com/00amza) | CC-BY 4.0 |
+| Gölge (character) | `Characters/FemaleSpecops.fbx` | [female specops](https://sketchfab.com/3d-models/female-specops-367a37bf5c0b48e688195d915c5496a2) | [DJMaesen](https://sketchfab.com/bumstrum) | CC-BY 4.0 |
+| Polis Timi (character) | `Characters/PoliceSwat.fbx` | [Rocketbox - German Swat 3D model](https://sketchfab.com/3d-models/rocketbox-german-swat-3d-model-8787fba0fd2e4b4e9e3eadb33a606548) (from the Microsoft Rocketbox avatar library, MIT) | [Chernov-Egor](https://sketchfab.com/Chernov-Egor) | CC-BY 4.0 |
+| Komando (character) | `Characters/SpecialForces.fbx` | [Special Forces](https://sketchfab.com/3d-models/special-forces-e010444792384c8ab65ca446febcd240) | [George Zhuzha](https://sketchfab.com/Zhork9) | CC-BY 4.0 |
+
+Not used from `assets-v3`: "Battle Vest" and "Stun Grenade" (Sketchfab Standard licence: no redistribution, so not in a
+public repository), "Animated MP5" (its arms are a Devil May Cry 5 asset), "Free animated Pump Shotgun" (contains a
+Call of Duty part), "Bullpup Assault Rifle" (re-uploaded from a site that spreads paid assets), the "FBI" vest of the
+vest pack (agency marking), and an APK file. "Tactical Plate Carrier Vest" is the armour vest the game already had.
+
 ## Photo textures (Poly Haven, CC0)
 
 Downloaded by `.github/workflows/textures.yml` (`Tools/fetch_textures.py`) into `Assets/Resources/Textures` (2K diffuse + normal; the workflow's `cozunurluk` input picks 1k/2k/4k).

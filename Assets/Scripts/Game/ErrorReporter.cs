@@ -282,13 +282,16 @@ public class ErrorReporter : MonoBehaviour
                 Check("ZM-C-04", "Shader bu telefonda desteklenmiyor: " + name, "Grafik kalitesini Düşük yapmayı dene.");
         }
 
+        // Every character and gun model: loaded without ModelLibrary's cache and released afterwards, so the check
+        // does not keep two dozen characters and guns (and their textures) in memory.
         foreach (var skin in ModelLibrary.ShopSkins)
-            if (ModelLibrary.Prefab(ModelLibrary.CharacterPath(skin)) == null)
+            if (Resources.Load<GameObject>(ModelLibrary.CharacterPath(skin)) == null)
                 Check("ZM-C-12", "Karakter modeli eksik: " + skin, "O karakter basit şekillerle gösterilir.");
         foreach (var w in Gunsmith.Weapons)
             foreach (var gs in ModelLibrary.GunSkins(w))
-                if (!string.IsNullOrEmpty(gs) && ModelLibrary.Prefab(ModelLibrary.GunPath(w) + "_" + gs) == null)
+                if (!string.IsNullOrEmpty(gs) && Resources.Load<GameObject>(ModelLibrary.GunPath(w) + "_" + gs) == null)
                     Check("ZM-C-13", "Silah modeli eksik: " + w + " " + gs, "Standart model kullanılıyor.");
+        Resources.UnloadUnusedAssets();
 
         foreach (var icon in new[] { "rank_00", "rank_21", "token_revive", "currency", "rarity_frame" })
             if (Icons.Get(icon) == null)
