@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// The in-game economy (Kredi only, no real money): character prices, five boxes (wood, bronze, silver,
+/// The in-game economy (Kredi; Kredi packs can also be bought through Google Play, see Purchases): character prices, five boxes (wood, bronze, silver,
 /// gold, diamond) with what can come out of them (Kredi, item cards, camos, masks, characters), the boxes the player keeps unopened, giving any reward to the
 /// profile, and turning a received gift into rewards.
 /// </summary>
@@ -187,6 +187,70 @@ public static class Shop
                 list[list.Count - 1] = RandomGear(new[] { c.guarantee }, c, rng);
         }
         return list;
+    }
+
+    /// <summary>
+    /// The chances of a box, as the store shows them before buying (Google Play's rule for random items): for each
+    /// of its rewards, the chance of every kind of reward, how many items share it (each equally likely) and the
+    /// guarantee.
+    /// </summary>
+    public static List<string> OddsLines(CrateDef c)
+    {
+        var lines = new List<string>();
+        float total = c.wCredits + c.wCamo + c.wAttachment + c.wToken + c.wSkin + c.wGear + c.wMask;
+        lines.Add(c.name + " açıldığında " + c.rolls + " ödül verir. Her ödül için olasılıklar:");
+        System.Action<int, string, int> add = (w, what, items) =>
+        {
+            if (w <= 0)
+                return;
+            float p = w / total;
+            string each = items > 1 ? "  (" + items + " eşyadan biri, her biri " + OddsPanel.Percent(p / items) + ")" : "";
+            lines.Add("•  " + what + ": " + OddsPanel.Percent(p) + each);
+        };
+        add(c.wCredits, "Kredi (" + c.creditsMin + "–" + c.creditsMax + ")", 1);
+        add(c.wGear, "Eşya kartı (" + string.Join(", ", c.gearRarities) + "; " + c.cardsMin + "–" + c.cardsMax + " kart)", CountGear(c.gearRarities, false));
+        add(c.wCamo, "Kamuflaj (" + string.Join(", ", c.camoRarities) + ")", CountCamos(c.camoRarities));
+        add(c.wAttachment, "Silah eklentisi", Gunsmith.Attachments.Count);
+        add(c.wToken, "Sınıf jetonu", Progression.TokenTypes);
+        add(c.wMask, "Maske (" + string.Join(", ", c.maskRarities) + ")", CountGear(c.maskRarities, true));
+        add(c.wSkin, "Karakter", CountSkins());
+        if (!string.IsNullOrEmpty(c.guarantee))
+            lines.Add("Garanti: ödüllerden en az biri " + c.guarantee + " ya da daha iyisi olur.");
+        lines.Add("Zaten sahip olunan karakter, maske, kamuflaj ya da eklenti çıkarsa yerine Kredi verilir.");
+        return lines;
+    }
+
+    private static int CountGear(string[] rarities, bool cosmetic)
+    {
+        int n = 0;
+        foreach (var g in Gear.All)
+            if (g.Cosmetic == cosmetic && System.Array.IndexOf(rarities, g.rarity) >= 0)
+                n++;
+        return n;
+    }
+
+    private static int CountCamos(string[] rarities)
+    {
+        int n = 0;
+        foreach (var cd in Gunsmith.Camos)
+            if (!string.IsNullOrEmpty(cd.id) && !cd.drawOnly && System.Array.IndexOf(rarities, cd.rarity) >= 0)
+                n++;
+        foreach (var cd in Cosmetics.VehicleCamos)
+            if (!string.IsNullOrEmpty(cd.id) && System.Array.IndexOf(rarities, cd.rarity) >= 0)
+                n++;
+        foreach (var cd in Cosmetics.ParachuteCamos)
+            if (!string.IsNullOrEmpty(cd.id) && System.Array.IndexOf(rarities, cd.rarity) >= 0)
+                n++;
+        return n;
+    }
+
+    private static int CountSkins()
+    {
+        int n = 0;
+        for (int i = 0; i < ModelLibrary.ShopSkins.Length; i++)
+            if (ModelLibrary.ShopPrices[i] > 0)
+                n++;
+        return n;
     }
 
     public static int RarityRank(string rarity)

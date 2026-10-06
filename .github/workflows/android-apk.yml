@@ -1,4 +1,4 @@
-# Zootopia Mobile - Android APK'yı GitHub Actions'ta ücretsiz derler (GameCI).
+# Rise of Davraz - test APK'sını GitHub Actions'ta ücretsiz derler (GameCI). Google Play paketi (.aab): google-play.yml
 #
 # Depo herkese açık olduğu için GitHub'ın standart makinelerinde derleme dakikaları ücretsizdir.
 # Kendiliğinden çalışmaz: GitHub'da Actions > "Android APK (ücretsiz)" > "Run workflow" ile başlatılır.
@@ -10,8 +10,8 @@
 # Gizli ayarlar depoya özeldir; Ötüken Destanı deposundakiler buraya otomatik gelmez.
 #
 # Çıktı:
-#   - "son-apk" adlı ön sürümde ZootopiaMobile.apk (telefondan doğrudan indirilir, her derlemede yenilenir)
-#     https://github.com/<sahip>/<depo>/releases/download/son-apk/ZootopiaMobile.apk
+#   - "son-apk" adlı ön sürümde RiseOfDavraz.apk (telefondan doğrudan indirilir, her derlemede yenilenir)
+#     https://github.com/<sahip>/<depo>/releases/download/son-apk/RiseOfDavraz.apk
 #   - aynı APK, çalıştırma sayfasında 5 gün saklanan bir zip olarak
 #   - "son-server" ön sürümünde ZootopiaServer.tar.gz: çevrimiçi oyun sunucusu (Linux). Kiralık sunucudaki
 #     maç yöneticisi (Server/orchestrator.py) bunu birkaç dakika içinde kendisi indirip kullanır.
@@ -40,7 +40,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APK_ADI: ZootopiaMobile
+  APK_ADI: RiseOfDavraz
   SURUM_ETIKETI: son-apk
 
 jobs:
@@ -88,9 +88,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: Library
-          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          key: Library-Android-2022.3.62f3-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
-            Library-Android-
+            Library-Android-2022.3.62f3-
 
       - name: Çevrimiçi sürüm damgası (telefon ile sunucu aynı olmalı)
         run: |
@@ -117,6 +117,7 @@ jobs:
           # Sahneyi oluşturur, paket adını/IL2CPP/ARM64/yatay ekranı ayarlar ve APK'yı derler.
           buildMethod: ZootopiaBuild.BuildAndroid
           androidExportType: androidPackage
+          androidTargetSdkVersion: AndroidApiLevel36
           versioning: Custom
           version: ${{ steps.hazirlik.outputs.surum }}
           androidVersionCode: ${{ steps.hazirlik.outputs.kod }}
@@ -170,11 +171,11 @@ jobs:
           gh release create "$SURUM_ETIKETI" "${APK_ADI}.apk" \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Zootopia Mobile - son test sürümü ($SURUM)" \
+            --title "Rise of Davraz - son test sürümü ($SURUM)" \
             --notes "Test sürümü $SURUM, $(date -u +'%d.%m.%Y %H:%M') UTC. Commit: ${GITHUB_SHA::8}. Telefona indirip kurun; eski test sürümünün üstüne kurulur."
           link="https://github.com/${GITHUB_REPOSITORY}/releases/download/${SURUM_ETIKETI}/${APK_ADI}.apk"
           {
-            echo "## Zootopia Mobile $SURUM hazır"
+            echo "## Rise of Davraz $SURUM hazır"
             echo ""
             echo "Telefondan indir: $link"
             echo ""
@@ -217,9 +218,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: Library
-          key: Library-Linux-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          key: Library-Linux-2022.3.62f3-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: |
-            Library-Linux-
+            Library-Linux-2022.3.62f3-
 
       - name: Çevrimiçi sürüm damgası (telefon ile sunucu aynı olmalı)
         run: |
@@ -272,7 +273,7 @@ jobs:
           gh release create son-server ZootopiaServer.tar.gz \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Zootopia Mobile - oyun sunucusu (${GITHUB_SHA::8})" \
+            --title "Rise of Davraz - oyun sunucusu (${GITHUB_SHA::8})" \
             --notes "Çevrimiçi oyun sunucusu, commit ${GITHUB_SHA::8}. Kiralık sunucu bunu kendisi indirir; elle bir şey yapmaya gerek yok."
           echo "## Oyun sunucusu ${GITHUB_SHA::8} yayınlandı" >> "$GITHUB_STEP_SUMMARY"
 

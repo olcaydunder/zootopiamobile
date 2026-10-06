@@ -617,4 +617,31 @@ public class OnlineService : MonoBehaviour
 
     /// <summary>For the game server's join check: id + secret go in the UDP hello.</summary>
     public static string SecretForHello { get { return AccountSecret; } }
+
+    /// <summary>A page served by the game server (privacy policy, account deletion), as an address to open.</summary>
+    public static string WebPage(string path)
+    {
+        string h = host, p = apiPort.ToString();
+        if (string.IsNullOrEmpty(h))
+        {
+            string saved = PlayerPrefs.GetString("zm_server", "201.18.215.185:8080");
+            int colon = saved.LastIndexOf(':');
+            h = colon > 0 ? saved.Substring(0, colon) : saved;
+            p = colon > 0 ? saved.Substring(colon + 1) : "8080";
+        }
+        return "http://" + h + ":" + p + path;
+    }
+
+    /// <summary>Deletes this player's account and everything the server keeps about it (friends, messages, gifts,
+    /// statistics). The caller then wipes the data on the phone.</summary>
+    public static void DeleteAccount(System.Action<SocialView> done)
+    {
+        if (!HasAccount)
+        {
+            if (done != null)
+                done(new SocialView { ok = true });
+            return;
+        }
+        SocialPost("/account/delete", AccountId, null, done);
+    }
 }

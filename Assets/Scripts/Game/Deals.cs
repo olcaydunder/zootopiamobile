@@ -187,6 +187,22 @@ public static class Deals
     };
 
     public const int SpinPrice = 200;
+
+    /// <summary>Each slice of the wheel and its chance (the same for the free and the paid spins).</summary>
+    public static List<string> WheelOdds()
+    {
+        var lines = new List<string>();
+        float total = 0f;
+        foreach (var s in Wheel)
+            total += s.weight;
+        lines.Add("Her çevirişte olasılıklar (ücretsiz ve Kredi ile çevirişler aynıdır):");
+        foreach (var s in Wheel)
+        {
+            string what = s.reward.kind == RewardKind.Gear && string.IsNullOrEmpty(s.reward.id) ? s.reward.amount + " rastgele eşya kartı" : s.reward.Name;
+            lines.Add("•  " + what + ": " + OddsPanel.Percent(s.weight / total));
+        }
+        return lines;
+    }
     public const int MaxPaidSpins = 5;
 
     public static bool FreeSpinReady { get { return PlayerPrefs.GetInt("zm_wheel_day", -1) != Day; } }

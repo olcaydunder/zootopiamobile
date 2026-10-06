@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -106,6 +107,26 @@ public static class LuckyDraw
             case "Mitik": return 1.5f;
             default: return 25f;
         }
+    }
+
+    /// <summary>The chance of each prize still on the board in the next draw (the rest add up to 100%).</summary>
+    public static List<string> OddsLines()
+    {
+        var lines = new List<string>();
+        var pool = Current;
+        float total = 0f;
+        for (int i = 0; i < Count; i++)
+            if (!Taken(i))
+                total += Weight(pool.prizes[i]);
+        lines.Add("Bir sonraki çekilişte tahtada kalan ödüllerin olasılıkları (çıkan ödül tahtadan kalkar, kalanların olasılığı artar):");
+        for (int i = 0; i < Count; i++)
+        {
+            var r = pool.prizes[i];
+            lines.Add("•  " + r.Name + (string.IsNullOrEmpty(r.Rarity) ? "" : " (" + r.Rarity + ")") + ": " +
+                      (Taken(i) ? "alındı" : OddsPanel.Percent(Weight(r) / Mathf.Max(0.0001f, total))));
+        }
+        lines.Add("Her çekilişte bir ödül kesin çıkar; " + Count + " çekilişte tahtadaki her şey alınmış olur.");
+        return lines;
     }
 
     /// <summary>

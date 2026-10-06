@@ -5,7 +5,7 @@ using UnityEngine.UI;
 /// <summary>Builds every screen from code: lobby, match preparation, battle HUD (with minimap) and results.</summary>
 public class UIManager : MonoBehaviour
 {
-    public const string GameTitle = "ZOOTOPIA MOBILE";
+    public const string GameTitle = "RISE OF DAVRAZ";
     public const string ProducerCredit = "Yapımcı: Olcay Yasin Dünder";
 
     private Canvas canvas;

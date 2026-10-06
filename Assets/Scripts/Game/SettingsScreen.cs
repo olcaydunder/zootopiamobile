@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// </summary>
 public class SettingsScreen : MonoBehaviour
 {
-    private static readonly string[] Pages = { "TEMEL", "KONTROLLER", "SES VE GRAFİKLER", "HASSASİYET", "KÜNYE" };
+    private static readonly string[] Pages = { "TEMEL", "KONTROLLER", "SES VE GRAFİKLER", "HASSASİYET", "GİZLİLİK", "KÜNYE" };
 
     private static readonly Color Back = new Color(0.08f, 0.1f, 0.13f, 0.97f);
     private static readonly Color RowColor = new Color(0.15f, 0.17f, 0.21f, 0.96f);
@@ -156,6 +156,7 @@ public class SettingsScreen : MonoBehaviour
             case 1: BuildControls(); break;
             case 2: BuildGraphics(); break;
             case 3: BuildSensitivity(); break;
+            case 4: BuildPrivacy(); break;
             default: BuildCredits(); break;
         }
         content.sizeDelta = new Vector2(content.sizeDelta.x, -cursorY + 20f);
@@ -270,10 +271,64 @@ public class SettingsScreen : MonoBehaviour
             Note("Bu telefonda jiroskop bulunamadı.");
     }
 
+    // ----- Privacy and the account (Google Play: privacy policy, ad consent, deleting the account in the game) -----
+
+    private float deleteArmedUntil = -1f;
+
+    private void BuildPrivacy()
+    {
+        Header("GİZLİLİK");
+        ActionRow("Gizlilik politikası", "AÇ", () => Application.OpenURL(PlayConfig.PrivacyPolicyUrl));
+        if (Ads.PrivacyOptionsRequired)
+            ActionRow("Reklam izin tercihleri", "DEĞİŞTİR", Ads.ShowPrivacyOptions);
+        Note("Oyun; oyuncu adını, oyuncu kimliğini, cihaz modelini, maç istatistiklerini, arkadaş listeni, mesajlarını ve gönderdiğin hata raporlarını oyun sunucusunda saklar. " +
+             "Reklamlar (isteğe bağlı, Kredi karşılığı izlenen) Google AdMob ile gösterilir ve reklam kimliğini kullanabilir. Ödemeleri Google Play alır; kart bilgilerin bize gelmez.");
+        Header("HESAP");
+        Note(OnlineService.HasAccount ? "Oyuncu kodun: " + OnlineService.FriendCode(OnlineService.AccountId) : "Henüz çevrimiçi hesabın yok.");
+        RectTransform right;
+        LabeledRow("Hesabımı ve tüm verilerimi sil", out right);
+        Text label;
+        var b = UIUtil.CreateButton(right, "SİL", new Vector2(1f, 0.5f), new Vector2(-150f, 0f), new Vector2(300f, 56f), new Color(0.75f, 0.25f, 0.2f, 1f), false, 26, out label);
+        b.onClick.AddListener(() =>
+        {
+            if (Time.unscaledTime > deleteArmedUntil)
+            {
+                deleteArmedUntil = Time.unscaledTime + 6f;
+                label.text = "EMİN MİSİN? TEKRAR BAS";
+                return;
+            }
+            deleteArmedUntil = -1f;
+            label.text = "SİLİNİYOR...";
+            b.interactable = false;
+            OnlineService.DeleteAccount(view =>
+            {
+                if (view == null || !view.ok)
+                {
+                    label.text = "SİLİNEMEDİ";
+                    b.interactable = true;
+                    return;
+                }
+                // everything on the phone too: profile, Kredi, items, settings
+                PlayerPrefs.DeleteAll();
+                PlayerPrefs.Save();
+                label.text = "SİLİNDİ";
+                StartCoroutine(QuitSoon());
+            });
+        });
+        Note("Hesabın, arkadaşların, mesajların, hediyelerin ve istatistiklerin sunucudan; Kredi, eşyalar ve ayarlar bu telefondan silinir. Bu işlem geri alınamaz. " +
+             "Satın alınan Kredi de silinir. Oyunu silmeden önce de buradan silebilirsin; oyun yüklü değilse: " + PlayConfig.SupportEmail);
+    }
+
+    private System.Collections.IEnumerator QuitSoon()
+    {
+        yield return new WaitForSecondsRealtime(1.5f);
+        Application.Quit();
+    }
+
     private void BuildCredits()
     {
         Header("YAPIM");
-        Note("Yapımcı: Olcay Yasin Dünder");
+        Note("Rise of Davraz – Zootopia Yazılım. Yapımcı: Olcay Yasin Dünder. İletişim: " + PlayConfig.SupportEmail);
         Header("3D MODELLER (CC-BY 4.0)");
         Note("Kasap Leydi karakteri – \"Lady Butcher (WIP)\", Loves_Art (sketchfab.com/Loves_Art)");
         Note("Alev Kartalı tabanca – \"Custom Desert Eagle – Flame Edition\", Fevzi_Beydili");
@@ -302,9 +357,20 @@ public class SettingsScreen : MonoBehaviour
         Header("CC0 VE HARİTA");
         Note("Karakterler, silahlar, siperler: Quaternius (CC0)");
         Note("Zemin, cephe, asfalt, kiremit, beton dokuları: Poly Haven (CC0) – Rob Tuytel, Amal Kumar, Stephan Seeliger, Dimitrios Savva, Rico Cilliers, Jenelle van Heerden");
-        Note("Yazı tipi: Barlow Condensed (SIL Open Font License)");
-        Note("Haritalar: Ekşioğlu (Çekmeköy), Senir Kasabası (Keçiborlu), Fırat Üniversitesi (Elazığ) – © OpenStreetMap katkıcıları (ODbL)");
+        Note("Yazı tipleri: Barlow Condensed, Russo One, Teko (SIL Open Font License)");
+        Note("Haritalar: " + MapList() + " – © OpenStreetMap katkıcıları (ODbL)");
         Note("Arazi yükseltisi: AWS Terrain Tiles (Mapzen, SRTM)");
+        Header("YASAL");
+        Note("Oyundaki silahlar, karakterler, kurumlar ve adları kurgusaldır; gerçek üreticiler, markalar ya da kişilerle bağlantısı yoktur. " +
+             "Gerçek yerler OpenStreetMap verisinden oyun için yeniden oluşturulmuştur.");
+    }
+
+    private static string MapList()
+    {
+        var names = new System.Collections.Generic.List<string>();
+        foreach (var m in MapCatalog.All)
+            names.Add(m.name + (string.IsNullOrEmpty(m.place) ? "" : " (" + m.place + ")"));
+        return string.Join(", ", names.ToArray());
     }
 
     // ----- row builders -----

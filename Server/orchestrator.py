@@ -352,6 +352,50 @@ def q_all(sql, args=()):
         return [dict(r) for r in db.execute(sql, args).fetchall()]
 
 
+def delete_account(acc_id):
+    """Removes an account and everything kept about it (the player asked for it in the game or by e-mail)."""
+    for sql in ("DELETE FROM friends WHERE a=? OR b=?", "DELETE FROM blocks WHERE owner=? OR target=?",
+                "DELETE FROM invites WHERE from_id=? OR to_id=?", "DELETE FROM follows WHERE follower=? OR target=?",
+                "DELETE FROM messages WHERE from_id=? OR to_id=?", "DELETE FROM gifts WHERE from_id=? OR to_id=?",
+                "DELETE FROM reports WHERE reporter=? OR target=?"):
+        q_run(sql, (acc_id, acc_id))
+    q_run("DELETE FROM daily_stats WHERE account=?", (acc_id,))
+    q_run("DELETE FROM bugs WHERE account=?", (acc_id,))
+    q_run("DELETE FROM accounts WHERE id=?", (acc_id,))
+    log("account deleted", acc_id)
+
+
+# Public pages (privacy policy, account deletion): Server/web/*.html from the repository, cached for an hour.
+WEB_RAW = "https://raw.githubusercontent.com/%s/main/Server/web/%%s" % REPO
+WEB_PAGES = {"/gizlilik": "gizlilik.html", "/privacy": "gizlilik.html", "/hesap-silme": "hesap-silme.html",
+             "/delete-account": "hesap-silme.html"}
+web_cache = {}
+
+
+def web_page(name):
+    now = time.time()
+    hit = web_cache.get(name)
+    if hit and now - hit[0] < 3600:
+        return hit[1]
+    data = None
+    try:
+        req = urllib.request.Request(WEB_RAW % name, headers={"User-Agent": "zootopia-orchestrator"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = r.read()
+    except Exception as e:
+        log("web page", name, repr(e))
+    if data is None:
+        local = os.path.join(BASE, "web", name)
+        if os.path.exists(local):
+            with open(local, "rb") as f:
+                data = f.read()
+        elif hit:
+            data = hit[1]
+    if data is not None:
+        web_cache[name] = (now, data)
+    return data
+
+
 def q_one(sql, args=()):
     with db_lock:
         r = db.execute(sql, args).fetchone()
@@ -696,6 +740,16 @@ class Handler(BaseHTTPRequestHandler):
                    str(data.get("device", ""))[:80], str(data.get("version", ""))[:40]))
             log("new account", acc_id)
             self.reply(200, {"ok": True, "id": acc_id, "secret": secret})
+            return
+        if path == "/account/delete":   # also for banned players: deleting is always allowed
+            acc_id = (self.headers.get("X-ZM-Id") or "").upper()
+            secret = self.headers.get("X-ZM-Secret") or ""
+            acc = q_one("SELECT id, secret_hash FROM accounts WHERE id=?", (acc_id,)) if acc_id else None
+            if not acc or not hmac.compare_digest(acc["secret_hash"], hash_secret(secret)):
+                self.reply(401, {"ok": False, "error": "Hesap bulunamadı"})
+                return
+            delete_account(acc["id"])
+            self.reply(200, {"ok": True})
             return
         me = self.account()
         if not me:
@@ -1052,6 +1106,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def route_get(self):
         path, q = self.params()
+        if path in WEB_PAGES:
+            page = web_page(WEB_PAGES[path])
+            if page is None:
+                self.reply(503, {"ok": False, "error": "Sayfa şu an açılamıyor"})
+            else:
+                self.send_body(200, page, "text/html; charset=utf-8")
+            return
         if path == "/status":
             with lock:
                 shown = [dict(public_view(m), code=m["code"] if m["kind"] == "quick" else "******") for m in matches.values()]
@@ -1188,7 +1249,7 @@ ADMIN_HTML = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zootopia Yönetim</title>
+<title>Rise of Davraz Yönetim</title>
 <style>
 :root { --bg:#0e1116; --panel:#171b22; --line:#262c36; --text:#e8ebf0; --dim:#8b95a5; --accent:#ffd02e; --good:#4ad37a; --bad:#ff5a4f; --blue:#3d8bff; }
 * { box-sizing:border-box; }
@@ -1229,7 +1290,7 @@ pre.log { white-space:pre-wrap; word-break:break-word; font-size:12px; color:#c8
 <body>
 <div id="login" class="login" style="display:none">
   <div class="card">
-    <h1>Zootopia <span style="color:var(--accent)">Yönetim</span></h1>
+    <h1>Rise of Davraz <span style="color:var(--accent)">Yönetim</span></h1>
     <div class="dim">İlk şifre sunucuda: terminalde <code>cat /opt/zootopia/admin_password.txt</code></div>
     <input id="pw" type="password" placeholder="Yönetici şifresi" autocomplete="current-password">
     <button class="b primary" style="width:100%" onclick="login()">Giriş</button>

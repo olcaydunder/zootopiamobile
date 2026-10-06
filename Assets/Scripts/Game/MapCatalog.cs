@@ -28,7 +28,7 @@ public static class MapCatalog
         {
             id = "eksioglu", name = "EKŞİOĞLU", place = "Çekmeköy, İstanbul",
             blurb = "Kliniğin mahallesi: apartmanlar, dar sokaklar, denizle çevrili ada.",
-            signTop = "ZOOTOPIA", signBottom = "VETERİNER KLİNİĞİ 7/24",
+            signTop = "VETERİNER", signBottom = "KLİNİĞİ  7/24",
             signColor = new Color32(22, 110, 60, 255), signCross = true, sea = true,
             arena = new Vector2(100f, -120f), arenaRadius = 78f, arenaName = "Apartmanlar"
         },

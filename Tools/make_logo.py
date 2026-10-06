@@ -1,4 +1,5 @@
-"""Draws the game logo: "ZOOTOPIA" with the first O as a reticle around a paw print, a "MOBILE" banner.
+"""Draws the game logo: "DAVRAZ" with the first A as a snow-capped mountain peak (Davraz) inside a reticle, and a
+"RISE OF" banner above it.
 
   Assets/Resources/UI/Logo.png   1024 x 512, transparent (loading and title screens)
 
@@ -28,33 +29,47 @@ def text_mask(s, font):
     return m
 
 
-def emblem_mask(d):
-    """Reticle ring with four ticks and a paw print in the middle, d pixels across."""
+def peak_mask(w, h):
+    """The first A of DAVRAZ: a mountain with a second, lower summit behind it (no crossbar), w x h pixels."""
     s = 4  # supersample
+    W_, H_ = w * s, h * s
+    m = Image.new("L", (W_, H_), 0)
+    g = ImageDraw.Draw(m)
+    g.polygon([(0, H_), (W_ * 0.5, 0), (W_, H_)], fill=255)                          # main summit
+    g.polygon([(W_ * 0.56, H_), (W_ * 0.80, H_ * 0.38), (W_ * 1.04, H_)], fill=255)  # shoulder
+    # a notch where the A's crossbar would be, so it still reads as a letter
+    g.polygon([(W_ * 0.36, H_), (W_ * 0.5, H_ * 0.62), (W_ * 0.64, H_)], fill=0)
+    return m.resize((w, h), Image.LANCZOS)
+
+
+def snow_mask(w, h):
+    """The snow cap on the peak (white, drawn over the gold)."""
+    s = 4
+    W_, H_ = w * s, h * s
+    m = Image.new("L", (W_, H_), 0)
+    g = ImageDraw.Draw(m)
+    y = H_ * 0.34
+    pts = [(W_ * 0.5, 0), (W_ * 0.5 + W_ * 0.17, y), (W_ * 0.58, y * 0.86), (W_ * 0.52, y * 1.06),
+           (W_ * 0.45, y * 0.84), (W_ * 0.39, y * 0.98), (W_ * 0.5 - W_ * 0.17, y)]
+    g.polygon(pts, fill=255)
+    return m.resize((w, h), Image.LANCZOS)
+
+
+def reticle_mask(d):
+    """A thin reticle ring with four ticks, d pixels across."""
+    s = 4
     D = d * s
     m = Image.new("L", (D, D), 0)
     g = ImageDraw.Draw(m)
     c = D / 2
-    ring_w = D * 0.085
-    r_out = D * 0.40
+    r_out, ring = D * 0.46, D * 0.035
     g.ellipse([c - r_out, c - r_out, c + r_out, c + r_out], fill=255)
-    r_in = r_out - ring_w
-    g.ellipse([c - r_in, c - r_in, c + r_in, c + r_in], fill=0)
-    tick_w = D * 0.06
+    g.ellipse([c - r_out + ring, c - r_out + ring, c + r_out - ring, c + r_out - ring], fill=0)
     for a in range(4):
         ang = a * math.pi / 2
-        x0, y0 = c + math.cos(ang) * (r_in - D * 0.02), c + math.sin(ang) * (r_in - D * 0.02)
+        x0, y0 = c + math.cos(ang) * (r_out - D * 0.09), c + math.sin(ang) * (r_out - D * 0.09)
         x1, y1 = c + math.cos(ang) * (D * 0.5), c + math.sin(ang) * (D * 0.5)
-        g.line([(x0, y0), (x1, y1)], fill=255, width=int(tick_w))
-    # paw: main pad + four toes
-    pad_w, pad_h = D * 0.34, D * 0.26
-    py = c + D * 0.095
-    g.ellipse([c - pad_w / 2, py - pad_h / 2, c + pad_w / 2, py + pad_h / 2], fill=255)
-    g.polygon([(c - pad_w * 0.42, py - pad_h * 0.05), (c, py - pad_h * 0.75), (c + pad_w * 0.42, py - pad_h * 0.05)], fill=255)
-    toes = [(-0.158, -0.055, 0.082, 0.104), (-0.06, -0.158, 0.088, 0.112), (0.06, -0.158, 0.088, 0.112), (0.158, -0.055, 0.082, 0.104)]
-    for dx, dy, rx, ry in toes:
-        x, y = c + dx * D, c + dy * D
-        g.ellipse([x - rx * D / 2 * 1.0, y - ry * D / 2, x + rx * D / 2, y + ry * D / 2], fill=255)
+        g.line([(x0, y0), (x1, y1)], fill=255, width=int(D * 0.035))
     return m.resize((d, d), Image.LANCZOS)
 
 
@@ -72,20 +87,20 @@ def gradient(mask):
 
 def compose():
     canvas_mask = Image.new("L", (W, H), 0)
-    # ---- wordmark: Z [emblem] OTOPIA
-    z = text_mask("Z", word)
-    rest = text_mask("OTOPIA", word)
-    cap = z.size[1]
-    em_d = int(cap * 1.18)
-    em = emblem_mask(em_d)
-    gap = 14
-    total = z.size[0] + gap + em_d + gap + rest.size[0]
+    # ---- wordmark: D [peak] VRAZ
+    d = text_mask("D", word)
+    rest = text_mask("VRAZ", word)
+    cap = d.size[1]
+    pw, ph = int(cap * 1.02), cap
+    peak = peak_mask(pw, ph)
+    gap = 10
+    total = d.size[0] + gap + pw + gap + rest.size[0]
     x = (W - total) // 2
-    y_text = 250
-    canvas_mask.paste(z, (x, y_text), z)
-    ex = x + z.size[0] + gap
-    canvas_mask.paste(em, (ex, y_text + cap // 2 - em_d // 2), em)
-    canvas_mask.paste(rest, (ex + em_d + gap, y_text), rest)
+    y_text = 420
+    canvas_mask.paste(d, (x, y_text), d)
+    px = x + d.size[0] + gap
+    canvas_mask.paste(peak, (px, y_text), peak)
+    canvas_mask.paste(rest, (px + pw + gap, y_text), rest)
     word_box = (x, y_text, x + total, y_text + cap)
 
     # ---- outline, shadow, fill
@@ -98,7 +113,6 @@ def compose():
     ol = Image.new("RGBA", (W, H), INK + (0,))
     ol.putalpha(outline)
     img.alpha_composite(ol)
-    # thin gold rim inside the dark outline
     rim = canvas_mask.filter(ImageFilter.MaxFilter(7))
     rim_l = Image.new("RGBA", (W, H), (120, 64, 10, 0))
     rim_l.putalpha(rim)
@@ -107,10 +121,24 @@ def compose():
     crop = canvas_mask.crop((x0 - 40, y0 - 60, x1 + 40, y1 + 60))
     fill = gradient(crop)
     img.alpha_composite(fill, (x0 - 40, y0 - 60))
+    # snow on the summit
+    snow = snow_mask(pw, ph)
+    sl = Image.new("RGBA", (pw, ph), (244, 248, 255, 0))
+    sl.putalpha(snow)
+    img.alpha_composite(sl, (px, y_text))
+    # a reticle round the summit
+    rd = int(cap * 0.62)
+    ret = reticle_mask(rd)
+    rl = Image.new("RGBA", (rd, rd), INK + (0,))
+    rl.putalpha(ret.filter(ImageFilter.MaxFilter(5)))
+    img.alpha_composite(rl, (px + pw // 2 - rd // 2, y_text - rd // 2 + int(ph * 0.08)))
+    rg = Image.new("RGBA", (rd, rd), (255, 236, 140, 0))
+    rg.putalpha(ret)
+    img.alpha_composite(rg, (px + pw // 2 - rd // 2, y_text - rd // 2 + int(ph * 0.08)))
 
-    # ---- banner with MOBILE
-    bw, bh = 760, 128
-    bx, by = (W - bw) // 2, y1 + 70
+    # ---- banner with RISE OF above the word
+    bw, bh = 640, 120
+    bx, by = (W - bw) // 2, y0 - bh - 120
     banner = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     bd = ImageDraw.Draw(banner)
     skew = 34
@@ -119,17 +147,16 @@ def compose():
     bd.polygon(poly, fill=INK + (235,))
     bd.line(poly + [poly[0]], fill=(255, 196, 52, 255), width=6)
     img.alpha_composite(banner.filter(ImageFilter.GaussianBlur(0.6)))
-    t = text_mask("M O B I L E", sub)
+    t = text_mask("R I S E   O F", sub)
     tx = (W - t.size[0]) // 2
     ty = by + (bh - t.size[1]) // 2 + 4
     tl = Image.new("RGBA", t.size, (255, 255, 255, 0))
     tl.putalpha(t)
     img.alpha_composite(tl, (tx, ty))
-    # side strokes
-    d = ImageDraw.Draw(img)
+    dr = ImageDraw.Draw(img)
     for sgn in (-1, 1):
         cx = W // 2 + sgn * (bw // 2 + 150)
-        d.line([(cx - 90, by + bh // 2), (cx + 90, by + bh // 2)], fill=(255, 196, 52, 255), width=8)
+        dr.line([(cx - 90, by + bh // 2), (cx + 90, by + bh // 2)], fill=(255, 196, 52, 255), width=8)
     return img
 
 

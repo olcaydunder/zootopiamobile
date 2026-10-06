@@ -315,7 +315,7 @@ public class ErrorReporter : MonoBehaviour
     public string BuildReport()
     {
         var sb = new StringBuilder();
-        sb.Append("ZOOTOPIA MOBILE HATA RAPORU\n");
+        sb.Append("RISE OF DAVRAZ HATA RAPORU\n");
         sb.Append("Sürüm: ").Append(Application.version).Append("  Unity: ").Append(Application.unityVersion).Append('\n');
         sb.Append("Cihaz: ").Append(SystemInfo.deviceModel).Append("  OS: ").Append(SystemInfo.operatingSystem).Append('\n');
         sb.Append("GPU: ").Append(SystemInfo.graphicsDeviceName).Append(" (").Append(SystemInfo.graphicsDeviceType).Append(", ")

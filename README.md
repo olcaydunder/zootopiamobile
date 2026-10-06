@@ -1,7 +1,9 @@
-# Zootopia Mobile
+# Rise of Davraz
 
-3D mobil battle royale oyunu (Unity, Android).
-**Yapımcı:** Olcay Yasin Dünder
+3D mobil battle royale oyunu (Unity, Android) – Zootopia Yazılım.
+**Yapımcı:** Olcay Yasin Dünder · Google Play paket adı: `com.zootopiayazilim.riseofdavraz`
+
+Google Play hazırlığı (yükleme anahtarı, ödemeler, reklamlar, gizlilik): [Docs/GOOGLE_PLAY.md](Docs/GOOGLE_PLAY.md)
 
 25 kişilik ada maçı: daralan güvenli bölge, ganimet sandıkları, silah değiştirme ve yapay zekâlı rakipler. Solo, Duo, Squad ve 5v5 modları; botlarla internetsiz ya da çevrimiçi (eksik oyuncuların yerini botlar alır).
 
@@ -9,7 +11,7 @@
 
 - **Uçaktan atlama:** Maç başında uçak adanın üstünden geçer; istediğin yerde ATLA, serbest düşüşte yönlen, paraşütle in
 - **Altı gerçek harita, lobiden seçilir (HARİTA düğmesi):**
-  - **Ekşioğlu (Çekmeköy, İstanbul):** Zootopia Veteriner Kliniği'nin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar, parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir; klinik tabelasıyla giriş ekranının açılış çekiminde. Haritanın etrafı deniz.
+  - **Ekşioğlu (Çekmeköy, İstanbul):** bir veteriner kliniğinin çevresindeki 700×700 m'lik gerçek mahalle: OpenStreetMap'teki 320 bina (pencereli apartmanlar, kiremit çatılar, cami ve minaresi, sanayi binaları), gerçek sokaklar, parklar, koru ve gerçek arazi yükseltisi. 70 binanın zemin katına girilebilir; klinik tabelasıyla giriş ekranının açılış çekiminde. Haritanın etrafı deniz.
   - **Senir Kasabası (Keçiborlu, Isparta):** Burdur Gölü kıyısından kasabanın arkasındaki ormanlık dağa kadar bütün kasaba (1,1×1,1 km oyun alanı). 3,4 km uzunluğundaki kasaba haritaya sığsın diye uzunlamasına sıkıştırıldı, evler gerçek boyutunda; sokaklar OpenStreetMap'ten, ~400 bahçeli ev sokaklara göre yerleştirildi (OSM'de Senir'in evleri çizili değil). Tarlalar, meyve bahçeleri, gölde yüzme ve tekne, "SENİR — KASABAMIZA HOŞ GELDİNİZ" tabelası.
   - **Fırat Üniversitesi (Rektörlük Kampüsü, Elazığ):** gerçek ölçekli 1×1 km kampüs: fakülteler, rektörlük binası (tabelalı), kampüs yolları, çevre mahalleler; çevresi tepelerle kapalı.
   - **Kafeler Caddesi (Merkez, Isparta):** Isparta'nın merkezi, kafeler sokağı ve çarşı çevresi (660×660 m, gerçek ölçek); OpenStreetMap'teki ~580 bina, binası çizilmemiş sokaklara apartman blokları.

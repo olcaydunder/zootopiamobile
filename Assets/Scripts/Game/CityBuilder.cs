@@ -624,7 +624,7 @@ public static class CityBuilder
                     px[y * w + x] = c;
     }
 
-    /// <summary>The landmark's sign: "ZOOTOPIA / VETERİNER KLİNİĞİ 7/24" on green with a white medical cross in
+    /// <summary>The landmark's sign: "VETERİNER / KLİNİĞİ 7/24" on green with a white medical cross in
     /// Ekşioğlu, the town's welcome sign in Senir, the rectorate's sign at Fırat Üniversitesi.</summary>
     private static Texture2D SignTexture()
     {

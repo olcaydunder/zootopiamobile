@@ -3,14 +3,17 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// MAĞAZA (Kredi only): FIRSATLAR (free daily gift, six daily deals, weekly offers), gift boxes (buy, open
+/// MAĞAZA: KREDİ (Kredi packs bought through Google Play, a rewarded ad for free Kredi), FIRSATLAR (free daily gift, six daily deals, weekly offers), gift boxes (buy, open
 /// the ones you have), characters, TEÇHİZAT (armour, equipment, perk cards, masks) and camouflages for guns,
 /// vehicles and parachutes. Every paid item can also be bought as a gift for a friend (HEDİYE ET).
 /// Opened for a friend (from the friends screen) every item shows GÖNDER instead.
 /// </summary>
 public class StoreScreen : MonoBehaviour
 {
-    public enum Tab { Deals, Boxes, Characters, Gear, Camos }
+    public enum Tab { Deals, Boxes, Characters, Gear, Camos, Credits }
+
+    // order of the tab buttons
+    private static readonly Tab[] TabOrder = { Tab.Credits, Tab.Deals, Tab.Boxes, Tab.Characters, Tab.Gear, Tab.Camos };
 
     private Tab tab;
     private System.Action onClose;
@@ -50,12 +53,12 @@ public class StoreScreen : MonoBehaviour
         coinsText.fontStyle = FontStyle.Bold;
         coinsText.color = new Color(1f, 0.85f, 0.3f);
 
-        string[] tabs = { "FIRSATLAR", "KUTULAR", "KARAKTERLER", "TEÇHİZAT", "KAMUFLAJLAR" };
+        string[] tabs = { "KREDİ", "FIRSATLAR", "KUTULAR", "KARAKTERLER", "TEÇHİZAT", "KAMUFLAJLAR" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            int index = i;
-            var b = UIUtil.CreateButton(t, tabs[i], new Vector2(0.5f, 1f), new Vector2((i - 2) * 340f, -175f), new Vector2(320f, 76f), Theme.Panel, false, 30, out label);
-            b.onClick.AddListener(() => Show((Tab)index));
+            Tab which = TabOrder[i];
+            var b = UIUtil.CreateButton(t, tabs[i], new Vector2(0.5f, 1f), new Vector2((i - 2.5f) * 290f, -175f), new Vector2(276f, 76f), Theme.Panel, false, 28, out label);
+            b.onClick.AddListener(() => Show(which));
             tabImages.Add(b.GetComponent<Image>());
             tabLabels.Add(label);
         }
@@ -120,7 +123,7 @@ public class StoreScreen : MonoBehaviour
         tab = which;
         for (int i = 0; i < tabImages.Count; i++)
         {
-            bool sel = i == (int)tab;
+            bool sel = TabOrder[i] == tab;
             tabImages[i].color = sel ? Theme.Selected : Theme.Panel;
             tabLabels[i].color = sel ? new Color(0.08f, 0.08f, 0.1f) : Color.white;
             tabLabels[i].GetComponent<Shadow>().enabled = !sel;
@@ -140,12 +143,136 @@ public class StoreScreen : MonoBehaviour
             case Tab.Boxes: h = BuildBoxes(); break;
             case Tab.Characters: h = BuildCharacters(); break;
             case Tab.Gear: h = BuildGear(); break;
+            case Tab.Credits: h = BuildCredits(); break;
             default: h = BuildCamos(); break;
         }
         content.sizeDelta = new Vector2(1760f, h);
     }
 
     private bool Gifting { get { return giftTo.Length > 0; } }
+
+    // ----- Kredi (Google Play) -----
+
+    private void OnEnable()
+    {
+        Purchases.Changed += OnPurchasesChanged;
+    }
+
+    private void OnDisable()
+    {
+        Purchases.Changed -= OnPurchasesChanged;
+    }
+
+    private bool shownAdReady, shownStoreReady;
+
+    private void Update()
+    {
+        // the Kredi page changes by itself when the ad finishes loading or Google Play answers
+        if (tab == Tab.Credits && (Ads.RewardReady != shownAdReady || Purchases.Available != shownStoreReady))
+            Rebuild();
+    }
+
+    private void OnPurchasesChanged()
+    {
+        if (!gameObject.activeInHierarchy)
+            return;
+        if (Purchases.Message.Length > 0)
+            SetStatus(Purchases.Message);
+        Rebuild();
+    }
+
+    private float BuildCredits()
+    {
+        shownAdReady = Ads.RewardReady;
+        shownStoreReady = Purchases.Available;
+        var c = new Vector2(0.5f, 1f);
+        var mid = new Vector2(0.5f, 0.5f);
+        if (Gifting)
+        {
+            var g = UIUtil.CreateText(content, "Kredi paketleri hediye edilemez. Arkadaşına kutu, karakter ya da kamuflaj gönderebilirsin.", c, new Vector2(0f, -80f), new Vector2(1400f, 80f), 30, TextAnchor.MiddleCenter);
+            g.color = Theme.TextDim;
+            return 200f;
+        }
+        Text label;
+        var packs = PlayConfig.CreditPacks;
+        for (int i = 0; i <= packs.Length; i++)
+        {
+            float x = (i % 3 - 1) * 580f, y = -170f - (i / 3) * 330f;
+            bool adCard = i == packs.Length;
+            var card = UIUtil.CreateImage(content, adCard ? "AdCard" : "Pack", c, new Vector2(x, y), new Vector2(560f, 310f),
+                adCard ? new Color(0.1f, 0.2f, 0.16f, 0.95f) : new Color(0.12f, 0.1f, 0.05f, 0.95f), false);
+            var o = card.gameObject.AddComponent<Outline>();
+            o.effectColor = adCard ? new Color(0.35f, 0.9f, 0.55f, 0.6f) : new Color(1f, 0.8f, 0.3f, 0.6f);
+            o.effectDistance = new Vector2(3f, -3f);
+            var ct = card.transform;
+            Icons.Create(ct, "currency", mid, new Vector2(-170f, 30f), new Vector2(150f, 150f));
+            if (adCard)
+            {
+                var t1 = UIUtil.CreateText(ct, "REKLAM İZLE", mid, new Vector2(80f, 85f), new Vector2(360f, 50f), 34, TextAnchor.MiddleCenter);
+                t1.fontStyle = FontStyle.Bold;
+                var t2 = UIUtil.CreateText(ct, "+" + PlayConfig.AdReward + " KREDİ", mid, new Vector2(80f, 35f), new Vector2(360f, 50f), 38, TextAnchor.MiddleCenter);
+                t2.fontStyle = FontStyle.Bold;
+                t2.color = Theme.Good;
+                var t3 = UIUtil.CreateText(ct, "Bugün kalan: " + Ads.LeftToday + " / " + PlayConfig.AdsPerDay, mid, new Vector2(80f, -10f), new Vector2(360f, 36f), 24, TextAnchor.MiddleCenter);
+                t3.color = Theme.TextDim;
+                bool ready = Ads.RewardReady;
+                string text = Ads.LeftToday <= 0 ? "YARIN TEKRAR" : ready ? "İZLE" : "HAZIRLANIYOR";
+                var watch = UIUtil.CreateButton(ct, text, mid, new Vector2(0f, -95f), new Vector2(480f, 76f), ready ? Theme.Good : Theme.PanelLight, false, 30, out label);
+                if (ready)
+                    Dark(label);
+                watch.onClick.AddListener(() =>
+                {
+                    if (!Ads.ShowRewarded(() =>
+                    {
+                        Profile.coins += PlayConfig.AdReward;
+                        Profile.Save();
+                        UiSound.Confirm();
+                        SetStatus(PlayConfig.AdReward + " Kredi kazandın.");
+                        Rebuild();
+                    }))
+                        SetStatus(Ads.LeftToday <= 0 ? "Bugünkü reklam hakkın bitti." : "Reklam henüz hazır değil, birazdan tekrar dene.");
+                });
+                continue;
+            }
+            var pack = packs[i];
+            string id = pack.id;
+            var amount = UIUtil.CreateText(ct, pack.credits.ToString("N0") + " KREDİ", mid, new Vector2(80f, 70f), new Vector2(380f, 60f), 42, TextAnchor.MiddleCenter);
+            amount.fontStyle = FontStyle.Bold;
+            amount.color = new Color(1f, 0.85f, 0.3f);
+            if (pack.bonus > 0)
+            {
+                var bonus = UIUtil.CreateText(ct, "+" + pack.bonus.ToString("N0") + " BONUS", mid, new Vector2(80f, 22f), new Vector2(380f, 40f), 28, TextAnchor.MiddleCenter);
+                bonus.color = Theme.Good;
+            }
+            if (pack.tag.Length > 0)
+            {
+                var tagBg = UIUtil.CreateImage(ct, "Tag", new Vector2(1f, 1f), new Vector2(-110f, -24f), new Vector2(200f, 40f), new Color(0.85f, 0.2f, 0.25f, 1f), false);
+                tagBg.raycastTarget = false;
+                var tagText = UIUtil.CreateText(tagBg.transform, pack.tag, mid, Vector2.zero, new Vector2(200f, 40f), 20, TextAnchor.MiddleCenter);
+                tagText.fontStyle = FontStyle.Bold;
+            }
+            string price = Purchases.Price(id);
+            bool can = price.Length > 0 && !Purchases.Busy;
+            var buy = UIUtil.CreateButton(ct, price.Length > 0 ? price : (Purchases.Available ? "SATIŞTA DEĞİL" : "BAĞLANIYOR..."), mid, new Vector2(0f, -95f), new Vector2(480f, 76f),
+                can ? Theme.Accent : Theme.PanelLight, false, 32, out label);
+            if (can)
+                Dark(label);
+            buy.onClick.AddListener(() =>
+            {
+                if (!Purchases.Buy(id))
+                    SetStatus(Application.platform == RuntimePlatform.Android ? "Google Play'e bağlanılamadı. İnternet bağlantını kontrol edip tekrar dene."
+                                                                              : "Satın alma yalnızca Google Play'den indirilen oyunda çalışır.");
+                else
+                    SetStatus("Google Play açılıyor...");
+            });
+        }
+        var note = UIUtil.CreateText(content, "Ödemeler Google Play üzerinden alınır. Satın alınan Kredi yalnızca bu cihazdaki oyunda geçerlidir; para iadesi Google Play kurallarına tabidir." +
+                                              (PlayConfig.TestAds ? "  (Test sürümü: reklamlar Google test reklamıdır.)" : ""),
+                                     c, new Vector2(0f, -680f), new Vector2(1700f, 70f), 22, TextAnchor.MiddleCenter);
+        note.horizontalOverflow = HorizontalWrapMode.Wrap;
+        note.color = Theme.TextDim;
+        return 740f;
+    }
 
     // ----- Boxes -----
 
@@ -173,6 +300,9 @@ public class StoreScreen : MonoBehaviour
             bl.horizontalOverflow = HorizontalWrapMode.Wrap;
             bl.color = Theme.TextDim;
             Text label;
+            // the chances, before buying (Google Play's rule for random items)
+            var odds = UIUtil.CreateButton(ct, "OLASILIKLAR", mid, new Vector2(0f, 312f), new Vector2(220f, 44f), new Color(0f, 0f, 0f, 0.55f), false, 20, out label);
+            odds.onClick.AddListener(() => OddsPanel.Show(transform, cr.name + " – OLASILIKLAR", Shop.OddsLines(cr)));
             if (Gifting)
             {
                 var send = UIUtil.CreateButton(ct, "GÖNDER  " + cr.price.ToString("N0"), mid, new Vector2(0f, -200f), new Vector2(300f, 84f), Theme.Accent, false, 28, out label);

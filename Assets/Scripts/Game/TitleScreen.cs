@@ -81,9 +81,9 @@ public class TitleScreen : MonoBehaviour
             return;
         }
         float scale = width / 1100f;
-        var t1 = UIUtil.CreateText(parent, "ZOOTOPIA", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, 40f * scale), new Vector2(1400f, 200f), Mathf.RoundToInt(170 * scale), TextAnchor.MiddleCenter);
+        var t1 = UIUtil.CreateText(parent, "DAVRAZ", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, 40f * scale), new Vector2(1400f, 200f), Mathf.RoundToInt(170 * scale), TextAnchor.MiddleCenter);
         t1.fontStyle = FontStyle.Bold;
-        var t2 = UIUtil.CreateText(parent, "M O B I L E", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, -85f * scale), new Vector2(1200f, 90f), Mathf.RoundToInt(64 * scale), TextAnchor.MiddleCenter);
+        var t2 = UIUtil.CreateText(parent, "R I S E   O F", new Vector2(0.5f, 0.5f), pos + new Vector2(0f, -85f * scale), new Vector2(1200f, 90f), Mathf.RoundToInt(64 * scale), TextAnchor.MiddleCenter);
         t2.fontStyle = FontStyle.Bold;
         t2.color = Theme.Accent;
     }

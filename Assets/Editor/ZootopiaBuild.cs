@@ -13,10 +13,10 @@ using UnityEngine;
 public static class ZootopiaBuild
 {
     public const string ScenePath = "Assets/Scenes/Main.unity";
-    public const string CompanyName = "Olcay Yasin Dünder";
-    public const string ProductName = "Zootopia Mobile";
-    public const string AndroidPackage = "com.olcayasindunder.zootopiamobile";
-    public const string Version = "0.2.0";
+    public const string CompanyName = "Zootopia Yazılım";
+    public const string ProductName = "Rise of Davraz";
+    public const string AndroidPackage = "com.zootopiayazilim.riseofdavraz";
+    public const string Version = "1.0.0";
     public const string IconPath = "Assets/Icon/AppIcon.png";
 
     /// <summary>Called by Unity Build Automation before every build.</summary>
@@ -76,7 +76,14 @@ public static class ZootopiaBuild
             if (int.TryParse(Arg(args, "androidVersionCode", ""), out code) && code > 0)
                 PlayerSettings.Android.bundleVersionCode = code;
 
-            EditorUserBuildSettings.buildAppBundle = false;
+            // Google Play wants an Android App Bundle (.aab); the test workflow builds a plain APK.
+            string output0 = Arg(args, "customBuildPath", "");
+            bool bundle = Arg(args, "androidExportType", "") == "androidAppBundle" || output0.EndsWith(".aab");
+            EditorUserBuildSettings.buildAppBundle = bundle;
+            // IL2CPP symbols for Play Console crash reports (a .symbols.zip next to the bundle)
+            EditorUserBuildSettings.androidCreateSymbols = bundle ? AndroidCreateSymbols.Public : AndroidCreateSymbols.Disabled;
+            PrepareGradle();
+            ConfigureAds();
 
             string keystore = Arg(args, "androidKeystoreName", "");
             if (keystore.Length > 0 && File.Exists(keystore))
@@ -88,7 +95,7 @@ public static class ZootopiaBuild
                 PlayerSettings.Android.keyaliasPass = Arg(args, "androidKeyaliasPass", "");
             }
 
-            string output = Arg(args, "customBuildPath", "build/Android/ZootopiaMobile.apk");
+            string output = Arg(args, "customBuildPath", bundle ? "build/Android/RiseOfDavraz.aab" : "build/Android/RiseOfDavraz.apk");
             string dir = Path.GetDirectoryName(output);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
@@ -244,7 +251,8 @@ public static class ZootopiaBuild
         PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.ARMv7;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
-        PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
+        // Google Play: new apps and updates must target Android 16 (API 36) from 31 Aug 2026 (Unity 2022.3.62f1+).
+        PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)36;
 
         // Sharper textures: ASTC compression (better quality than ETC2 at the same size; Android 7+ GPUs have it).
         // The game draws at the screen's own resolution (GameSettings: render scale 100%, ULTRA always native).
@@ -262,9 +270,92 @@ public static class ZootopiaBuild
         PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed;
         PlayerSettings.Android.forceInternetPermission = true;
 
-        // App icon (used for every size and platform).
+        // App icon (used for every size and platform), and the adaptive icon of Android 8+ (Tools/make_icon.py).
         var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(IconPath);
         if (icon != null)
             PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new[] { icon });
+#if UNITY_ANDROID
+        var back = AssetDatabase.LoadAssetAtPath<Texture2D>(AdaptiveBackPath);
+        var fore = AssetDatabase.LoadAssetAtPath<Texture2D>(AdaptiveForePath);
+        if (back != null && fore != null)
+        {
+            var kind = UnityEditor.Android.AndroidPlatformIconKind.Adaptive;
+            var icons = PlayerSettings.GetPlatformIcons(BuildTargetGroup.Android, kind);
+            foreach (var ic in icons)
+                ic.SetTextures(back, fore);
+            PlayerSettings.SetPlatformIcons(BuildTargetGroup.Android, kind, icons);
+        }
+        if (icon != null)
+        {
+            foreach (var kind in new[] { UnityEditor.Android.AndroidPlatformIconKind.Round, UnityEditor.Android.AndroidPlatformIconKind.Legacy })
+            {
+                var icons = PlayerSettings.GetPlatformIcons(BuildTargetGroup.Android, kind);
+                foreach (var ic in icons)
+                    ic.SetTextures(icon);
+                PlayerSettings.SetPlatformIcons(BuildTargetGroup.Android, kind, icons);
+            }
+        }
+#endif
+    }
+
+    public const string AdaptiveBackPath = "Assets/Icon/AdaptiveBack.png";
+    public const string AdaptiveForePath = "Assets/Icon/AdaptiveFore.png";
+
+    /// <summary>
+    /// Custom Gradle templates (Unity's own, copied from the editor) with the properties this project needs:
+    /// AndroidX for the Google libraries, and compileSdk 36 on Unity 2022.3's Android Gradle plugin 7.4.
+    /// The Google Mobile Ads build step then adds its libraries to mainTemplate.gradle (External Dependency Manager).
+    /// </summary>
+    private static void PrepareGradle()
+    {
+        string dir = Path.Combine("Assets", "Plugins", "Android");
+        Directory.CreateDirectory(dir);
+        string src = Path.Combine(BuildPipeline.GetPlaybackEngineDirectory(BuildTarget.Android, BuildOptions.None), "Tools", "GradleTemplates");
+        foreach (var name in new[] { "mainTemplate.gradle", "gradleTemplate.properties" })
+        {
+            string target = Path.Combine(dir, name);
+            if (!File.Exists(target) && File.Exists(Path.Combine(src, name)))
+                File.Copy(Path.Combine(src, name), target);
+        }
+        string props = Path.Combine(dir, "gradleTemplate.properties");
+        if (File.Exists(props))
+        {
+            string text = File.ReadAllText(props);
+            foreach (var line in new[] { "android.useAndroidX=true", "android.enableJetifier=true", "android.suppressUnsupportedCompileSdk=36" })
+                if (!text.Contains(line.Split('=')[0] + "="))
+                    text += "\n" + line;
+            File.WriteAllText(props, text);
+        }
+        AssetDatabase.Refresh();
+    }
+
+    /// <summary>Puts the AdMob app id (PlayConfig) into the Google Mobile Ads settings the plugin's build step reads.</summary>
+    private static void ConfigureAds()
+    {
+        try
+        {
+            System.Type type = null;
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                type = asm.GetType("GoogleMobileAds.Editor.GoogleMobileAdsSettings");
+                if (type != null)
+                    break;
+            }
+            if (type == null)
+            {
+                Debug.LogWarning("[ZootopiaBuild] Google Mobile Ads is not in the project: no ads.");
+                return;
+            }
+            var load = type.GetMethod("LoadInstance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            var settings = load.Invoke(null, null) as ScriptableObject;
+            type.GetProperty("GoogleMobileAdsAndroidAppId").SetValue(settings, PlayConfig.AdMobAndroidAppId, null);
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ZootopiaBuild] AdMob app id: " + PlayConfig.AdMobAndroidAppId);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[ZootopiaBuild] Could not set the AdMob app id: " + e);
+        }
     }
 }

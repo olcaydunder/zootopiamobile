@@ -87,8 +87,11 @@ public class WheelScreen : MonoBehaviour
         infoText = UIUtil.CreateText(t, "", c, new Vector2(560f, -170f), new Vector2(560f, 120f), 24, TextAnchor.UpperCenter);
         infoText.horizontalOverflow = HorizontalWrapMode.Wrap;
         infoText.color = Theme.TextDim;
-        var odds = UIUtil.CreateText(t, "Ödüller: Kredi, sandıklar ve eşya kartları.\nAltın Sandık en nadir dilim.", c, new Vector2(560f, 140f), new Vector2(560f, 90f), 24, TextAnchor.MiddleCenter);
+        var odds = UIUtil.CreateText(t, "Ödüller: Kredi, sandıklar ve eşya kartları.\nAltın Sandık en nadir dilim.", c, new Vector2(560f, 160f), new Vector2(560f, 90f), 24, TextAnchor.MiddleCenter);
         odds.horizontalOverflow = HorizontalWrapMode.Wrap;
+        // every slice's chance, before spinning (Google Play's rule for random items)
+        var oddsButton = UIUtil.CreateButton(t, "OLASILIKLAR", c, new Vector2(560f, 85f), new Vector2(300f, 56f), Theme.PanelLight, false, 24, out label);
+        oddsButton.onClick.AddListener(() => OddsPanel.Show(transform, "ŞANS ÇARKI – OLASILIKLAR", Deals.WheelOdds()));
     }
 
     public void Open(System.Action closed)

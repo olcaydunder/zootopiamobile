@@ -190,7 +190,7 @@ public class MatchPrepScreen : MonoBehaviour
         mode = matchMode;
         modeText.text = Modes.Arena(matchMode)
             ? Modes.Title(matchMode) + "  •  " + MapCatalog.CurrentInfo.name + "  •  " + MapCatalog.TrUpper(MapCatalog.CurrentInfo.arenaName ?? "")
-            : "BATTLE ROYALE  •  " + Modes.Short(matchMode) + "  •  " + (MapData.Loaded ? MapCatalog.CurrentInfo.name : "ZOOTOPIA ADASI");
+            : "BATTLE ROYALE  •  " + Modes.Short(matchMode) + "  •  " + (MapData.Loaded ? MapCatalog.CurrentInfo.name : "DAVRAZ");
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
         var p = GameManager.Instance.profile;

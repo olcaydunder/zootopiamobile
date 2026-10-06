@@ -18,8 +18,18 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.xr": "1.0.0",
-    "com.unity.postprocessing": "3.4.0"
+    "com.unity.postprocessing": "3.4.0",
+    "com.unity.purchasing": "5.3.1",
+    "com.google.ads.mobile": "11.5.0"
   },
-  "scopedRegistries": [],
+  "scopedRegistries": [
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.google.ads.mobile"
+      ]
+    }
+  ],
   "testables": []
 }

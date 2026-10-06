@@ -105,6 +105,9 @@ public class LuckyDrawScreen : MonoBehaviour
         drawLabel.supportRichText = true;
         drawButtonImage = draw.GetComponent<Image>();
         draw.onClick.AddListener(DoDraw);
+        // the chances of the prizes still on the board, before drawing (Google Play's rule for random items)
+        var odds = UIUtil.CreateButton(t, "OLASILIKLAR", c, new Vector2(230f, -445f), new Vector2(260f, 64f), Theme.PanelLight, false, 24, out label);
+        odds.onClick.AddListener(() => OddsPanel.Show(transform, "ŞANS ÇEKİLİŞİ – OLASILIKLAR", LuckyDraw.OddsLines()));
         var tag = UIUtil.CreateImage(t, "FirstTag", c, new Vector2(-10f, -414f), new Vector2(170f, 44f), Theme.Red, false);
         tag.raycastTarget = false;
         var tagText = UIUtil.CreateText(tag.transform, "İLK ÇEKİLİŞ\n%50", c, Vector2.zero, new Vector2(170f, 44f), 17, TextAnchor.MiddleCenter);

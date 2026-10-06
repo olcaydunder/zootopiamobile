@@ -46,6 +46,8 @@ public class GameBootstrap : MonoBehaviour
             return;
         }
         ErrorReporter.Install();   // first, so start-up errors are caught too
+        Purchases.Init();   // Google Play Billing (Kredi packs)
+        Ads.Init();         // consent form when required, then the optional rewarded ads
 
         Application.targetFrameRate = 60;
         Screen.sleepTimeout = SleepTimeout.NeverSleep;

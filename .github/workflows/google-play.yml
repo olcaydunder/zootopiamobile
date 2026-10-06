@@ -1,0 +1,184 @@
+# Rise of Davraz - Google Play paketi (.aab), yükleme anahtarıyla imzalı.
+#
+# Elle başlatılır: Actions > "Google Play paketi (AAB)" > Run workflow.
+#
+# Gerekli gizli ayar (Settings > Secrets and variables > Actions):
+#   PLAY_KEY_PASSPHRASE   Yükleme anahtarının parolası (en az 24 karakter, harf ve rakam). Bunu yalnızca sahibi bilir.
+#   (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD test derlemesindekiyle aynı)
+#
+# Yükleme anahtarı (upload key): ilk çalıştırmada burada oluşturulur, PLAY_KEY_PASSPHRASE ile AES-256 şifrelenip
+# "play-upload-key" ön sürümüne konur (şifreli hâli; parola olmadan işe yaramaz). Sonraki her derleme aynı anahtarı
+# kullanır. Anahtarın SHA-1 / SHA-256 parmak izleri (gizli değildir; Play Games ve API kimlik bilgileri için gerekir)
+# aynı sürümün notlarında yazar. Play App Signing açık olduğu için asıl imza anahtarını Google saklar; yükleme anahtarı
+# kaybolursa Play Console'dan sıfırlatılabilir.
+#
+# Çıktı: "son-aab" ön sürümünde RiseOfDavraz.aab (Play Console > Test > Dahili test'e yüklenir) ve
+# RiseOfDavraz.symbols.zip (Play Console > App bundle explorer > Yerel hata ayıklama sembolleri).
+# Sürüm kodu her derlemede artar (1000 + çalıştırma numarası); Play aynı kodu iki kez kabul etmez.
+
+name: Google Play paketi (AAB)
+
+on:
+  workflow_dispatch:
+    inputs:
+      temiz_derleme:
+        description: 'Önbelleği kullanmadan sıfırdan derle'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: google-play
+  cancel-in-progress: false
+
+env:
+  PAKET_ADI: RiseOfDavraz
+
+jobs:
+  aab:
+    name: Google Play AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Gizli ayarlar tamam mı?
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          PLAY_KEY_PASSPHRASE: ${{ secrets.PLAY_KEY_PASSPHRASE }}
+        run: |
+          eksik=""
+          [ -n "$UNITY_LICENSE" ] || eksik="$eksik UNITY_LICENSE"
+          [ -n "$UNITY_EMAIL" ] || eksik="$eksik UNITY_EMAIL"
+          [ -n "$UNITY_PASSWORD" ] || eksik="$eksik UNITY_PASSWORD"
+          [ -n "$PLAY_KEY_PASSPHRASE" ] || eksik="$eksik PLAY_KEY_PASSPHRASE"
+          if [ -n "$eksik" ]; then
+            echo "::error title=Gizli ayar eksik::Şu gizli anahtarlar yok:$eksik. Settings > Secrets and variables > Actions > New repository secret ile ekle."
+            exit 1
+          fi
+          if [ ${#PLAY_KEY_PASSPHRASE} -lt 16 ]; then
+            echo "::error title=Parola kısa::PLAY_KEY_PASSPHRASE en az 16 (tercihen 24+) karakter olmalı."
+            exit 1
+          fi
+
+      - name: Disk alanı aç
+        uses: jlumbroso/free-disk-space@v2
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          preinstalled-runtimes: false
+          swap-storage: false
+
+      - name: Kodu indir
+        uses: actions/checkout@v7
+
+      - name: Yükleme anahtarı (ilk seferde oluşturulur)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          P: ${{ secrets.PLAY_KEY_PASSPHRASE }}
+        run: |
+          set -e
+          if gh release download play-upload-key --pattern upload-key.enc --dir anahtar 2>/dev/null; then
+            echo "Kayıtlı yükleme anahtarı bulundu."
+          else
+            echo "Yükleme anahtarı yok: oluşturuluyor."
+            mkdir -p anahtar
+            keytool -genkeypair -keystore anahtar/upload.keystore -storetype PKCS12 -alias riseofdavraz \
+              -keyalg RSA -keysize 4096 -validity 10000 -storepass:env P -keypass:env P \
+              -dname "CN=Zootopia Yazilim, O=Zootopia Yazilim, L=Istanbul, C=TR"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 300000 -salt -in anahtar/upload.keystore -out anahtar/upload-key.enc -pass env:P
+            izler=$(keytool -list -v -keystore anahtar/upload.keystore -storepass:env P -alias riseofdavraz | grep -E "SHA1:|SHA256:")
+            gh release create play-upload-key anahtar/upload-key.enc --prerelease --target "$GITHUB_SHA" \
+              --title "Google Play yükleme anahtarı (şifreli)" \
+              --notes "$(printf 'Rise of Davraz yükleme anahtarı, PLAY_KEY_PASSPHRASE ile AES-256 şifreli. SİLME: sonraki sürümler bununla imzalanır.\n\nParmak izleri (gizli değildir):\n%s' "$izler")"
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 300000 -in anahtar/upload-key.enc -out upload.keystore -pass env:P
+          echo "## Yükleme anahtarı parmak izleri" >> "$GITHUB_STEP_SUMMARY"
+          keytool -list -v -keystore upload.keystore -storepass:env P -alias riseofdavraz | grep -E "SHA1:|SHA256:" >> "$GITHUB_STEP_SUMMARY"
+          rm -rf anahtar
+
+      - name: Unity önbelleği (Library)
+        if: ${{ !inputs.temiz_derleme }}
+        uses: actions/cache@v6
+        with:
+          path: Library
+          key: Library-AAB-2022.3.62f3-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-AAB-2022.3.62f3-
+            Library-Android-2022.3.62f3-
+
+      - name: Çevrimiçi sürüm damgası (telefon ile sunucu aynı olmalı)
+        run: |
+          mkdir -p Assets/Resources
+          echo "net-$(bash 'Tools~/net_version.sh')" > Assets/Resources/zm_version.txt
+          echo "Çevrimiçi sürüm: $(cat Assets/Resources/zm_version.txt)"
+
+      - name: Sürüm numarası
+        id: surum
+        run: |
+          echo "ad=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "kod=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+
+      - name: Unity ile Google Play paketi derle
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          buildName: ${{ env.PAKET_ADI }}
+          buildMethod: ZootopiaBuild.BuildAndroid
+          androidExportType: androidAppBundle
+          androidTargetSdkVersion: AndroidApiLevel36
+          versioning: Custom
+          version: ${{ steps.surum.outputs.ad }}
+          androidVersionCode: ${{ steps.surum.outputs.kod }}
+          androidKeystoreName: upload.keystore
+          androidKeystorePass: ${{ secrets.PLAY_KEY_PASSPHRASE }}
+          androidKeyaliasName: riseofdavraz
+          androidKeyaliasPass: ${{ secrets.PLAY_KEY_PASSPHRASE }}
+
+      - name: Derleme hatalarını göster
+        if: always()
+        run: |
+          rm -f upload.keystore
+          f=build/zm_build_errors.txt
+          if [ -f "$f" ]; then
+            msg=$(head -c 6000 "$f" | cut -c1-400 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Unity derleme hataları::${msg}"
+          else
+            echo "::warning title=Unity derleme hataları::Derleme metodu hiç çalışmadı (büyük ihtimalle C# derleme hatası)."
+          fi
+
+      - name: Paketi yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SURUM: ${{ steps.surum.outputs.ad }}
+          KOD: ${{ steps.surum.outputs.kod }}
+        run: |
+          aab=$(find build -name '*.aab' | head -n 1)
+          if [ -z "$aab" ]; then
+            echo "::error title=AAB yok::Derleme bitti ama .aab dosyası bulunamadı."
+            exit 1
+          fi
+          cp "$aab" "${PAKET_ADI}.aab"
+          dosyalar="${PAKET_ADI}.aab"
+          sym=$(find build -name '*.symbols.zip' | head -n 1)
+          if [ -n "$sym" ]; then cp "$sym" "${PAKET_ADI}.symbols.zip"; dosyalar="$dosyalar ${PAKET_ADI}.symbols.zip"; fi
+          gh release delete son-aab --yes --cleanup-tag || true
+          gh release create son-aab $dosyalar --prerelease --target "$GITHUB_SHA" \
+            --title "Rise of Davraz - Google Play paketi $SURUM (kod $KOD)" \
+            --notes "Google Play'e yüklenecek paket: sürüm $SURUM, sürüm kodu $KOD, commit ${GITHUB_SHA::8}. Telefona doğrudan kurulmaz; Play Console > Test > Dahili test'e yükle."
+          {
+            echo "## Rise of Davraz $SURUM (kod $KOD) hazır"
+            echo ""
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/son-aab/${PAKET_ADI}.aab"
+            echo ""
+            echo "Boyut: $(du -h "${PAKET_ADI}.aab" | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
