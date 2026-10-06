@@ -41,10 +41,10 @@ public static class PlayConfig
     /// made-up purchases. It is a PUBLIC key: not a secret, safe to keep in the code.
     /// </summary>
     public const string GooglePlayPublicKey =
-        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4HRVtoYjjcBFLGWDt4OCbmeEbxqJMbBoWFCuZobwWwkb04Z2yUSbRwv/33U4TAQqovp8" +
-        "niMIdDSo+0fmkApNxlYKCF1V3WNzLaBzwT1EMpqzPA9FK1pHpggJ01skPnEU4kNwT5b849nwYVFCcuLD8uyqKCuUc44mpHvSN0YBSDl6exOkpUbO" +
-        "ArBn9jjA+vgNflyr1DUoh2VaEaQhzrVWxzCKnw53HaJrilUhP8f3n1EGfUo5pNkWm9TdTUI9weXHVpGEIs+qcMlEfY0u1hmpPmqn3/Nw/F7Lqylv" +
-        "y5SfHdgu/S1Ym+rYU5nIiv6ZOES2ZH5sWioyoQvXNiUIb8/wRQIDAQAB";
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtPIFKmzs4dUK3j9avq6lp6no5coJKMQi7T3/HiMEtPQ8UxHFlohE8cAUaZabiochTDmfz8" +
+        "zV6i7BsmzB8+DqJve5e2EikEuTytMfYF26n5AIzJRX4TvJi1k4fSrRZawcbkc40X7IS8wr12FoCpOBYI3tyni9XKSv4vCj/YaEQ/6HxiIjrsuRwe7W" +
+        "8a35dRLVreP4AtZebA7bi2H1KK/6PXMshZOFqpTgXb/BTZRhhjZchrDavyR1/6jn5EiMT07055GGM4HUYx9QHkIEr437Nq4eO8JIg7U4aUm2QyERTg" +
+        "K+jG1F5tvRIlRriOQUua3WWPDP6Y3fbSkLjIq62Tf2owIDAQAB";
 
     public static CreditPack Pack(string id)
     {
