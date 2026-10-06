@@ -5,6 +5,7 @@ public partial class PlayerController
 {
     /// <summary>Set by the title screen while it flies the camera around the city.</summary>
     public bool cinematic;
+    private float adsBlend;   // 0 normal .. 1 aiming over the shoulder (camera offset)
 
     private void LateUpdate()
     {
@@ -34,13 +35,17 @@ public partial class PlayerController
         cameraPivot.localPosition = pivotPos;
         UpdatePunch();
         float wantedDistance = aimingDownSights ? 1.6f : camTarget;
+        // Aiming over the shoulder: the camera also goes a little higher and further right, so the head (big on the
+        // cartoon characters) sits lower in the corner instead of covering the view.
+        adsBlend = Mathf.MoveTowards(adsBlend, aimingDownSights ? 1f : 0f, Time.deltaTime * 5f);
+        Vector3 shoulderOffset = Vector3.Lerp(new Vector3(0.55f, 0.35f, 0f), new Vector3(0.68f, 0.47f, 0f), Mathf.SmoothStep(0f, 1f, adsBlend));
         camDistance = Mathf.Lerp(camDistance, wantedDistance, Time.deltaTime * (aimingDownSights ? 8f : 3f));
         float wantedFov = aimingDownSights ? ZoomFov() : GameSettings.Fov;
         playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, wantedFov, Time.deltaTime * 10f);
 
         // Keep the camera out of walls and hills.
         float dist = camDistance;
-        Vector3 desired = cameraPivot.TransformPoint(new Vector3(0.55f, 0.35f, -camDistance));
+        Vector3 desired = cameraPivot.TransformPoint(shoulderOffset + new Vector3(0f, 0f, -camDistance));
         Vector3 from = cameraPivot.position;
         RaycastHit hit;
         if (state == PlayerState.Ground && Physics.Linecast(from, desired, out hit, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
@@ -78,7 +83,7 @@ public partial class PlayerController
             playerCamera.transform.localPosition = eyeLocal + jitter * 0.3f;
             return;
         }
-        playerCamera.transform.localPosition = new Vector3(0.55f, 0.35f, -dist) + jitter;
+        playerCamera.transform.localPosition = shoulderOffset + new Vector3(0f, 0f, -dist) + jitter;
     }
 
     public void Shake(float amount)

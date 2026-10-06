@@ -26,6 +26,14 @@ public class WeaponController : MonoBehaviour
     private Vector3 muzzleTip;
     /// <summary>How much the gun model was scaled to its real size (anchors and attachments scale with it).</summary>
     public float ModelScale { get; private set; }
+    /// <summary>When the last shot went off (the holder's arms show the kick).</summary>
+    public float LastShotTime { get; private set; }
+    private float reloadStart, reloadDuration;
+    /// <summary>0..1 through the reload in progress (0 when not reloading): the holder's hands follow it.</summary>
+    public float ReloadProgress
+    {
+        get { return isReloading && reloadDuration > 0.01f ? Mathf.Clamp01((Time.time - reloadStart) / reloadDuration) : 0f; }
+    }
 
     public void Initialize(WeaponData data, Renderer model)
     {
@@ -37,6 +45,7 @@ public class WeaponController : MonoBehaviour
         StopAllCoroutines();
         isReloading = false;
         nextShotTime = Time.time + 0.2f;
+        LastShotTime = -10f;
 
         weaponData = data;
         currentAmmo = ammo;
@@ -137,6 +146,7 @@ public class WeaponController : MonoBehaviour
 
         currentAmmo--;
         nextShotTime = Time.time + weaponData.fireRate;
+        LastShotTime = Time.time;
 
         int pellets = weaponData.weaponType == WeaponType.Shotgun ? 8 : 1;
         Vector3 tracerEnd = origin + direction.normalized * weaponData.range;
@@ -232,6 +242,7 @@ public class WeaponController : MonoBehaviour
     /// <summary>Online: another player's (or a server bot's) shot — tracer, flash and sound only.</summary>
     public void PlayRemoteShot(Vector3 end)
     {
+        LastShotTime = Time.time;
         if (weaponData == null)
             return;
         EnsureTracer();
@@ -265,7 +276,9 @@ public class WeaponController : MonoBehaviour
         isReloading = true;
         if (playerOwned)
             Sfx.Play(SoundBank.Reload, 0.6f);
-        yield return new WaitForSeconds(weaponData.reloadTime * (playerOwned ? Gear.ReloadTimeMul : 1f));   // Hızlı Eller
+        reloadStart = Time.time;
+        reloadDuration = weaponData.reloadTime * (playerOwned ? Gear.ReloadTimeMul : 1f);   // Hızlı Eller
+        yield return new WaitForSeconds(reloadDuration);
 
         int needed = weaponData.magazineSize - currentAmmo;
         int toLoad = Mathf.Min(needed, reserveAmmo);

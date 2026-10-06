@@ -37,6 +37,9 @@ public class PoseShots : MonoBehaviour
         public bool land;                 // (with fall) photographed just after touching down
         public string[] views = { "front", "side" };
         public int extraFrames;           // also photographed this many frames later (a second step of a cycle)
+        public bool reload;               // photographed at points through a reload instead (reloadShots: progress 0..1)
+        public float[] reloadShots = { 0.14f, 0.3f, 0.46f, 0.7f };
+        public bool fire;                 // a shot goes off on the photographed frame (the kick)
     }
 
     /// <summary>Called first thing by GameBootstrap; true when this run is a pose test.</summary>
@@ -101,6 +104,10 @@ public class PoseShots : MonoBehaviour
             new Case { name = "sniperaim", gun = WeaponType.Sniper, gunSkin = "G28", aim = true, views = new[] { "side", "back", "close" } },
             new Case { name = "shotgunready", gun = WeaponType.Shotgun, gunSkin = "P870", views = new[] { "front", "side" } },
             new Case { name = "shotgunaim", gun = WeaponType.Shotgun, gunSkin = "P870", aim = true, views = new[] { "side" } },
+            new Case { name = "fire", aim = true, fire = true, views = new[] { "side", "close" } },
+            new Case { name = "reload", reload = true, views = new[] { "front", "side" } },
+            new Case { name = "pistolreload", gun = WeaponType.Pistol, gunSkin = "Magnum", reload = true, views = new[] { "front" } },
+            new Case { name = "shotgunreload", gun = WeaponType.Shotgun, gunSkin = "P870", reload = true, reloadShots = new[] { 0.12f, 0.28f }, views = new[] { "front" } },
             new Case { name = "showcase", showcase = true, views = new[] { "lobby" } },
         };
         if (onlyCases == null)
@@ -272,8 +279,34 @@ public class PoseShots : MonoBehaviour
         }
 
         const int frames = 50;
+        if (c.reload)
+        {
+            // settle, start the reload, photograph as it passes each mark
+            int shot = 0;
+            for (int f = 0; f < 400 && shot < c.reloadShots.Length; f++)
+            {
+                if (f == 30)
+                {
+                    wc.currentAmmo = 0;
+                    wc.reserveAmmo = Mathf.Max(wc.reserveAmmo, 30);
+                    wc.Reload();
+                }
+                PlaceCamera(c.views[0], c);
+                yield return new WaitForEndOfFrame();
+                if (f > 30 && wc.isReloading && wc.ReloadProgress >= c.reloadShots[shot])
+                {
+                    foreach (var v in c.views)
+                        Capture(c, skin, v, "_p" + Mathf.RoundToInt(c.reloadShots[shot] * 100f));
+                    shot++;
+                }
+                yield return null;
+            }
+            yield break;
+        }
         for (int f = 0; f < frames + c.extraFrames; f++)
         {
+            if (c.fire && f == frames - 1)
+                wc.PlayRemoteShot(weaponGo.transform.position + pivot.forward * 30f);
             pivot.localRotation = Quaternion.Euler(c.pitch, 0f, 0f);
             actor.transform.position += actor.transform.TransformDirection(c.move) * dt;
             PlaceCamera(c.views[0], c);
@@ -319,7 +352,7 @@ public class PoseShots : MonoBehaviour
             {
                 Vector3 pv = feet + Vector3.up * 1.65f;
                 Quaternion aim = r * Quaternion.Euler(c.pitch, 0f, 0f);
-                pos = pv + aim * new Vector3(0.55f, 0.35f, -1.6f);
+                pos = pv + aim * new Vector3(0.68f, 0.47f, -1.6f);   // PlayerController: aiming over the shoulder
                 look = pos + aim * Vector3.forward;
                 fov = 45f;
                 break;

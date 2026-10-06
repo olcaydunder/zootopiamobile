@@ -12,7 +12,7 @@ public class RigTune
     public static RigTune Current = new RigTune();
 
     // Long guns: the butt sits in the shoulder pocket (aim space offset from the shoulder joint: right, up, forward).
-    public Vector3 pocket = new Vector3(-0.05f, -0.05f, 0.03f);
+    public Vector3 pocket = new Vector3(-0.05f, -0.02f, 0.03f);
     public float readyDrop = 0.03f;                 // at the ready the butt drops this much lower
     public float readyPitch = 24f, readyYaw = -14f; // muzzle down / inwards at the ready (degrees)
     public float pistolReadyPitch = 38f, pistolReadyYaw = -6f;
@@ -33,12 +33,17 @@ public class RigTune
     public float crouchLean = 0.25f, kneeMax = 52f;
     // Bladed stance: the chest turns right while a long gun is up (left shoulder forward; twistSpine = the spine's
     // share), the head turns back to the aim
-    public float aimTwist = 18f, readyTwist = 8f, twistSpine = 0.4f, headFollow = 0.9f;
+    public float aimTwist = 24f, readyTwist = 12f, twistSpine = 0.4f, headFollow = 0.9f;
     // Head: share of the aim pitch on top of spine and chest; cheek on the stock when aiming a long gun (degrees)
-    public float headDown = 0.25f, headUp = 0.15f, cheekTilt = 6f, cheekPitch = 5f;
-    // Collarbones: share of the way towards the hand's target (right / left), capped (degrees)
-    public float clavRight = 0.1f, clavLeft = 0.22f, clavMax = 18f;
+    public float headDown = 0.25f, headUp = 0.15f, cheekTilt = 8f, cheekPitch = 8f;
+    // Collarbones: share of the way towards the hand's target (right / left), capped (degrees). The low-poly cartoon
+    // characters get clavCartoon times that (their shirts poke through the vests when the collarbones turn).
+    public float clavRight = 0.12f, clavLeft = 0.28f, clavMax = 18f, clavCartoon = 0f;
     public Vector3 showcaseAim = new Vector3(4f, -12f, 0f);   // lobby: gun held across the body
+    // Reloading: the gun canted (roll) and lifted (degrees), pulled in front of the chest (metres)
+    public float reloadRoll = 28f, reloadLift = 10f, reloadPull = 0.07f;
+    // Shot kick: back (metres) and muzzle up (degrees), dying away at kickDecay per second
+    public float kickBack = 0.035f, kickPitch = 4f, kickDecay = 26f;
     // Prone: body tipped forward, sunk to the ground; up on the elbows, head lifted to look ahead, legs apart
     public float pronePitch = 84f, proneDrop = -0.74f;
     public float proneSpineLift = 10f, proneChestLift = 14f, proneHeadLift = 50f, proneLegSpread = 9f;
