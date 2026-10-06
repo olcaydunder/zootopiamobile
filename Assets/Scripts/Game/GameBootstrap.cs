@@ -33,6 +33,8 @@ public class GameBootstrap : MonoBehaviour
             return;
         }
         Instance = this;
+        if (PoseShots.TryStart())
+            return;   // pose test: a studio with characters instead of the game
         serverArgs = NetGame.ParseServerArgs();
         if (serverArgs != null)
         {
@@ -57,6 +59,8 @@ public class GameBootstrap : MonoBehaviour
     /// Each step is guarded: an error is reported (hata modu) and start-up carries on.</summary>
     private System.Collections.IEnumerator Start()
     {
+        if (PoseShots.Active)
+            yield break;
         if (serverArgs != null)
         {
             yield return ServerStart();
