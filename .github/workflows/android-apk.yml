@@ -297,11 +297,15 @@ jobs:
                    "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs")
             echo "::notice title=Log $jid::http $code, $(wc -c < "job_$jid.log") bytes"
             # Unity compile errors, package errors and the build result: one annotation per job (multi-line)
-            grep -E "error CS[0-9]+|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|[Ff]ailed|Cannot|Unable|package|Package" "job_$jid.log" \
-              | grep -v -i "node.js\|deprecat" | sed 's/^[0-9TZ:.-]* //' | cut -c1-240 | awk '!seen[$0]++' | tail -45 > "err_$jid.txt"
+            grep -E "error CS[0-9]+|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|[Ff]ailed|Cannot|Unable|compiler errors|Package Manager|resolv" "job_$jid.log" \
+              | grep -v -i "node.js\|deprecat\|Start importing\|git config" | sed 's/^[0-9TZ:.-]* //' | cut -c1-240 | awk '!seen[$0]++' | tail -45 > "err_$jid.txt"
             msg=$(sed 's/%/%25/g' "err_$jid.txt" | awk '{printf "%s%%0A", $0}')
             echo "::warning title=Unity hataları ($jid)::${msg:-(eşleşen satır yok)}"
             msg2=$(tail -60 "job_$jid.log" | sed 's/^[0-9TZ:.-]* //' | cut -c1-240 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::warning title=Log sonu ($jid)::${msg2}"
           done
+          gzip -k job_*.log
+          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          gh release create build-log job_*.log.gz err_*.txt --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Son derleme hatası" --notes "run $GITHUB_RUN_ID"
           exit 0

@@ -1,0 +1,33 @@
+# Bir çalıştırmanın başarısız iş loglarını "build-log" ön sürümüne koyar (Actions sayfasını açmadan okumak için).
+name: Derleme loglarını yayınla
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Çalıştırma numarası (run id)'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  loglar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Logları indir ve yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.run_id }}
+        run: |
+          set +e
+          for jid in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs" --jq '.jobs[] | select(.conclusion=="failure") | .id'); do
+            curl -sS -L -o "job_$jid.log" -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs"
+            grep -E "error CS[0-9]+|Shader error|[Ee]rror:|Exception|BuildFailed|ERROR|[Ff]ailed|Cannot|Unable|compiler errors|Package Manager|resolv" "job_$jid.log" \
+              | grep -v -i "node.js\|deprecat\|Start importing\|git config" | cut -c1-300 | awk '!seen[$0]++' | tail -200 > "err_$jid.txt"
+            gzip -k "job_$jid.log"
+          done
+          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          gh release create build-log job_*.log.gz err_*.txt --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Derleme logları" --notes "run $RUN"
