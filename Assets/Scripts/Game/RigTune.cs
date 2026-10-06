@@ -24,10 +24,11 @@ public class RigTune
     public Vector3 leftHandOffset = new Vector3(0f, 0.035f, 0.03f);
     public Vector3 pistolLeftOffset = new Vector3(-0.035f, -0.045f, -0.045f);
     public float reach = 0.97f, maxSlide = 0.22f;   // short arms: the support hand slides back along the handguard
-    // Support hand orientation (gun space: right, up, forward): where its fingers point and its palm faces, how much
-    // of the way it turns there from the arm's own pose
-    public Vector3 supportFingers = new Vector3(0.55f, 0.3f, 0.75f), supportPalm = new Vector3(0.45f, 0.9f, -0.1f);
-    public Vector3 pistolSupportFingers = new Vector3(0.35f, -0.55f, 0.6f), pistolSupportPalm = new Vector3(0.9f, 0.25f, 0f);
+    // Support hand orientation (gun space: right, up, forward): where its fingers point and the normal of the flat hand
+    // (it lies against the left side of the handguard, a little under it; pistol: against the right hand, fingers
+    // wrapping down), and how much of the way it turns there from the arm's own pose
+    public Vector3 supportFingers = new Vector3(0f, 0.3f, 1f), supportPalm = new Vector3(1f, 0.45f, 0f);
+    public Vector3 pistolSupportFingers = new Vector3(0.1f, -0.6f, 0.8f), pistolSupportPalm = new Vector3(1f, 0.1f, 0f);
     public float supportTurn = 0.85f;
     // Elbow pole targets from each shoulder (body space: right, up, forward)
     public Vector3 rightPole = new Vector3(0.35f, -0.6f, -0.25f);

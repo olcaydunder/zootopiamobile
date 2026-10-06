@@ -84,7 +84,7 @@ public class CharacterRig : MonoBehaviour
     private float thighLen, shinLen, upperArmLen, foreArmLen;
     private Quaternion gripRel = Quaternion.identity;   // right hand in the one-handed aim clip, relative to the body
     private bool gripRelKnown;
-    private Quaternion supportBasisInv = Quaternion.identity;   // left hand: its finger / palm axes (from the idle clip)
+    private Vector3 supportFingers, supportFlat;   // left hand (its own space): along the fingers, normal of the flat hand
     private bool supportKnown;
     private SkinnedMeshRenderer[] skins;
     private float strideSpeed = 3.5f;
@@ -585,6 +585,8 @@ public class CharacterRig : MonoBehaviour
         output.SetSourcePlayable(mixer);
         graph.Play();
         CalibrateGrip(found[Shoot], found[Idle]);
+        if (!NetGame.IsServer && !feetFree)
+            CalibrateSupportHand();   // the low-poly rigs have fists: nothing to turn
         return true;
     }
 
@@ -750,37 +752,135 @@ public class CharacterRig : MonoBehaviour
                 shoot.SampleAnimation(model, shoot.length * 0.3f);   // the graph did not write: sample the clip directly
             gripRelKnown = Quaternion.Angle(rightHand.localRotation, bind) >= 0.01f;
             gripRel = Quaternion.Inverse(transform.rotation) * rightHand.rotation;
-
-            // The left hand hanging in the idle clip: fingers continue the forearm, the palm faces the thigh (towards
-            // the body's middle). Those two axes let PoseBody turn the hand round the handguard whatever the rig.
-            if (idle != null && handL != null && foreL != null)
-            {
-                for (int i = 0; i < states.Length; i++)
-                    mixer.SetInputWeight(i, i == Idle ? 1f : 0f);
-                states[Idle].SetTime(idle.length * 0.3f);
-                graph.Evaluate(0f);
-                Quaternion inv = Quaternion.Inverse(handL.rotation);
-                Vector3 fingers = inv * (handL.position - foreL.position).normalized;
-                Vector3 palm = Vector3.ProjectOnPlane(inv * transform.right, fingers);
-                Vector3 down = (handL.position - foreL.position).normalized;
-                supportKnown = palm.sqrMagnitude > 0.2f && Vector3.Dot(down, Vector3.down) > 0.6f;   // really hanging
-                if (supportKnown)
-                    supportBasisInv = Quaternion.Inverse(Quaternion.LookRotation(fingers, palm.normalized));
-            }
         }
         catch (System.Exception)
         {
             gripRelKnown = false;
-            supportKnown = false;
         }
         finally
         {
             for (int i = 0; i < states.Length; i++)
                 mixer.SetInputWeight(i, weights[i]);
             states[Shoot].SetTime(0);
-            if (idle != null)
-                states[Idle].SetTime(0);
             animator.cullingMode = culling;
+        }
+    }
+
+    /// <summary>
+    /// The left hand's own shape, from the skinned mesh in its bind pose: the axis along the fingers (wrist to the
+    /// middle of the hand) and the normal of the flat hand. Fists and blobs (no clear flat side) are left alone.
+    /// </summary>
+    private void CalibrateSupportHand()
+    {
+        supportKnown = false;
+        if (handL == null || skins == null)
+            return;
+        try
+        {
+            var pts = new List<Vector3>();
+            foreach (var smr in skins)
+            {
+                var mesh = smr != null ? smr.sharedMesh : null;
+                if (mesh == null || !mesh.isReadable)
+                    continue;
+                var bones = smr.bones;
+                int bi = System.Array.IndexOf(bones, handL);
+                if (bi < 0)
+                    continue;
+                var weights = mesh.boneWeights;
+                var verts = mesh.vertices;
+                var bind = mesh.bindposes;
+                if (weights.Length != verts.Length || bi >= bind.Length)
+                    continue;
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    var w = weights[i];
+                    float wt = w.boneIndex0 == bi ? w.weight0 : w.boneIndex1 == bi ? w.weight1 : w.boneIndex2 == bi ? w.weight2 : w.boneIndex3 == bi ? w.weight3 : 0f;
+                    if (wt > 0.5f)
+                        pts.Add(bind[bi].MultiplyPoint3x4(verts[i]));
+                }
+            }
+            if (pts.Count < 20)
+                return;
+            Vector3 c = Vector3.zero;
+            foreach (var p in pts)
+                c += p;
+            c /= pts.Count;
+            double xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+            foreach (var p in pts)
+            {
+                Vector3 d = p - c;
+                xx += d.x * d.x; xy += d.x * d.y; xz += d.x * d.z; yy += d.y * d.y; yz += d.y * d.z; zz += d.z * d.z;
+            }
+            var m = new double[,] { { xx, xy, xz }, { xy, yy, yz }, { xz, yz, zz } };
+            double[] vals;
+            Vector3[] vecs;
+            Eigen3(m, out vals, out vecs);   // ascending
+            if (vals[2] <= 0 || vals[0] / Mathf.Max(1e-9f, (float)vals[1]) > 0.45f)
+                return;   // not flat enough to have a palm
+            Vector3 along = vecs[2];
+            if (Vector3.Dot(along, c) < 0f)
+                along = -along;               // from the wrist towards the fingers
+            supportFingers = along.normalized;
+            supportFlat = Vector3.ProjectOnPlane(vecs[0], supportFingers).normalized;
+            supportKnown = supportFlat.sqrMagnitude > 0.5f;
+        }
+        catch (System.Exception)
+        {
+            supportKnown = false;
+        }
+    }
+
+    /// <summary>Eigenvalues (ascending) and eigenvectors of a symmetric 3x3 matrix (Jacobi rotations).</summary>
+    private static void Eigen3(double[,] a, out double[] vals, out Vector3[] vecs)
+    {
+        var v = new double[,] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+        for (int sweep = 0; sweep < 32; sweep++)
+        {
+            double off = a[0, 1] * a[0, 1] + a[0, 2] * a[0, 2] + a[1, 2] * a[1, 2];
+            if (off < 1e-18)
+                break;
+            for (int p = 0; p < 2; p++)
+            {
+                for (int q = p + 1; q < 3; q++)
+                {
+                    if (System.Math.Abs(a[p, q]) < 1e-20)
+                        continue;
+                    double theta = (a[q, q] - a[p, p]) / (2 * a[p, q]);
+                    double t = System.Math.Sign(theta) / (System.Math.Abs(theta) + System.Math.Sqrt(theta * theta + 1));
+                    if (theta == 0)
+                        t = 1;
+                    double cs = 1 / System.Math.Sqrt(t * t + 1), sn = t * cs;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        double akp = a[k, p], akq = a[k, q];
+                        a[k, p] = cs * akp - sn * akq;
+                        a[k, q] = sn * akp + cs * akq;
+                    }
+                    for (int k = 0; k < 3; k++)
+                    {
+                        double apk = a[p, k], aqk = a[q, k];
+                        a[p, k] = cs * apk - sn * aqk;
+                        a[q, k] = sn * apk + cs * aqk;
+                    }
+                    for (int k = 0; k < 3; k++)
+                    {
+                        double vkp = v[k, p], vkq = v[k, q];
+                        v[k, p] = cs * vkp - sn * vkq;
+                        v[k, q] = sn * vkp + cs * vkq;
+                    }
+                }
+            }
+        }
+        var order = new[] { 0, 1, 2 };
+        System.Array.Sort(order, (i, j) => a[i, i].CompareTo(a[j, j]));
+        vals = new double[3];
+        vecs = new Vector3[3];
+        for (int i = 0; i < 3; i++)
+        {
+            int o = order[i];
+            vals[i] = a[o, o];
+            vecs[i] = new Vector3((float)v[0, o], (float)v[1, o], (float)v[2, o]);
         }
     }
 
@@ -1173,7 +1273,6 @@ public class CharacterRig : MonoBehaviour
             moved |= ReachClavicle(clavL, upperArmL, leftTarget, T.clavLeft * clavK, T.clavMax);
         if (moved)
         {
-            Vector3 l = leftTarget;
             HoldGun(aim, k, pistol, pk, rk, kick, grip, support, butt, out gunRot, out rightTarget, out leftTarget);
             if (rk > 0.001f)
                 leftTarget = Vector3.Lerp(leftTarget, ReloadHand(heldWeapon != null ? heldWeapon.ReloadProgress : 0f, leftTarget, A, gs, pistol), rk);
@@ -1193,14 +1292,20 @@ public class CharacterRig : MonoBehaviour
             rightHand.rotation = gunRot * gripRel;
         // Support hand turned round the gun: palm up against the handguard, fingers wrapping its far side (pistol:
         // over the right hand's fingers). Not while it is busy with a reload.
+        // The flat hand lies along the side of the handguard / the right hand; which face touches is whichever needs
+        // the smaller turn of the wrist.
         float turn = supportKnown ? T.supportTurn * (1f - rk) : 0f;
         if (turn > 0.001f)
         {
-            Vector3 gr = gunRot * Vector3.right, gu = gunRot * Vector3.up, gf = gunRot * Vector3.forward;
             Vector3 fv = pistol ? T.pistolSupportFingers : T.supportFingers, pv = pistol ? T.pistolSupportPalm : T.supportPalm;
-            Vector3 F = gr * fv.x + gu * fv.y + gf * fv.z, P = gr * pv.x + gu * pv.y + gf * pv.z;
-            if (F.sqrMagnitude > 1e-4f && Vector3.Cross(F, P).sqrMagnitude > 1e-4f)
-                handL.rotation = Quaternion.Slerp(handL.rotation, Quaternion.LookRotation(F, P) * supportBasisInv, turn);
+            Vector3 F = gunRot * fv, N = gunRot * pv;
+            if (F.sqrMagnitude > 1e-4f && Vector3.Cross(F, N).sqrMagnitude > 1e-4f)
+            {
+                Quaternion local = Quaternion.Inverse(Quaternion.LookRotation(supportFingers, supportFlat));
+                Quaternion a = Quaternion.LookRotation(F, N) * local, b = Quaternion.LookRotation(F, -N) * local;
+                Quaternion flat = Quaternion.Angle(handL.rotation, a) <= Quaternion.Angle(handL.rotation, b) ? a : b;
+                handL.rotation = Quaternion.Slerp(handL.rotation, flat, turn);
+            }
         }
         EndPose();
     }
