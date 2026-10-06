@@ -326,7 +326,28 @@ public class PoseShots : MonoBehaviour
         RenderTexture.active = null;
         cam.targetTexture = null;
         RenderTexture.ReleaseTemporary(rt);
-        string file = string.Format("{0:000}_{1}_{2}_{3}{4}.png", shotIndex++, skin, c.name, view, tag);
-        File.WriteAllBytes(Path.Combine(outDir, file), grab.EncodeToPNG());
+        string file = string.Format("{0:000}_{1}_{2}_{3}{4}.ppm", shotIndex++, skin, c.name, view, tag);
+        File.WriteAllBytes(Path.Combine(outDir, file), Ppm(grab));
+    }
+
+    /// <summary>Binary PPM (the project has no image-encoding module; converted to PNG afterwards).</summary>
+    private static byte[] Ppm(Texture2D t)
+    {
+        Color32[] px = t.GetPixels32();
+        byte[] head = System.Text.Encoding.ASCII.GetBytes("P6\n" + t.width + " " + t.height + "\n255\n");
+        var bytes = new byte[head.Length + t.width * t.height * 3];
+        System.Array.Copy(head, bytes, head.Length);
+        int o = head.Length;
+        for (int y = t.height - 1; y >= 0; y--)   // texture rows go bottom-up, PPM top-down
+        {
+            for (int x = 0; x < t.width; x++)
+            {
+                Color32 c = px[y * t.width + x];
+                bytes[o++] = c.r;
+                bytes[o++] = c.g;
+                bytes[o++] = c.b;
+            }
+        }
+        return bytes;
     }
 }
