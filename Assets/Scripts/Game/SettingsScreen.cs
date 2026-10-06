@@ -127,6 +127,12 @@ public class SettingsScreen : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    /// <summary>Shows one of the pages (0 TEMEL ... 4 GİZLİLİK, 5 KÜNYE).</summary>
+    public void OpenPage(int index)
+    {
+        ShowPage(Mathf.Clamp(index, 0, Pages.Length - 1));
+    }
+
     // ----- pages -----
 
     private void ShowPage(int index)

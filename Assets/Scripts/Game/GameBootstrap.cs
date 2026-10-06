@@ -46,6 +46,7 @@ public class GameBootstrap : MonoBehaviour
             return;
         }
         ErrorReporter.Install();   // first, so start-up errors are caught too
+        UiShots.TryStart();        // screen test (development: -uishots <folder>)
         Purchases.Init();   // Google Play Billing (Kredi packs)
         Ads.Init();         // consent form when required, then the optional rewarded ads
 
