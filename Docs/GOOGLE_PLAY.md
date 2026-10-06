@@ -35,13 +35,17 @@ IL2CPP ARM64 + ARMv7, minimum Android 7.0.
 ## 3. Senin yapacakların (sırayla)
 
 ### 3.1 GitHub
-- Settings → Secrets and variables → Actions → **`PLAY_KEY_PASSPHRASE`** (en az 24 karakter, harf+rakam). Parolayı bir
+- ✅ Yapıldı: Settings → Secrets and variables → Actions → **`PLAY_KEY_PASSPHRASE`**. Parolayı bir
   parola yöneticisinde sakla. Kaybedersen Play Console → Uygulama bütünlüğü → "Yükleme anahtarını sıfırla" ile yenilenir.
 
 ### 3.2 Play Console hesabı
 - play.google.com/console → geliştirici hesabı (tek seferlik 25 USD), kimlik doğrulama.
 - **Kişisel hesap** ise (13 Kasım 2023'ten sonra açılan): üretime çıkmadan önce **en az 12 test kullanıcısıyla, 14 gün
   kesintisiz kapalı test** şart. Kuruluş (şirket) hesabında bu kural yok; kuruluş hesabı için D-U-N-S numarası gerekir.
+- **Geliştirici adı:** "Zootopia" kelimesi Disney'in tescilli film adıdır. Oyunun içinden ve mağaza metinlerinden
+  çıkarıldı; yalnızca geliştirici adında ("Zootopia Yazılım") ve e-postada duruyor. Play'deki geliştirici adını
+  kendi adın ya da farklı bir marka (ör. "ZT Yazılım") yaparsan marka şikâyeti riski tamamen kalkar. Paket adı
+  (`com.zootopiayazilim…`) oyuncuya görünmez, sorun değil.
 
 ### 3.3 Uygulamayı oluştur
 - Uygulama oluştur → Ad: **Rise of Davraz** · Varsayılan dil: Türkçe · Oyun · Ücretsiz.
@@ -156,7 +160,7 @@ olmadan da oyna.
 ◆ 29 SİLAH MODELİ – tabanca, hafif makineli, taarruz tüfeği, pompalı ve keskin nişancı; susturucu, dürbün, tutamak,
 şarjör ve dipçik aparatları; parlayan efsanevi ve mitik kamuflajlar.
 ◆ 24 KARAKTER VE HAYVAN MASKELERİ – askerler, operatörler, özel tim; kedi, kurt, aslan, ejderha maskeleri.
-◆ TAKTİK – yat, sürün, eğil; el bombası, molotof, sis, flaş ve gaz; araçlar ve binilebilen cipler.
+◆ TAKTİK – yat, sürün, eğil; el bombası, molotof, sis, flaş ve gaz; binilebilen arazi araçları.
 ◆ ARKADAŞLAR – arkadaş ekle, mesajlaş, hediye gönder, günün en iyi oyuncuları listesinde yerini al.
 ◆ GÖREVLER VE ÖDÜLLER – günlük ve haftalık görevler, sezon görevleri, şans çarkı, haftalık şans çekilişi ve kutular.
 
@@ -178,7 +182,7 @@ can play offline too.
 ◆ 29 WEAPON MODELS – pistols, SMGs, assault rifles, shotguns and sniper rifles with suppressors, scopes, grips,
 magazines and stocks; glowing legendary and mythic camos.
 ◆ 24 CHARACTERS AND ANIMAL MASKS.
-◆ TACTICS – go prone, crawl, crouch; grenades, molotovs, smoke, flash and gas; drivable jeeps.
+◆ TACTICS – go prone, crawl, crouch; grenades, molotovs, smoke, flash and gas; drivable off-road vehicles.
 ◆ FRIENDS – add friends, chat, send gifts, climb today's top players.
 ◆ MISSIONS AND REWARDS – daily, weekly and season missions, a lucky wheel, a weekly draw and boxes.
 
