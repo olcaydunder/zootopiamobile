@@ -104,17 +104,17 @@ public static class ModelLibrary
         switch (skin)
         {
             case "Flame": return "Alev Kartalı";
-            case "AK19": return "AK-19 Taktik";
-            case "AR15": return "AR-15 Saha";
+            case "AK19": return "Bora Taktik";
+            case "AR15": return "Saha Tüfeği";
             case "Engraved": return "Gravürlü 1911";
             case "Shadow": return "Gölge Avcı";
             case "Servis": return "Servis 9";
             case "Vasak": return "Vaşak 92";
             case "Klasik": return "Klasik 45";
-            case "Magnum": return "Magnum 50";
-            case "Retro": return "Altın Magnum";
+            case "Magnum": return "Toros 50";
+            case "Retro": return "Altın Toros";
             case "Kobra": return "Kobra";
-            case "AK47": return "AK Klasik";
+            case "AK47": return "Klasik Tüfek";
             case "Akrep": return "Akrep 9";
             case "U45": return "U-45 Taktik";
             case "Avci": return "Paralı Avcı";
@@ -123,10 +123,10 @@ public static class ModelLibrary
             case "S12": return "Hücum 12";
             case "Bob": return "Bob";
             case "G28": return "Taktik DMR";
-            case "K98": return "Kar 98";
+            case "K98": return "Sürgülü 98";
             case "Nemesis": return "Nemesis";
             case "Keskin": return "Keskin";
-            case "SVD": return "SVD Avcı";
+            case "SVD": return "Bozkır Avcı";
             default: return "Standart";
         }
     }

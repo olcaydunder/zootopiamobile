@@ -296,7 +296,7 @@ public class StoreScreen : MonoBehaviour
             n.color = Color.Lerp(cr.color, Color.white, 0.3f);
             var rar = UIUtil.CreateText(ct, MapCatalog.TrUpper(cr.rarity), mid, new Vector2(0f, -28f), new Vector2(320f, 30f), 20, TextAnchor.MiddleCenter);
             rar.color = Theme.Rarity(cr.rarity);
-            var bl = UIUtil.CreateText(ct, cr.blurb, mid, new Vector2(0f, -60f), new Vector2(300f, 110f), 20, TextAnchor.UpperCenter);
+            var bl = UIUtil.CreateText(ct, cr.blurb, mid, new Vector2(0f, -96f), new Vector2(300f, 96f), 20, TextAnchor.UpperCenter);
             bl.horizontalOverflow = HorizontalWrapMode.Wrap;
             bl.color = Theme.TextDim;
             Text label;
