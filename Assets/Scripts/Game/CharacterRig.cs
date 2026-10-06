@@ -84,6 +84,8 @@ public class CharacterRig : MonoBehaviour
     private float thighLen, shinLen, upperArmLen, foreArmLen;
     private Quaternion gripRel = Quaternion.identity;   // right hand in the one-handed aim clip, relative to the body
     private bool gripRelKnown;
+    private Quaternion supportBasisInv = Quaternion.identity;   // left hand: its finger / palm axes (from the idle clip)
+    private bool supportKnown;
     private SkinnedMeshRenderer[] skins;
     private float strideSpeed = 3.5f;
     private Vector3 velocity;                           // smoothed ground velocity (world)
@@ -748,16 +750,36 @@ public class CharacterRig : MonoBehaviour
                 shoot.SampleAnimation(model, shoot.length * 0.3f);   // the graph did not write: sample the clip directly
             gripRelKnown = Quaternion.Angle(rightHand.localRotation, bind) >= 0.01f;
             gripRel = Quaternion.Inverse(transform.rotation) * rightHand.rotation;
+
+            // The left hand hanging in the idle clip: fingers continue the forearm, the palm faces the thigh (towards
+            // the body's middle). Those two axes let PoseBody turn the hand round the handguard whatever the rig.
+            if (idle != null && handL != null && foreL != null)
+            {
+                for (int i = 0; i < states.Length; i++)
+                    mixer.SetInputWeight(i, i == Idle ? 1f : 0f);
+                states[Idle].SetTime(idle.length * 0.3f);
+                graph.Evaluate(0f);
+                Quaternion inv = Quaternion.Inverse(handL.rotation);
+                Vector3 fingers = inv * (handL.position - foreL.position).normalized;
+                Vector3 palm = Vector3.ProjectOnPlane(inv * transform.right, fingers);
+                Vector3 down = (handL.position - foreL.position).normalized;
+                supportKnown = palm.sqrMagnitude > 0.2f && Vector3.Dot(down, Vector3.down) > 0.6f;   // really hanging
+                if (supportKnown)
+                    supportBasisInv = Quaternion.Inverse(Quaternion.LookRotation(fingers, palm.normalized));
+            }
         }
         catch (System.Exception)
         {
             gripRelKnown = false;
+            supportKnown = false;
         }
         finally
         {
             for (int i = 0; i < states.Length; i++)
                 mixer.SetInputWeight(i, weights[i]);
             states[Shoot].SetTime(0);
+            if (idle != null)
+                states[Idle].SetTime(0);
             animator.cullingMode = culling;
         }
     }
@@ -1169,6 +1191,17 @@ public class CharacterRig : MonoBehaviour
         SolveLimb(upperArmL, foreL, handL.position, leftTarget, shoulderL + bodyRight * lp.x + up * lp.y + bodyFwd * lp.z, upperArmLen, foreArmLen);
         if (gripRelKnown)
             rightHand.rotation = gunRot * gripRel;
+        // Support hand turned round the gun: palm up against the handguard, fingers wrapping its far side (pistol:
+        // over the right hand's fingers). Not while it is busy with a reload.
+        float turn = supportKnown ? T.supportTurn * (1f - rk) : 0f;
+        if (turn > 0.001f)
+        {
+            Vector3 gr = gunRot * Vector3.right, gu = gunRot * Vector3.up, gf = gunRot * Vector3.forward;
+            Vector3 fv = pistol ? T.pistolSupportFingers : T.supportFingers, pv = pistol ? T.pistolSupportPalm : T.supportPalm;
+            Vector3 F = gr * fv.x + gu * fv.y + gf * fv.z, P = gr * pv.x + gu * pv.y + gf * pv.z;
+            if (F.sqrMagnitude > 1e-4f && Vector3.Cross(F, P).sqrMagnitude > 1e-4f)
+                handL.rotation = Quaternion.Slerp(handL.rotation, Quaternion.LookRotation(F, P) * supportBasisInv, turn);
+        }
         EndPose();
     }
 
@@ -1202,7 +1235,11 @@ public class CharacterRig : MonoBehaviour
             gunPos = pocket - gunRot * butt;
         }
         if (rk > 0.001f)
-            gunPos += (up * 0.04f - transform.right * T.reloadPull) * rk;   // brought in front of the chest
+        {
+            // out of the shoulder, in front of the chest (pistol: drawn in closer and a little up)
+            Vector3 shift = pistol ? up * 0.08f - transform.forward * 0.08f : -up * T.reloadDrop - transform.right * T.reloadPull;
+            gunPos += shift * rk;
+        }
         if (kick > 0.001f)
             gunPos -= (gunRot * Vector3.forward) * T.kickBack * kick;
         weaponHold.position = gunPos;

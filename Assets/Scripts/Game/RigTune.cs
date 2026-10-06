@@ -17,13 +17,18 @@ public class RigTune
     public float readyPitch = 24f, readyYaw = -14f; // muzzle down / inwards at the ready (degrees)
     public float pistolReadyPitch = 38f, pistolReadyYaw = -6f;
     // Pistol: grip position in front of the shoulders' midpoint (aim space)
-    public Vector3 pistolAimGrip = new Vector3(0.02f, -0.04f, 0.42f);
-    public Vector3 pistolReadyGrip = new Vector3(0.04f, -0.24f, 0.3f);
+    public Vector3 pistolAimGrip = new Vector3(0.01f, 0.05f, 0.44f);
+    public Vector3 pistolReadyGrip = new Vector3(0.03f, -0.2f, 0.3f);
     // Hands relative to the grip / support point (gun space)
     public Vector3 rightHandOffset = new Vector3(0f, 0.02f, 0.05f);
     public Vector3 leftHandOffset = new Vector3(0f, 0.035f, 0.03f);
-    public Vector3 pistolLeftOffset = new Vector3(-0.045f, -0.03f, -0.01f);
+    public Vector3 pistolLeftOffset = new Vector3(-0.035f, -0.045f, -0.045f);
     public float reach = 0.97f, maxSlide = 0.22f;   // short arms: the support hand slides back along the handguard
+    // Support hand orientation (gun space: right, up, forward): where its fingers point and its palm faces, how much
+    // of the way it turns there from the arm's own pose
+    public Vector3 supportFingers = new Vector3(0.55f, 0.3f, 0.75f), supportPalm = new Vector3(0.45f, 0.9f, -0.1f);
+    public Vector3 pistolSupportFingers = new Vector3(0.35f, -0.55f, 0.6f), pistolSupportPalm = new Vector3(0.9f, 0.25f, 0f);
+    public float supportTurn = 0.85f;
     // Elbow pole targets from each shoulder (body space: right, up, forward)
     public Vector3 rightPole = new Vector3(0.35f, -0.6f, -0.25f);
     public Vector3 leftPole = new Vector3(-0.3f, -0.6f, -0.1f);
@@ -40,8 +45,9 @@ public class RigTune
     // characters get clavCartoon times that (their shirts poke through the vests when the collarbones turn).
     public float clavRight = 0.12f, clavLeft = 0.28f, clavMax = 18f, clavCartoon = 0f;
     public Vector3 showcaseAim = new Vector3(4f, -12f, 0f);   // lobby: gun held across the body
-    // Reloading: the gun canted (roll) and lifted (degrees), pulled in front of the chest (metres)
-    public float reloadRoll = 28f, reloadLift = 10f, reloadPull = 0.07f;
+    // Reloading: the gun canted (roll) and its muzzle lifted (degrees), dropped out of the shoulder and pulled in front
+    // of the chest (metres)
+    public float reloadRoll = 28f, reloadLift = 34f, reloadDrop = 0.1f, reloadPull = 0.08f;
     // Shot kick: back (metres) and muzzle up (degrees), dying away at kickDecay per second
     public float kickBack = 0.035f, kickPitch = 4f, kickDecay = 26f;
     // Prone: body tipped forward, sunk to the ground; up on the elbows, head lifted to look ahead, legs apart
