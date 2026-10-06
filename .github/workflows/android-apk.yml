@@ -292,18 +292,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set +e
-          jid=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '[.jobs[] | select(.conclusion=="failure")][0].id')
-          echo "job id: $jid"
-          gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs" > full.log
-          echo "log lines: $(wc -l < full.log)"
-          grep -E "error CS|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|[Ff]ailed" full.log | grep -v -i "node.js" | tail -60 > errors.txt
-          tail -120 full.log > tail.txt
-          # Errors as one annotation (readable through the API).
-          msg=$(cut -c1-300 errors.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=Unity hataları::${msg}"
-          msg2=$(tail -40 tail.txt | cut -c1-300 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=Log sonu::${msg2}"
-          gzip -k full.log
-          gh release delete build-log --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
-          gh release create build-log errors.txt tail.txt full.log.gz --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" --title "Son derleme hatasi" --notes "run $GITHUB_RUN_ID"
+          for jid in $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --jq '.jobs[] | select(.conclusion=="failure") | .id'); do
+            code=$(curl -sS -L -o "job_$jid.log" -w "%{http_code}" -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                   "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/jobs/$jid/logs")
+            echo "::notice title=Log $jid::http $code, $(wc -c < "job_$jid.log") bytes"
+            # Unity compile errors, package errors and the build result: one annotation per job (multi-line)
+            grep -E "error CS[0-9]+|Shader error|[Ee]rror:|Exception|BuildFailed|Build Finished|ERROR|[Ff]ailed|Cannot|Unable|package|Package" "job_$jid.log" \
+              | grep -v -i "node.js\|deprecat" | sed 's/^[0-9TZ:.-]* //' | cut -c1-240 | awk '!seen[$0]++' | tail -45 > "err_$jid.txt"
+            msg=$(sed 's/%/%25/g' "err_$jid.txt" | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Unity hataları ($jid)::${msg:-(eşleşen satır yok)}"
+            msg2=$(tail -60 "job_$jid.log" | sed 's/^[0-9TZ:.-]* //' | cut -c1-240 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::warning title=Log sonu ($jid)::${msg2}"
+          done
           exit 0

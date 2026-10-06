@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using GoogleMobileAds.Api;
 using GoogleMobileAds.Ump.Api;
 using UnityEngine;
@@ -153,3 +154,16 @@ public class Ads : MonoBehaviour
         }
     }
 }
+#else
+/// <summary>Other platforms (the Linux game server, desktop tests): no ads.</summary>
+public class Ads : UnityEngine.MonoBehaviour
+{
+    public static void Init() { }
+    public static int WatchedToday { get { return 0; } }
+    public static int LeftToday { get { return 0; } }
+    public static bool RewardReady { get { return false; } }
+    public static bool ShowRewarded(System.Action rewarded) { return false; }
+    public static bool PrivacyOptionsRequired { get { return false; } }
+    public static void ShowPrivacyOptions() { }
+}
+#endif

@@ -282,6 +282,7 @@ public class SettingsScreen : MonoBehaviour
         if (Ads.PrivacyOptionsRequired)
             ActionRow("Reklam izin tercihleri", "DEĞİŞTİR", Ads.ShowPrivacyOptions);
         Note("Oyun; oyuncu adını, oyuncu kimliğini, cihaz modelini, maç istatistiklerini, arkadaş listeni, mesajlarını ve gönderdiğin hata raporlarını oyun sunucusunda saklar. " +
+             "Sesli sohbet açıksa konuşman yalnızca canlı iletilir, kaydedilmez. " +
              "Reklamlar (isteğe bağlı, Kredi karşılığı izlenen) Google AdMob ile gösterilir ve reklam kimliğini kullanabilir. Ödemeleri Google Play alır; kart bilgilerin bize gelmez.");
         Header("HESAP");
         Note(OnlineService.HasAccount ? "Oyuncu kodun: " + OnlineService.FriendCode(OnlineService.AccountId) : "Henüz çevrimiçi hesabın yok.");

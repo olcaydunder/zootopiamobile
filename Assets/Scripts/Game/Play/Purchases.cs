@@ -1,3 +1,4 @@
+#if UNITY_ANDROID
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Purchasing;
@@ -181,3 +182,16 @@ public class Purchases : MonoBehaviour
             Changed();
     }
 }
+#else
+/// <summary>Other platforms (the Linux game server, desktop tests): no Google Play purchases.</summary>
+public class Purchases : UnityEngine.MonoBehaviour
+{
+    public static event System.Action Changed;
+    public static string Message = "";
+    public static bool Available { get { return false; } }
+    public static bool Busy { get { return false; } }
+    public static void Init() { if (Changed != null) Changed = null; }
+    public static string Price(string productId) { return ""; }
+    public static bool Buy(string productId) { return false; }
+}
+#endif
