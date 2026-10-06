@@ -8,7 +8,7 @@ using UnityEngine.Purchasing;
 /// only, never on the game server), fetches the packs' prices from Play, and gives the Kredi when Play reports a
 /// purchase, then confirms (consumes) it so the pack can be bought again. Purchases that were paid but not yet
 /// given (the game closed in between) are given on the next start. Each order is given only once (its transaction
-/// id is remembered).
+/// id is remembered), and only when Google Play's signature on it is right (ReceiptCheck).
 /// </summary>
 public class Purchases : MonoBehaviour
 {
@@ -110,15 +110,30 @@ public class Purchases : MonoBehaviour
     private void OnPurchasePending(PendingOrder order)
     {
         busy = false;
-        string tx = order.Info != null ? order.Info.TransactionID : "";
+        var info = order.Info;
+        string tx = info != null ? info.TransactionID : "";
+        string receipt = info != null ? info.Receipt : "";
         int given = 0;
-        if (!AlreadyGiven(tx) && order.Info != null && order.Info.PurchasedProductInfo != null)
+        bool rejected = false;
+        if (!AlreadyGiven(tx) && info != null && info.PurchasedProductInfo != null)
         {
-            foreach (var item in order.Info.PurchasedProductInfo)
+            foreach (var item in info.PurchasedProductInfo)
             {
                 var pack = PlayConfig.Pack(item.productId);
-                if (pack != null)
-                    given += pack.credits;
+                if (pack == null)
+                    continue;
+                // Signed by Google Play for this game and this pack? (made-up purchases are not)
+                string why;
+                var check = ReceiptCheck.Check(receipt, PlayConfig.GooglePlayPublicKey, Application.identifier, item.productId, out why);
+                if (check == ReceiptCheck.Result.Invalid)
+                {
+                    rejected = true;
+                    Debug.LogWarning("[Purchases] " + item.productId + " not given, receipt rejected: " + why);
+                    continue;
+                }
+                if (check == ReceiptCheck.Result.Unknown)
+                    Debug.LogWarning("[Purchases] receipt not checked: " + why);
+                given += pack.credits;
             }
             if (given > 0)
             {
@@ -127,6 +142,13 @@ public class Purchases : MonoBehaviour
                 Message = given.ToString("N0") + " Kredi hesabına eklendi. Teşekkürler!";
                 UiSound.Confirm();
             }
+        }
+        if (rejected && given == 0)
+        {
+            // Not confirmed: if money was really taken, Google Play refunds an unconfirmed purchase within 3 days.
+            Message = "Satın alma Google Play'den doğrulanamadı, Kredi verilmedi. Ücret alındıysa Google Play 3 gün içinde iade eder.";
+            Notify();
+            return;
         }
         store.ConfirmPurchase(order);   // consumed: the pack can be bought again
         Notify();

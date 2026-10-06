@@ -15,6 +15,7 @@ Sürüm kodu her AAB derlemesinde artar (1000 + çalıştırma numarası).
 | Hesap silme sayfası | oyun sunucusu: `http://201.18.215.185:8080/hesap-silme` (dosya: `Server/web/hesap-silme.html`) |
 | Oyun içinde hesap ve veri silme | Ayarlar → Gizlilik → Hesabımı ve tüm verilerimi sil |
 | Kredi paketleri (Google Play Billing 8) | Mağaza → KREDİ; ürün kimlikleri aşağıda |
+| Satın alma imza doğrulaması (Play lisans anahtarı) | `PlayConfig.GooglePlayPublicKey`; Google imzası tutmayan sahte satın almaya Kredi verilmez |
 | Ödüllü reklam + izin penceresi (AdMob + UMP) | Mağaza → KREDİ → Reklam izle (şimdilik Google test reklamı) |
 | Kutu, çark, çekiliş olasılıkları | her birinde OLASILIKLAR düğmesi (Play'in rastgele öğe kuralı) |
 

@@ -1,8 +1,8 @@
 /// <summary>
 /// Everything Google Play needs to know about this game in one place: the AdMob ids (Google's TEST ids until the real
 /// ones are put here; the app id also goes into the build through ZootopiaBuild.ConfigureAds), the Kredi packs sold
-/// through Google Play Billing (the same product ids must be created in Play Console as "in-app products"), and the
-/// addresses of the privacy policy and account-deletion pages.
+/// through Google Play Billing (the same product ids must be created in Play Console as "in-app products"), the
+/// public licence key purchases are checked with, and the addresses of the privacy policy and account-deletion pages.
 /// </summary>
 public static class PlayConfig
 {
@@ -34,6 +34,17 @@ public static class PlayConfig
         new CreditPack { id = "kredi_13000", credits = 13000, bonus = 3000, tag = "" },
         new CreditPack { id = "kredi_30000", credits = 30000, bonus = 10000, tag = "EN İYİ DEĞER" },
     };
+
+    /// <summary>
+    /// The game's public licence key (Play Console > Monetisation setup > Licensing; base64 RSA public key). Google Play
+    /// signs every purchase with the matching private key, which only Google has; ReceiptCheck uses this to refuse
+    /// made-up purchases. It is a PUBLIC key: not a secret, safe to keep in the code.
+    /// </summary>
+    public const string GooglePlayPublicKey =
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4HRVtoYjjcBFLGWDt4OCbmeEbxqJMbBoWFCuZobwWwkb04Z2yUSbRwv/33U4TAQqovp8" +
+        "niMIdDSo+0fmkApNxlYKCF1V3WNzLaBzwT1EMpqzPA9FK1pHpggJ01skPnEU4kNwT5b849nwYVFCcuLD8uyqKCuUc44mpHvSN0YBSDl6exOkpUbO" +
+        "ArBn9jjA+vgNflyr1DUoh2VaEaQhzrVWxzCKnw53HaJrilUhP8f3n1EGfUo5pNkWm9TdTUI9weXHVpGEIs+qcMlEfY0u1hmpPmqn3/Nw/F7Lqylv" +
+        "y5SfHdgu/S1Ym+rYU5nIiv6ZOES2ZH5sWioyoQvXNiUIb8/wRQIDAQAB";
 
     public static CreditPack Pack(string id)
     {
