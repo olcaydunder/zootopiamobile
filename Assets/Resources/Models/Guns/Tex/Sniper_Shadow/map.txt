@@ -1,0 +1,1 @@
+material_0=Sniper_Shadow_material0=Image_0

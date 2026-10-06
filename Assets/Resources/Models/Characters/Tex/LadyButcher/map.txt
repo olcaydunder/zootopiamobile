@@ -1,0 +1,6 @@
+apron=LadyButcher_apron=Image_0
+body=LadyButcher_body=Image_3
+clothing=LadyButcher_clothing=Image_6
+eyes=LadyButcher_eyes=Image_12
+hair=LadyButcher_hair=Image_9
+mask=LadyButcher_mask=Image_14

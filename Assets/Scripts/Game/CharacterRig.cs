@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
@@ -72,6 +73,7 @@ public class CharacterRig : MonoBehaviour
     private Transform hips, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR;
     private Transform yawBone;          // carries both the legs and the spine (Mixamo: Hips; Quaternius: Body)
     private Transform headBone, maskMount;   // mount: centre of the head, facing forward, world scale = head size
+    private Transform neckBone, clavL, clavR;   // neck and collarbones (shoulders follow the hands, the neck the head)
     private GameObject mask;
     private string maskShown = "";
     private bool feetFree;              // feet are not children of the shins (Quaternius rigs): moved along by hand
@@ -395,6 +397,75 @@ public class CharacterRig : MonoBehaviour
 
     // ----- Animated model -----
 
+    private static readonly Dictionary<Mesh, Mesh> bootMeshes = new Dictionary<Mesh, Mesh>();
+
+    /// <summary>
+    /// The low-poly pack's feet are part of its "Skin" material, so with a real skin tone those characters looked
+    /// barefoot. The skin triangles below the ankle move to a sub-mesh of their own with dark boot leather.
+    /// </summary>
+    private static void SplitBoots(GameObject model)
+    {
+        foreach (var smr in model.GetComponentsInChildren<SkinnedMeshRenderer>())
+        {
+            var src = smr.sharedMesh;
+            var mats = smr.sharedMaterials;
+            if (src == null || mats.Length != src.subMeshCount)
+                continue;
+            int skin = -1;
+            for (int i = 0; i < mats.Length; i++)
+                if (mats[i] != null && mats[i].mainTexture == null && mats[i].name.StartsWith("Skin"))
+                    skin = i;
+            if (skin < 0)
+                continue;
+            Mesh split;
+            if (!bootMeshes.TryGetValue(src, out split))
+            {
+                split = null;
+                if (src.isReadable)
+                {
+                    var verts = src.vertices;
+                    Vector3 up = smr.transform.InverseTransformDirection(Vector3.up).normalized;
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    foreach (var v in verts)
+                    {
+                        float h = Vector3.Dot(v, up);
+                        lo = Mathf.Min(lo, h);
+                        hi = Mathf.Max(hi, h);
+                    }
+                    float ankle = lo + (hi - lo) * 0.09f;
+                    var tris = src.GetTriangles(skin);
+                    var rest = new List<int>(tris.Length);
+                    var boots = new List<int>();
+                    for (int t = 0; t + 2 < tris.Length; t += 3)
+                    {
+                        bool low = Vector3.Dot(verts[tris[t]], up) < ankle && Vector3.Dot(verts[tris[t + 1]], up) < ankle && Vector3.Dot(verts[tris[t + 2]], up) < ankle;
+                        var into = low ? boots : rest;
+                        into.Add(tris[t]);
+                        into.Add(tris[t + 1]);
+                        into.Add(tris[t + 2]);
+                    }
+                    if (boots.Count > 0 && rest.Count > 0)
+                    {
+                        split = Object.Instantiate(src);
+                        split.name = src.name + "_boots";
+                        int n = src.subMeshCount;
+                        split.subMeshCount = n + 1;
+                        split.SetTriangles(rest, skin);
+                        split.SetTriangles(boots, n);
+                    }
+                }
+                bootMeshes[src] = split;
+            }
+            if (split == null)
+                continue;
+            smr.sharedMesh = split;
+            var withBoots = new Material[mats.Length + 1];
+            mats.CopyTo(withBoots, 0);
+            withBoots[mats.Length] = MaterialCache.Lit(new Color(0.11f, 0.095f, 0.085f));
+            smr.sharedMaterials = withBoots;
+        }
+    }
+
     private bool TryCreateModel(string skin, Color skinTone)
     {
         string path = ModelLibrary.CharacterPath(skin);
@@ -406,6 +477,7 @@ public class CharacterRig : MonoBehaviour
         // (the eyes). Give them a real, slightly deeper skin tone (a pale tone reads as white under the bright sun)
         // and dark eyes, so faces have features instead of a blank pale mask.
         Color tone = new Color(skinTone.r * 0.86f, skinTone.g * 0.79f, skinTone.b * 0.74f);
+        SplitBoots(model);
         foreach (var r in model.GetComponentsInChildren<Renderer>())
         {
             var mats = r.sharedMaterials;
@@ -591,7 +663,12 @@ public class CharacterRig : MonoBehaviour
         }
         yawBone = CommonAncestor(upLegL, spine) ?? hips;
         feetFree = footL != null && shinL != null && !footL.IsChildOf(shinL);
-        posedBones = new[] { yawBone, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR, rightHand, headBone };
+        // collarbones: the upper arms' own parents (Shoulder.L, mixamorig:LeftShoulder), when they are not the chest
+        clavL = upperArmL != null && upperArmL.parent != chest && upperArmL.parent != spine ? upperArmL.parent : null;
+        clavR = upperArmR != null && upperArmR.parent != chest && upperArmR.parent != spine ? upperArmR.parent : null;
+        neckBone = headBone != null && headBone.parent != chest && headBone.parent != spine ? headBone.parent : null;
+        posedBones = new[] { yawBone, spine, chest, upLegL, shinL, footL, upLegR, shinR, footR, upperArmL, foreL, handL, upperArmR, foreR, rightHand, headBone,
+                             clavL, clavR, neckBone };
         baseRot = new Quaternion[posedBones.Length];
         posedRot = new Quaternion[posedBones.Length];
         basePos = new Vector3[posedBones.Length];
@@ -848,7 +925,7 @@ public class CharacterRig : MonoBehaviour
         bool prone = pose == RigPose.Prone;
         if ((!normal && !prone) || weaponHold == null || rightHand == null)
             return;
-        if (!posed || prone || !Visible())
+        if (!(posed || (prone && CanPose && !NetGame.IsServer)) || !Visible())
         {
             // Not posing (server, simple rigs, off screen): the gun simply follows the right hand.
             Quaternion aim = AimRotation();
@@ -856,7 +933,7 @@ public class CharacterRig : MonoBehaviour
             weaponHold.rotation = aim;
             return;
         }
-        PoseBody(dt, fwd, side, backward, kneeAngle);
+        PoseBody(dt, fwd, side, backward, kneeAngle, prone);
     }
 
     private bool Visible()
@@ -914,17 +991,20 @@ public class CharacterRig : MonoBehaviour
 
     /// <summary>
     /// After the clips: hips towards the walking direction with the chest still facing the aim, bent knees when
-    /// crouching, the spine following the aim up and down, the gun shouldered at the aim (or held lower at the
-    /// ready), and both arms put on it by two-bone IK.
+    /// crouching, the spine and head following the aim up and down, a slightly bladed stance with a long gun (left
+    /// shoulder forward, cheek on the stock), the gun shouldered at the aim (or held lower at the ready), the
+    /// collarbones reaching a little towards the hands, and both arms put on the gun by two-bone IK.
+    /// Prone: up on the elbows, chest raised, head back to look ahead, legs a little apart, the gun out in front.
     /// </summary>
-    private void PoseBody(float dt, float fwd, float side, bool backward, float kneeAngle)
+    private void PoseBody(float dt, float fwd, float side, bool backward, float kneeAngle, bool prone)
     {
         BeginPose();
         var T = RigTune.Current;
         Vector3 up = Vector3.up;
+        Vector3 bodyRight = transform.right, bodyFwd = transform.forward;
         // Hips turn towards where the legs run (up to 65 degrees; walking backwards: away from it).
         float want = 0f;
-        if (speed > 0.6f)
+        if (speed > 0.6f && !prone)
         {
             float a = Mathf.Atan2(side, fwd) * Mathf.Rad2Deg;
             if (backward)
@@ -932,108 +1012,188 @@ public class CharacterRig : MonoBehaviour
             want = Mathf.Clamp(a, -65f, 65f);
         }
         hipYaw = Mathf.MoveTowardsAngle(hipYaw, want, dt * 300f);
-        Quaternion yaw = Quaternion.AngleAxis(hipYaw, up);
-        yawBone.rotation = yaw * yawBone.rotation;
-        if (feetFree && Mathf.Abs(hipYaw) > 0.01f)
+        if (!prone)
         {
-            Vector3 pivot = yawBone.position;
-            TurnAbout(footL, pivot, yaw);
-            TurnAbout(footR, pivot, yaw);
-        }
-        spine.rotation = Quaternion.AngleAxis(-hipYaw * T.hipSpine, up) * spine.rotation;
-        chest.rotation = Quaternion.AngleAxis(-hipYaw * T.hipChest, up) * chest.rotation;
+            Quaternion yaw = Quaternion.AngleAxis(hipYaw, up);
+            yawBone.rotation = yaw * yawBone.rotation;
+            if (feetFree && Mathf.Abs(hipYaw) > 0.01f)
+            {
+                Vector3 pivot = yawBone.position;
+                TurnAbout(footL, pivot, yaw);
+                TurnAbout(footR, pivot, yaw);
+            }
+            spine.rotation = Quaternion.AngleAxis(-hipYaw * T.hipSpine, up) * spine.rotation;
+            chest.rotation = Quaternion.AngleAxis(-hipYaw * T.hipChest, up) * chest.rotation;
 
-        // Crouch: the body went down; each leg reaches back to where its foot was (knees bend forward), feet stay put.
-        if (kneeAngle > 0.5f && upLegL != null && shinL != null && footL != null && upLegR != null && shinR != null && footR != null)
+            // Crouch: the body went down; each leg reaches back to where its foot was (knees bend forward), feet stay put.
+            if (kneeAngle > 0.5f && upLegL != null && shinL != null && footL != null && upLegR != null && shinR != null && footR != null)
+            {
+                float drop = Mathf.Max(0f, -root.localPosition.y);
+                Vector3 knees = yaw * bodyFwd;
+                CrouchLeg(upLegL, shinL, footL, drop, knees);
+                CrouchLeg(upLegR, shinR, footR, drop, knees);
+                spine.rotation = Quaternion.AngleAxis(kneeAngle * T.crouchLean, bodyRight) * spine.rotation;
+            }
+        }
+        else
         {
-            float drop = Mathf.Max(0f, -root.localPosition.y);
-            Vector3 knees = yaw * transform.forward;
-            CrouchLeg(upLegL, shinL, footL, drop, knees);
-            CrouchLeg(upLegR, shinR, footR, drop, knees);
-            spine.rotation = Quaternion.AngleAxis(kneeAngle * T.crouchLean, transform.right) * spine.rotation;
+            // On the stomach (the whole body is tipped forward): up on the elbows, legs a little apart.
+            spine.rotation = Quaternion.AngleAxis(-T.proneSpineLift, bodyRight) * spine.rotation;
+            chest.rotation = Quaternion.AngleAxis(-T.proneChestLift, bodyRight) * chest.rotation;
+            if (upLegL != null && upLegR != null && T.proneLegSpread > 0f)
+            {
+                Quaternion l = Quaternion.AngleAxis(T.proneLegSpread, up), r = Quaternion.AngleAxis(-T.proneLegSpread, up);
+                Vector3 hl = upLegL.position, hr = upLegR.position;
+                upLegL.rotation = l * upLegL.rotation;
+                upLegR.rotation = r * upLegR.rotation;
+                if (feetFree && footL != null && footR != null)
+                {
+                    TurnAbout(footL, hl, l);
+                    TurnAbout(footR, hr, r);
+                }
+            }
         }
 
-        // The chest follows the aim up and down.
+        // The chest follows the aim up and down (lying down: only a little), the head a little more.
         Quaternion aim = AimRotation();
         Vector3 aimFwd = aim * Vector3.forward;
         float pitch = -Mathf.Asin(Mathf.Clamp(aimFwd.y, -1f, 1f)) * Mathf.Rad2Deg;   // + = looking down
-        Vector3 bodyRight = transform.right;
-        spine.rotation = Quaternion.AngleAxis(pitch * (pitch > 0f ? T.spineDown : T.spineUp), bodyRight) * spine.rotation;
-        chest.rotation = Quaternion.AngleAxis(pitch * (pitch > 0f ? T.chestDown : T.chestUp), bodyRight) * chest.rotation;
+        float follow = prone ? T.proneAimFollow : 1f;
+        spine.rotation = Quaternion.AngleAxis(pitch * follow * (pitch > 0f ? T.spineDown : T.spineUp), bodyRight) * spine.rotation;
+        chest.rotation = Quaternion.AngleAxis(pitch * follow * (pitch > 0f ? T.chestDown : T.chestUp), bodyRight) * chest.rotation;
 
-        if (!weaponHold.gameObject.activeInHierarchy)
+        bool hasGun = weaponHold.gameObject.activeInHierarchy;
+        if (hasGun && (heldWeapon == null || heldWeapon.transform != weaponHold))
+            heldWeapon = weaponHold.GetComponent<WeaponController>();
+        WeaponData data = hasGun && heldWeapon != null ? heldWeapon.weaponData : null;
+        bool pistol = data != null && data.weaponType == WeaponType.Pistol;
+        aimK = Mathf.MoveTowards(aimK, aiming && !showcase && hasGun ? 1f : 0f, dt * (aiming ? 9f : 3f));
+        float k = Mathf.SmoothStep(0f, 1f, aimK);
+
+        // Bladed stance with a long gun: the chest turns right (left shoulder forward), the spine taking part of it.
+        float twist = !hasGun || pistol || prone ? 0f : Mathf.Lerp(T.readyTwist, T.aimTwist, k);
+        if (Mathf.Abs(twist) > 0.01f)
+        {
+            spine.rotation = Quaternion.AngleAxis(twist * T.twistSpine, up) * spine.rotation;
+            chest.rotation = Quaternion.AngleAxis(twist * (1f - T.twistSpine), up) * chest.rotation;
+        }
+
+        // Head: back towards the aim after the twist, the rest of the aim pitch, the cheek down on the stock when aiming
+        // a long gun. Lying down: lifted back so the eyes look ahead instead of into the ground.
+        if (headBone != null)
+        {
+            float lift = prone ? -T.proneHeadLift : 0f;
+            float hp = prone ? 0f : pitch * (pitch > 0f ? T.headDown : T.headUp);
+            float cheek = hasGun && !pistol && !prone ? k : 0f;
+            Quaternion q = Quaternion.AngleAxis(-T.cheekTilt * cheek, aimFwd) *
+                           Quaternion.AngleAxis(hp + T.cheekPitch * cheek, bodyRight) *
+                           Quaternion.AngleAxis(-twist * T.headFollow, up);
+            if (neckBone != null && Mathf.Abs(lift) > 0.01f)
+            {
+                neckBone.rotation = Quaternion.AngleAxis(lift * 0.45f, bodyRight) * neckBone.rotation;
+                lift *= 0.55f;
+            }
+            headBone.rotation = Quaternion.AngleAxis(lift, bodyRight) * q * headBone.rotation;
+        }
+
+        if (!hasGun)
         {
             EndPose();
             return;   // no gun in hand (knocked down, item in use): the arms keep the clip's pose
         }
 
         // The gun: shouldered on the aim when aiming or shooting, otherwise at the ready (muzzle lower, a little inwards).
-        if (heldWeapon == null || heldWeapon.transform != weaponHold)
-            heldWeapon = weaponHold.GetComponent<WeaponController>();
-        WeaponData data = heldWeapon != null ? heldWeapon.weaponData : null;
         if (data != anchorsFor)
         {
             anchorsFor = data;
             anchors = GunAnchors.For(data);
         }
-        aimK = Mathf.MoveTowards(aimK, aiming && !showcase ? 1f : 0f, dt * (aiming ? 9f : 3f));
-        bool pistol = data != null && data.weaponType == WeaponType.Pistol;
         GunAnchors A = anchors;
         float gs = heldWeapon != null && heldWeapon.ModelScale > 0f ? heldWeapon.ModelScale : 1f;
         Vector3 grip = A != null ? A.Grip * gs : Vector3.zero;
         Vector3 support = A != null ? A.Support * gs : new Vector3(0f, 0.04f, pistol ? 0f : 0.3f);
+        Vector3 butt = A != null ? A.Butt * gs : new Vector3(0f, 0.03f, -0.2f);
         if (A != null && data.attachments != null)
             foreach (var id in data.attachments)
                 if (id == "vgrip" || id == "tgrip" || id == "hgrip" || id == "agrip")
                     support = new Vector3(A.cx, A.underY - 0.04f, A.underZ) * gs;   // hold the foregrip
-        float k = Mathf.SmoothStep(0f, 1f, aimK);
-        // Bladed stance with a long gun: the chest turns right (left shoulder forward), the head back towards the aim.
-        float twist = pistol ? 0f : Mathf.Lerp(T.readyTwist, T.aimTwist, k);
-        if (Mathf.Abs(twist) > 0.01f)
-        {
-            chest.rotation = Quaternion.AngleAxis(twist, up) * chest.rotation;
-            if (headBone != null && T.headFollow > 0f)
-                headBone.rotation = Quaternion.AngleAxis(-twist * T.headFollow, up) * headBone.rotation;
-        }
-        Quaternion ready = Quaternion.AngleAxis(pistol ? T.pistolReadyPitch : T.readyPitch, aim * Vector3.right) *
-                           Quaternion.AngleAxis(pistol ? T.pistolReadyYaw : T.readyYaw, Vector3.up) * aim;
-        Quaternion gunRot = Quaternion.Slerp(ready, aim, k);
+
+        Quaternion gunRot;
+        Vector3 rightTarget, leftTarget;
+        HoldGun(aim, k, pistol, prone, grip, support, butt, out gunRot, out rightTarget, out leftTarget);
+        // The collarbones reach a little towards the hands (shoulders come forward and up with the arms), then the gun
+        // is placed again against the shoulder that moved.
+        bool moved = false;
+        if (clavR != null && T.clavRight > 0f)
+            moved |= ReachClavicle(clavR, upperArmR, rightTarget, T.clavRight, T.clavMax);
+        if (clavL != null && T.clavLeft > 0f)
+            moved |= ReachClavicle(clavL, upperArmL, leftTarget, T.clavLeft, T.clavMax);
+        if (moved)
+            HoldGun(aim, k, pistol, prone, grip, support, butt, out gunRot, out rightTarget, out leftTarget);
+
+        // Hands on the gun: right on the grip (wrist behind and below it, as the one-handed clip held it), left on the
+        // handguard or foregrip (pistol: wrapped round the right hand). Elbows down and out (lying down: on the ground).
+        Vector3 shoulderR = upperArmR.position, shoulderL = upperArmL.position;
+        // Short arms (the cartoon characters): the hand goes further back along the handguard, where it reaches.
+        float reach = (upperArmLen + foreArmLen) * T.reach, over = Vector3.Distance(shoulderL, leftTarget) - reach;
+        if (!pistol && over > 0f)
+            leftTarget -= (gunRot * Vector3.forward) * Mathf.Min(over * 1.3f, T.maxSlide);
+        Vector3 rp = prone ? T.pronePoleR : T.rightPole, lp = prone ? T.pronePoleL : T.leftPole;
+        SolveLimb(upperArmR, foreR, rightHand.position, rightTarget, shoulderR + bodyRight * rp.x + up * rp.y + bodyFwd * rp.z, upperArmLen, foreArmLen);
+        SolveLimb(upperArmL, foreL, handL.position, leftTarget, shoulderL + bodyRight * lp.x + up * lp.y + bodyFwd * lp.z, upperArmLen, foreArmLen);
+        if (gripRelKnown)
+            rightHand.rotation = gunRot * gripRel;
+        EndPose();
+    }
+
+    /// <summary>Places the gun for the current shoulders and returns where the hands go.</summary>
+    private void HoldGun(Quaternion aim, float k, bool pistol, bool prone, Vector3 grip, Vector3 support, Vector3 butt,
+                         out Quaternion gunRot, out Vector3 rightTarget, out Vector3 leftTarget)
+    {
+        var T = RigTune.Current;
+        Vector3 up = Vector3.up;
+        float readyPitch = prone ? T.proneReadyPitch : pistol ? T.pistolReadyPitch : T.readyPitch;
+        float readyYaw = pistol ? T.pistolReadyYaw : T.readyYaw;
+        Quaternion ready = Quaternion.AngleAxis(readyPitch, aim * Vector3.right) * Quaternion.AngleAxis(readyYaw, up) * aim;
+        gunRot = Quaternion.Slerp(ready, aim, k);
         Vector3 shoulderR = upperArmR.position, shoulderL = upperArmL.position;
         Vector3 gunPos;
         if (pistol)
         {
             // Both arms forward, the pistol in front of the chin; at the ready lower and closer.
             Vector3 mid = (shoulderR + shoulderL) * 0.5f;
-            Vector3 aimGrip = mid + aim * T.pistolAimGrip;
-            Vector3 readyGrip = mid + aim * T.pistolReadyGrip;
-            Vector3 g = Vector3.Lerp(readyGrip, aimGrip, k);
+            Vector3 g = Vector3.Lerp(mid + aim * T.pistolReadyGrip, mid + aim * T.pistolAimGrip, k);
             gunPos = g - gunRot * grip;
         }
         else
         {
             // Butt in the shoulder pocket (a little inside and below the shoulder joint).
-            Vector3 butt = A != null ? A.Butt * gs : new Vector3(0f, 0.03f, -0.2f);
             Vector3 pocket = shoulderR + aim * T.pocket - up * T.readyDrop * (1f - k);
             gunPos = pocket - gunRot * butt;
         }
         weaponHold.position = gunPos;
         weaponHold.rotation = gunRot;
+        rightTarget = weaponHold.TransformPoint(grip) - gunRot * T.rightHandOffset;
+        leftTarget = pistol ? weaponHold.TransformPoint(grip) + gunRot * T.pistolLeftOffset
+                            : weaponHold.TransformPoint(support) - gunRot * T.leftHandOffset;
+    }
 
-        // Hands on the gun: right on the grip (wrist behind and below it, as the one-handed clip held it), left on the
-        // handguard or foregrip (pistol: wrapped round the right hand). Elbows down and out.
-        Vector3 bodyFwd = transform.forward;
-        Vector3 rightTarget = weaponHold.TransformPoint(grip) - gunRot * T.rightHandOffset;
-        Vector3 leftTarget = pistol ? weaponHold.TransformPoint(grip) + gunRot * T.pistolLeftOffset
-                                    : weaponHold.TransformPoint(support) - gunRot * T.leftHandOffset;
-        // Short arms (the cartoon characters): the hand goes further back along the handguard, where it reaches.
-        float reach = (upperArmLen + foreArmLen) * T.reach, over = Vector3.Distance(shoulderL, leftTarget) - reach;
-        if (!pistol && over > 0f)
-            leftTarget -= (gunRot * Vector3.forward) * Mathf.Min(over * 1.3f, T.maxSlide);
-        SolveLimb(upperArmR, foreR, rightHand.position, rightTarget, shoulderR + bodyRight * T.rightPole.x + up * T.rightPole.y + bodyFwd * T.rightPole.z, upperArmLen, foreArmLen);
-        SolveLimb(upperArmL, foreL, handL.position, leftTarget, shoulderL + bodyRight * T.leftPole.x + up * T.leftPole.y + bodyFwd * T.leftPole.z, upperArmLen, foreArmLen);
-        if (gripRelKnown)
-            rightHand.rotation = gunRot * gripRel;
-        EndPose();
+    /// <summary>Turns a collarbone part of the way from where it points towards the hand's target (capped).</summary>
+    private static bool ReachClavicle(Transform clav, Transform upper, Vector3 target, float follow, float maxDeg)
+    {
+        Vector3 from = upper.position - clav.position, to = target - clav.position;
+        if (from.sqrMagnitude < 1e-6f || to.sqrMagnitude < 1e-6f)
+            return false;
+        float angle;
+        Vector3 axis;
+        Quaternion.FromToRotation(from, to).ToAngleAxis(out angle, out axis);
+        if (angle > 180f)
+            angle -= 360f;
+        float a = Mathf.Clamp(angle * follow, -maxDeg, maxDeg);
+        if (Mathf.Abs(a) < 0.01f || axis.sqrMagnitude < 0.5f)
+            return false;
+        clav.rotation = Quaternion.AngleAxis(a, axis) * clav.rotation;
+        return true;
     }
 
     private static void TurnAbout(Transform t, Vector3 pivot, Quaternion q)

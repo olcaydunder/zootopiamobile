@@ -1,0 +1,1 @@
+atlas=SwatOperator_atlas_cutout=SwatOperator_atlas_cutout

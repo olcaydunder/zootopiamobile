@@ -1,0 +1,3 @@
+ar15_1=Rifle_AR15_ar151=Image_0
+ar_15_2=Rifle_AR15_ar152=Image_3
+bullets=Rifle_AR15_bullets=Image_10

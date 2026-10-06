@@ -185,7 +185,89 @@ public static class ModelLibrary
             return null;
         var go = Object.Instantiate(p, parent, false);
         go.name = p.name;
+        ApplyTextures(go, path);
         return go;
+    }
+
+    // ----- Textures that were embedded in the FBX files -----
+    // Unity ignores textures packed inside an FBX (it only links image files it finds by name, sometimes the wrong
+    // one), so those models came out white. Tools/blender/extract_fbx_textures.py writes them to
+    // Resources/Models/<category>/Tex/<model>/ with a map.txt ("material=file=image name"); here they go back on.
+
+    private static readonly Dictionary<string, Dictionary<string, Texture2D>> texMaps = new Dictionary<string, Dictionary<string, Texture2D>>();
+    private static readonly Dictionary<string, Material> texMaterials = new Dictionary<string, Material>();
+
+    private static string NormName(string s)
+    {
+        var sb = new System.Text.StringBuilder(s.Length);
+        foreach (char ch in s.Replace(" (Instance)", ""))
+            if (char.IsLetterOrDigit(ch))
+                sb.Append(char.ToLowerInvariant(ch));
+        return sb.ToString();
+    }
+
+    private static Dictionary<string, Texture2D> TexMap(string path)
+    {
+        Dictionary<string, Texture2D> map;
+        if (texMaps.TryGetValue(path, out map))
+            return map;
+        int slash = path.LastIndexOf('/');
+        string dir = path.Substring(0, slash + 1) + "Tex/" + path.Substring(slash + 1) + "/";
+        var list = Resources.Load<TextAsset>(dir + "map");
+        if (list != null)
+        {
+            map = new Dictionary<string, Texture2D>();
+            foreach (var line in list.text.Split('\n'))
+            {
+                var parts = line.Trim().Split('=');
+                if (parts.Length < 2)
+                    continue;
+                var tex = Resources.Load<Texture2D>(dir + parts[1]);
+                if (tex == null)
+                    continue;
+                map[NormName(parts[0])] = tex;                   // Unity names materials after the FBX material...
+                if (parts.Length > 2 && !map.ContainsKey(NormName(parts[2])))
+                    map[NormName(parts[2])] = tex;               // ...or after its texture ("By Base Texture Name")
+            }
+            if (map.Count == 0)
+                map = null;
+        }
+        texMaps[path] = map;
+        return map;
+    }
+
+    /// <summary>Puts a model's own textures on its materials (no-op for models without extracted textures).</summary>
+    private static void ApplyTextures(GameObject go, string path)
+    {
+        var map = TexMap(path);
+        if (map == null)
+            return;
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            var mats = r.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                Texture2D tex;
+                if (mats[i] == null || !map.TryGetValue(NormName(mats[i].name), out tex) || mats[i].mainTexture == tex)
+                    continue;
+                string key = path + "|" + mats[i].name;
+                Material m;
+                if (!texMaterials.TryGetValue(key, out m) || m == null)
+                {
+                    m = new Material(mats[i]);
+                    m.name = mats[i].name;
+                    m.mainTexture = tex;
+                    // a missing texture sometimes left the import with a dark or tinted base colour
+                    m.color = Color.white;
+                    texMaterials[key] = m;
+                }
+                mats[i] = m;
+                changed = true;
+            }
+            if (changed)
+                r.sharedMaterials = mats;
+        }
     }
 
     public static string CharacterPath(string skin)

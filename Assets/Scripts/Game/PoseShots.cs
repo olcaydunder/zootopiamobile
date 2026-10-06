@@ -8,7 +8,8 @@ using UnityEngine;
 /// instead of the game, puts characters through every stance (ready, aiming up/level/down, walking, running,
 /// strafing, crouching, prone, falling and landing, every weapon class, the lobby showcase), photographs each from
 /// several sides (including the game's own over-the-shoulder and aim cameras) into PNGs and quits.
-/// "-posetune file.json" overrides <see cref="RigTune"/> values, "-poseskins a,b" and "-posecases x,y" pick a subset.
+/// "-posetune a.json[,b.json...]" overrides <see cref="RigTune"/> values (several files: every case is shot with each,
+/// file names tagged t0, t1...), "-poseskins a,b" and "-posecases x,y" pick a subset, "-poseres 480x360" the picture size.
 /// </summary>
 public class PoseShots : MonoBehaviour
 {
@@ -19,7 +20,8 @@ public class PoseShots : MonoBehaviour
     private HashSet<string> onlyCases;
     private Camera cam;
     private Texture2D grab;
-    private const int W = 640, H = 480;
+    private int W = 640, H = 480;
+    private string[] tunes = { null };
     private int shotIndex;
 
     private class Case
@@ -41,21 +43,30 @@ public class PoseShots : MonoBehaviour
     public static bool TryStart()
     {
         string[] args = System.Environment.GetCommandLineArgs();
-        string dir = null, tune = null, skinList = null, caseList = null;
+        string dir = null, tune = null, skinList = null, caseList = null, res = null;
         for (int i = 0; i < args.Length - 1; i++)
         {
             if (args[i] == "-poseshots") dir = args[i + 1];
             else if (args[i] == "-posetune") tune = args[i + 1];
             else if (args[i] == "-poseskins") skinList = args[i + 1];
             else if (args[i] == "-posecases") caseList = args[i + 1];
+            else if (args[i] == "-poseres") res = args[i + 1];
         }
         if (string.IsNullOrEmpty(dir))
             return false;
         Active = true;
-        RigTune.Load(tune);
         var go = new GameObject("PoseShots");
         var p = go.AddComponent<PoseShots>();
         p.outDir = dir;
+        if (!string.IsNullOrEmpty(tune))
+            p.tunes = tune.Split(',');
+        int w, h;
+        var wh = string.IsNullOrEmpty(res) ? null : res.Split('x');
+        if (wh != null && wh.Length == 2 && int.TryParse(wh[0], out w) && int.TryParse(wh[1], out h))
+        {
+            p.W = w;
+            p.H = h;
+        }
         if (!string.IsNullOrEmpty(skinList))
             p.skins = skinList.Split(',');
         if (!string.IsNullOrEmpty(caseList))
@@ -67,8 +78,8 @@ public class PoseShots : MonoBehaviour
     {
         var all = new List<Case>
         {
-            new Case { name = "ready", views = new[] { "front", "side", "back" } },
-            new Case { name = "aim", aim = true, views = new[] { "front", "side", "back", "ads", "left" } },
+            new Case { name = "ready", views = new[] { "front", "side", "back", "close" } },
+            new Case { name = "aim", aim = true, views = new[] { "front", "side", "back", "ads", "left", "close", "top" } },
             new Case { name = "aimup", aim = true, pitch = -30f, views = new[] { "side", "back" } },
             new Case { name = "aimdown", aim = true, pitch = 30f, views = new[] { "side", "back" } },
             new Case { name = "walkaim", aim = true, move = new Vector3(0f, 0f, 2.6f), views = new[] { "side", "front" }, extraFrames = 7 },
@@ -79,13 +90,15 @@ public class PoseShots : MonoBehaviour
             new Case { name = "crouchaim", crouch = true, aim = true, views = new[] { "side", "back" } },
             new Case { name = "crouchwalk", crouch = true, move = new Vector3(0f, 0f, 2.2f), views = new[] { "side" }, extraFrames = 8 },
             new Case { name = "prone", pose = RigPose.Prone, views = new[] { "side", "back", "front" } },
-            new Case { name = "crawl", pose = RigPose.Prone, move = new Vector3(0f, 0f, 1.1f), views = new[] { "side" }, extraFrames = 10 },
+            new Case { name = "proneaim", pose = RigPose.Prone, aim = true, views = new[] { "side", "front", "back" } },
+            new Case { name = "crawl", pose = RigPose.Prone, move = new Vector3(0f, 0f, 1.1f), views = new[] { "side", "front" }, extraFrames = 10 },
             new Case { name = "fall", fall = true, views = new[] { "side", "front" } },
             new Case { name = "land", fall = true, land = true, views = new[] { "side" } },
             new Case { name = "pistolready", gun = WeaponType.Pistol, gunSkin = "Magnum", views = new[] { "front", "side" } },
             new Case { name = "pistolaim", gun = WeaponType.Pistol, gunSkin = "Magnum", aim = true, views = new[] { "front", "side", "back" } },
-            new Case { name = "smgaim", gun = WeaponType.SMG, gunSkin = "U45", aim = true, views = new[] { "side", "back" } },
-            new Case { name = "sniperaim", gun = WeaponType.Sniper, gunSkin = "G28", aim = true, views = new[] { "side", "back" } },
+            new Case { name = "smgaim", gun = WeaponType.SMG, gunSkin = "U45", aim = true, views = new[] { "side", "back", "close" } },
+            new Case { name = "sniperready", gun = WeaponType.Sniper, gunSkin = "G28", views = new[] { "front", "side" } },
+            new Case { name = "sniperaim", gun = WeaponType.Sniper, gunSkin = "G28", aim = true, views = new[] { "side", "back", "close" } },
             new Case { name = "shotgunready", gun = WeaponType.Shotgun, gunSkin = "P870", views = new[] { "front", "side" } },
             new Case { name = "shotgunaim", gun = WeaponType.Shotgun, gunSkin = "P870", aim = true, views = new[] { "side" } },
             new Case { name = "showcase", showcase = true, views = new[] { "lobby" } },
@@ -103,31 +116,37 @@ public class PoseShots : MonoBehaviour
         grab = new Texture2D(W, H, TextureFormat.RGB24, false);
         yield return null;
         var log = new List<string>();
-        foreach (var skin in skins)
+        for (int ti = 0; ti < tunes.Length; ti++)
         {
-            foreach (var c in Cases())
+            foreach (var skin in skins)
             {
-                string error = null;
-                IEnumerator run = RunCase(c, skin);
-                while (true)
+                RigTune.Current = new RigTune();
+                RigTune.Load(tunes[ti]);
+                tuneTag = tunes.Length > 1 ? "t" + ti + "_" : "";
+                foreach (var c in Cases())
                 {
-                    object current;
-                    try
+                    string error = null;
+                    IEnumerator run = RunCase(c, skin);
+                    while (true)
                     {
-                        if (!run.MoveNext())
+                        object current;
+                        try
+                        {
+                            if (!run.MoveNext())
+                                break;
+                            current = run.Current;
+                        }
+                        catch (System.Exception e)
+                        {
+                            error = e.ToString();
                             break;
-                        current = run.Current;
+                        }
+                        yield return current;
                     }
-                    catch (System.Exception e)
-                    {
-                        error = e.ToString();
-                        break;
-                    }
-                    yield return current;
+                    log.Add(tuneTag + skin + " " + c.name + (error != null ? " ERROR " + error : " ok"));
+                    Cleanup();
+                    yield return null;
                 }
-                log.Add(skin + " " + c.name + (error != null ? " ERROR " + error : " ok"));
-                Cleanup();
-                yield return null;
             }
         }
         File.WriteAllLines(Path.Combine(outDir, "done.txt"), log.ToArray());
@@ -177,6 +196,8 @@ public class PoseShots : MonoBehaviour
     }
 
     private GameObject actor;
+    private string tuneTag = "";
+    private readonly HashSet<string> loggedSkins = new HashSet<string>();
 
     private void Cleanup()
     {
@@ -209,6 +230,16 @@ public class PoseShots : MonoBehaviour
         rig.showcase = c.showcase;
         rig.pose = c.pose;
         rig.grounded = !c.fall;
+        if (loggedSkins.Add(skin + "|" + c.gun + c.gunSkin))
+        {
+            // which textures the model and the gun ended up with (white models: a texture that did not load)
+            var sb = new System.Text.StringBuilder("[PoseShots] materials " + skin + " / " + c.gun + " " + c.gunSkin + ":");
+            foreach (var r in actor.GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.sharedMaterials)
+                    if (m != null)
+                        sb.Append(" ").Append(r.name).Append(":").Append(m.name).Append("=").Append(m.mainTexture != null ? m.mainTexture.name : "-");
+            Debug.Log(sb.ToString());
+        }
 
         float vy = 0f;
         const float dt = 1f / 30f;
@@ -293,6 +324,18 @@ public class PoseShots : MonoBehaviour
                 fov = 45f;
                 break;
             }
+            case "close":
+                // upper body from the front-right: shoulders, elbows, hands on the gun
+                pos = feet + r * new Vector3(1.0f, 1.55f, 1.45f);
+                look = feet + r * new Vector3(0.05f, 1.3f, 0.15f);
+                fov = 38f;
+                break;
+            case "top":
+                // from above and behind: how the gun lines up with the shoulder and the eye
+                pos = feet + r * new Vector3(0.35f, 3.2f, -1.2f);
+                look = feet + r * new Vector3(0.1f, 1.45f, 0.35f);
+                fov = 32f;
+                break;
             case "lobby":
                 // the lobby camera (PlayerController.LateUpdate): in front, chest height, long lens
                 pos = feet + r * new Vector3(0f, 1.3f, 4.4f);
@@ -326,7 +369,7 @@ public class PoseShots : MonoBehaviour
         RenderTexture.active = null;
         cam.targetTexture = null;
         RenderTexture.ReleaseTemporary(rt);
-        string file = string.Format("{0:000}_{1}_{2}_{3}{4}.ppm", shotIndex++, skin, c.name, view, tag);
+        string file = string.Format("{0:000}_{5}{1}_{2}_{3}{4}.ppm", shotIndex++, skin, c.name, view, tag, tuneTag);
         File.WriteAllBytes(Path.Combine(outDir, file), Ppm(grab));
     }
 

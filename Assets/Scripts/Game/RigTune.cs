@@ -31,10 +31,20 @@ public class RigTune
     public float spineDown = 0.25f, chestDown = 0.35f, spineUp = 0.35f, chestUp = 0.45f;
     public float hipSpine = 0.55f, hipChest = 0.45f;
     public float crouchLean = 0.25f, kneeMax = 52f;
-    // Bladed stance: the chest turns right while a long gun is up (left shoulder forward), the head turns back to the aim
-    public float aimTwist = 0f, readyTwist = 0f, headFollow = 0f;
+    // Bladed stance: the chest turns right while a long gun is up (left shoulder forward; twistSpine = the spine's
+    // share), the head turns back to the aim
+    public float aimTwist = 18f, readyTwist = 8f, twistSpine = 0.4f, headFollow = 0.9f;
+    // Head: share of the aim pitch on top of spine and chest; cheek on the stock when aiming a long gun (degrees)
+    public float headDown = 0.25f, headUp = 0.15f, cheekTilt = 6f, cheekPitch = 5f;
+    // Collarbones: share of the way towards the hand's target (right / left), capped (degrees)
+    public float clavRight = 0.1f, clavLeft = 0.22f, clavMax = 18f;
     public Vector3 showcaseAim = new Vector3(4f, -12f, 0f);   // lobby: gun held across the body
+    // Prone: body tipped forward, sunk to the ground; up on the elbows, head lifted to look ahead, legs apart
     public float pronePitch = 84f, proneDrop = -0.74f;
+    public float proneSpineLift = 10f, proneChestLift = 14f, proneHeadLift = 50f, proneLegSpread = 9f;
+    public float proneAimFollow = 0.3f, proneReadyPitch = 6f;
+    public Vector3 pronePoleR = new Vector3(0.45f, -1f, 0.15f);
+    public Vector3 pronePoleL = new Vector3(-0.45f, -1f, 0.25f);
 
     /// <summary>Loads overrides from a JSON file (only the fields it names change).</summary>
     public static void Load(string path)

@@ -1,0 +1,1 @@
+atlas=SMG_U45_atlas_cutout=SMG_U45_atlas_cutout

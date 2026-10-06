@@ -7,7 +7,7 @@ using UnityEngine;
 public class ZootopiaTextureImport : AssetPostprocessor
 {
     /// <summary>Bump when these rules change so Unity re-imports the affected assets.</summary>
-    public override uint GetVersion() { return 5; }
+    public override uint GetVersion() { return 6; }
 
     private void OnPreprocessTexture()
     {
@@ -39,6 +39,20 @@ public class ZootopiaTextureImport : AssetPostprocessor
             pic.textureCompression = TextureImporterCompression.CompressedHQ;
             return;
         }
+        if (path.Contains("Resources/Models/") && path.Contains("/Tex/"))
+        {
+            // Textures that were embedded in the model FBXs (ModelLibrary puts them back on at run time).
+            var mt = (TextureImporter)assetImporter;
+            mt.textureType = TextureImporterType.Default;
+            mt.alphaIsTransparency = path.Contains("_cutout");
+            mt.mipmapEnabled = true;
+            mt.filterMode = FilterMode.Trilinear;
+            mt.anisoLevel = 2;
+            mt.wrapMode = TextureWrapMode.Repeat;
+            mt.maxTextureSize = path.Contains("/Characters/") ? 2048 : 1024;
+            mt.textureCompression = TextureImporterCompression.Compressed;
+            return;
+        }
         if (!path.Contains("Resources/Textures/"))
             return;
         var ti = (TextureImporter)assetImporter;
@@ -54,6 +68,9 @@ public class ZootopiaTextureImport : AssetPostprocessor
     /// <summary>Vehicle models keep their Blender material names ("Paint" is swapped for camouflage).</summary>
     private void OnPreprocessModel()
     {
+        // Characters: CharacterRig reads the low-poly pack's meshes to give their feet boots (SplitBoots).
+        if (assetPath.Replace('\\', '/').Contains("Models/Characters/"))
+            ((ModelImporter)assetImporter).isReadable = true;
         if (!assetPath.Replace('\\', '/').Contains("Models/Vehicles/"))
             return;
         var mi = (ModelImporter)assetImporter;
