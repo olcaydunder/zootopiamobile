@@ -17,7 +17,7 @@ Sürüm kodu her AAB derlemesinde artar (1000 + çalıştırma numarası).
 | Oyun içinde hesap ve veri silme | Ayarlar → Gizlilik → Hesabımı ve tüm verilerimi sil |
 | Kredi paketleri (Google Play Billing 8) | Mağaza → KREDİ; ürün kimlikleri aşağıda |
 | Satın alma imza doğrulaması (Play lisans anahtarı) | `PlayConfig.GooglePlayPublicKey`; Google imzası tutmayan sahte satın almaya Kredi verilmez |
-| Ödüllü reklam + izin penceresi (AdMob + UMP) | Mağaza → KREDİ → Reklam izle (şimdilik Google test reklamı) |
+| Ödüllü reklam + izin penceresi (AdMob + UMP) | Mağaza → KREDİ → Reklam izle (Play paketinde gerçek reklam, test APK'sında test reklamı) |
 | Kutu, çark, çekiliş olasılıkları | her birinde OLASILIKLAR düğmesi (Play'in rastgele öğe kuralı) |
 
 Teknik şartlar: hedef API 36 (Android 16), Unity 2022.3.62f3 (CVE-2025-59489 güvenlik yaması, 16 KB sayfa desteği),
@@ -121,7 +121,7 @@ Aynı resimler oyundaki mağaza kartlarında da kullanılır (`Tools/make_pack_i
 - Sonra Panel → **Üretime erişim için başvur**. Onaydan sonra Üretim → yeni sürüm.
 
 ## 4. Sonraki sürüm için benim yapacaklarım
-- AdMob gerçek kimlikleri `Assets/Scripts/Game/Play/PlayConfig.cs`'ye (test reklamları biter).
+- ✅ AdMob gerçek kimlikleri `PlayConfig.cs`'de (Play paketi gerçek reklam, GitHub test APK'sı Google test reklamı gösterir).
 - Play Games girişi (eklenti 2.3.0 + senin XML'in).
 - Önerim: oyun sunucusu için bir alan adı ve HTTPS (veri güvenliği formunda "aktarımda şifreli: evet" denebilsin).
 

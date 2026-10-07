@@ -1,6 +1,6 @@
 /// <summary>
-/// Everything Google Play needs to know about this game in one place: the AdMob ids (Google's TEST ids until the real
-/// ones are put here; the app id also goes into the build through ZootopiaBuild.ConfigureAds), the Kredi packs sold
+/// Everything Google Play needs to know about this game in one place: the AdMob ids (the Google Play bundle shows real
+/// ads, the free test APK Google's test ads; the app id also goes into the build through ZootopiaBuild.ConfigureAds), the Kredi packs sold
 /// through Google Play Billing (the same product ids must be created in Play Console as "in-app products"), the
 /// public licence key purchases are checked with, and the addresses of the privacy policy and account-deletion pages.
 /// </summary>
@@ -8,9 +8,15 @@ public static class PlayConfig
 {
     // ----- AdMob (AdMob > Apps > the app > App settings / Ad units) -----
     public const string AdMobAndroidAppId = "ca-app-pub-6275447087051506~7092903756";   // Rise of Davraz
-    public const string RewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917";    // TEST rewarded (Google's sample unit works with any app id)
+#if ZM_TEST_ADS
+    // The free test APK from GitHub (built with ZM_TEST_ADS): Google's sample rewarded unit, only test ads, so testing
+    // never touches the real AdMob account.
+    public const string RewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917";
+#else
+    public const string RewardedAdUnitId = "ca-app-pub-6275447087051506/8791989071";    // Rise of Davraz – Kredi ödülü
+#endif
 
-    /// <summary>Still Google's sample ids: ads are test ads (no income).</summary>
+    /// <summary>Google's sample unit (the test APK): ads are test ads (no income).</summary>
     public static bool TestAds { get { return RewardedAdUnitId.StartsWith("ca-app-pub-3940256099942544"); } }
 
     /// <summary>Kredi given for watching one rewarded ad, and how many a day.</summary>

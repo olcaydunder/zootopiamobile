@@ -105,7 +105,9 @@ public static class ZootopiaBuild
                 scenes = new[] { ScenePath },
                 locationPathName = output,
                 target = BuildTarget.Android,
-                options = BuildOptions.None
+                options = BuildOptions.None,
+                // the free test APK shows only Google's test ads; the Play bundle shows real ads (PlayConfig)
+                extraScriptingDefines = bundle ? new string[0] : new[] { "ZM_TEST_ADS" }
             };
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
