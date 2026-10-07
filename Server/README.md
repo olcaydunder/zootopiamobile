@@ -29,6 +29,16 @@ Panelde ilk iş Ayarlar → şifreni değiştir (ilk şifre dosyası o zaman sil
 maçlar, sunucu yükü, oyuncu arama, yasaklama / yasağı kaldırma, şikayetler, hata bildirimleri (cihaz kayıtlarıyla),
 biten maçlar ve sunucu kayıtları. Veriler `/opt/zootopia/zootopia.db` (SQLite) içinde.
 
+## Google ile giriş (Google Play Games)
+
+Telefon Play Games'e girince Google'dan tek kullanımlık bir kod alır ve `POST /account/google` ile sunucuya yollar.
+Sunucu bu kodu Google'da doğrular, oyuncunun Play Games kimliğini hesaba bağlar; aynı Google hesabıyla başka telefondan
+ya da oyunu silip yükledikten sonra girilince eski hesap (oyuncu kodu, arkadaşlar, mesajlar) geri gelir.
+
+Bir kez yapılacak: yönetim paneli → **Ayarlar → Google ile giriş** kutusuna Google Cloud'daki "Rise of Davraz Sunucu"
+(Web uygulaması) istemcisinin **gizli anahtarını** yaz. Anahtar yalnız sunucuda `/opt/zootopia/google.json` içinde durur
+(GitHub'a girmez). Girilmezse Google ile giriş "sunucuda henüz ayarlanmadı" der, oyunun geri kalanı etkilenmez.
+
 ## Nasıl çalışır
 
 - `orchestrator.py` (servis adı `zootopia`) 8080 portunda maç yöneticisidir:
@@ -36,7 +46,7 @@ biten maçlar ve sunucu kayıtları. Veriler `/opt/zootopia/zootopia.db` (SQLite
   - `POST /room/create?mode=...` → özel oda açar, 6 haneli kod verir
   - `GET /room/<kod>` → o odanın portu
   - `GET /status` → çalışan maçlar
-  - hesaplar: `/account/register`, `/account/hello`; arkadaşlar: `/friends` (+ `add`, `accept`, `remove`, `invite`,
+  - hesaplar: `/account/register`, `/account/hello`, `/account/google`; arkadaşlar: `/friends` (+ `add`, `accept`, `remove`, `invite`,
     `dismiss`); `/block`, `/unblock`, `/report/player`, `/bug` (istekler `X-ZM-Id` / `X-ZM-Secret` başlığıyla)
 - Her maç ayrı bir Unity sunucu sürecidir (UDP 7777–7799). Bekleme odası: hızlı maç ilk oyuncu gelince 30 sn
   sonra (16 kişi dolarsa 5 sn) başlar; özel odayı lider BAŞLAT ile başlatır. Boş yerleri botlar doldurur.

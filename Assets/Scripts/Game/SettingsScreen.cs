@@ -289,11 +289,14 @@ public class SettingsScreen : MonoBehaviour
         if (Ads.PrivacyOptionsRequired)
             ActionRow("Reklam izin tercihleri", "DEĞİŞTİR", Ads.ShowPrivacyOptions);
         Note("Oyun; oyuncu adını, oyuncu kimliğini, cihaz modelini, maç istatistiklerini, arkadaş listeni, mesajlarını ve gönderdiğin hata raporlarını oyun sunucusunda saklar. " +
+             "Google Play Games ile giriş yaparsan Play Games oyuncu kimliğin hesabına bağlanır (adresin ve şifren bize gelmez). " +
              "Sesli sohbet açıksa konuşman yalnızca canlı iletilir, kaydedilmez. " +
              "Reklamlar (isteğe bağlı, Kredi karşılığı izlenen) Google AdMob ile gösterilir ve reklam kimliğini kullanabilir. Ödemeleri Google Play alır; kart bilgilerin bize gelmez.");
         Header("HESAP");
         Note(OnlineService.HasAccount ? "Oyuncu kodun: " + OnlineService.FriendCode(OnlineService.AccountId) : "Henüz çevrimiçi hesabın yok.");
         RectTransform right;
+        if (PlayGamesLogin.Available)
+            GoogleRow();
         LabeledRow("Hesabımı ve tüm verilerimi sil", out right);
         Text label;
         var b = UIUtil.CreateButton(right, "SİL", new Vector2(1f, 0.5f), new Vector2(-150f, 0f), new Vector2(300f, 56f), new Color(0.75f, 0.25f, 0.2f, 1f), false, 26, out label);
@@ -326,6 +329,51 @@ public class SettingsScreen : MonoBehaviour
         Note("Hesabın, arkadaşların, mesajların, hediyelerin ve istatistiklerin sunucudan; Kredi, eşyalar ve ayarlar bu telefondan silinir. Bu işlem geri alınamaz. " +
              "Satın alınan Kredi de silinir. Oyunu silmeden önce de buradan silebilirsin; oyun yüklü değilse: " + PlayConfig.SupportEmail);
         ActionRow("Hesap silme sayfası", "AÇ", () => Application.OpenURL(PlayConfig.AccountDeletionUrl));
+    }
+
+    /// <summary>Google Play Games: shows who is signed in, or a button to sign in (and tie the account to Google).</summary>
+    private void GoogleRow()
+    {
+        RectTransform right;
+        LabeledRow("Google Play Games", out right);
+        Text label;
+        var b = UIUtil.CreateButton(right, "", new Vector2(1f, 0.5f), new Vector2(-150f, 0f), new Vector2(300f, 56f), Cyan, false, 26, out label);
+        label.color = new Color(0.08f, 0.12f, 0.14f);
+        label.GetComponent<Shadow>().enabled = false;
+        var note = Note(GoogleNote());
+        System.Action refresh = () =>
+        {
+            bool linked = PlayGamesLogin.Linked;
+            label.text = PlayGamesLogin.Busy ? "BAĞLANIYOR..." : linked ? "BAĞLI" : "GİRİŞ YAP";
+            b.interactable = !linked && !PlayGamesLogin.Busy;
+            if (note != null)
+                note.text = GoogleNote();
+        };
+        refresh();
+        b.onClick.AddListener(() =>
+        {
+            PlayGamesLogin.SignIn((ok, message) =>
+            {
+                if (this == null)
+                    return;   // settings closed meanwhile
+                refresh();
+                if (message.Length > 0 && GameManager.Instance != null && GameManager.Instance.uiManager != null)
+                    GameManager.Instance.uiManager.Toast(message);
+                if (ok)
+                    ShowPage(page);   // the player code may have changed
+            });
+            refresh();
+        });
+    }
+
+    private static string GoogleNote()
+    {
+        if (PlayGamesLogin.Linked)
+            return "Hesabın " + (PlayGamesLogin.GoogleName.Length > 0 ? PlayGamesLogin.GoogleName + " " : "") +
+                   "Google hesabına bağlı. Yeni telefonda ya da oyunu silip yükleyince aynı Google hesabıyla girersen oyuncu kodun, " +
+                   "arkadaşların ve mesajların geri gelir. Seviye, Kredi ve eşyalar şimdilik yalnız bu telefonda saklanıyor.";
+        string s = "Google ile giriş yaparsan hesabın (oyuncu kodun, arkadaşların, mesajların) Google hesabına bağlanır ve başka telefonda geri gelir.";
+        return PlayGamesLogin.Status.Length > 0 ? PlayGamesLogin.Status + ". " + s : s;
     }
 
     private System.Collections.IEnumerator QuitSoon()
@@ -416,7 +464,7 @@ public class SettingsScreen : MonoBehaviour
         line.raycastTarget = false;
     }
 
-    private void Note(string text)
+    private Text Note(string text)
     {
         // long credits wrap: about 120 characters fit on a line of the 1400 px box
         int lines = Mathf.Max(1, Mathf.CeilToInt(text.Length / 120f));
@@ -426,6 +474,7 @@ public class SettingsScreen : MonoBehaviour
         t.rectTransform.pivot = new Vector2(0f, 0.5f);
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.color = Theme.TextDim;
+        return t;
     }
 
     private RectTransform LabeledRow(string label, out RectTransform right)

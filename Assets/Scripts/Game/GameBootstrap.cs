@@ -49,6 +49,7 @@ public class GameBootstrap : MonoBehaviour
         UiShots.TryStart();        // screen test (development: -uishots <folder>)
         Purchases.Init();   // Google Play Billing (Kredi packs)
         Ads.Init();         // consent form when required, then the optional rewarded ads
+        PlayGamesLogin.Init();   // Google Play Games sign-in (account kept with the Google account)
 
         Application.targetFrameRate = 60;
         Screen.sleepTimeout = SleepTimeout.NeverSleep;

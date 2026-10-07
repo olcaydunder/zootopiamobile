@@ -34,6 +34,8 @@ import sys
 import tarfile
 import threading
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -301,6 +303,8 @@ def rate_limited(ip):
 DB_PATH = os.path.join(BASE, "zootopia.db")
 ADMIN_FILE = os.path.join(BASE, "admin.json")
 ADMIN_FIRST_PASSWORD = os.path.join(BASE, "admin_password.txt")
+GOOGLE_FILE = os.path.join(BASE, "google.json")   # Play Games web client secret, typed into the admin panel
+GOOGLE_CLIENT_ID = "564459603835-umkus0vnj4kv78gjrkc79mg5bm5m2go2.apps.googleusercontent.com"   # = PlayConfig.PlayGamesWebClientId
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # no 0/O, 1/I
 ONLINE_SECONDS = 45
 started_at = time.time()
@@ -343,7 +347,13 @@ def db_init():
     CREATE TABLE IF NOT EXISTS daily_stats (day TEXT, account TEXT, kills INTEGER DEFAULT 0, wins INTEGER DEFAULT 0,
         matches INTEGER DEFAULT 0, last REAL DEFAULT 0, PRIMARY KEY (day, account));
     CREATE INDEX IF NOT EXISTS daily_stats_day ON daily_stats(day, kills);
+    CREATE TABLE IF NOT EXISTS account_keys (account TEXT, secret_hash TEXT, created REAL, device TEXT,
+        PRIMARY KEY (account, secret_hash));
     """)
+    cols = {r[1] for r in db.execute("PRAGMA table_info(accounts)").fetchall()}
+    if "google_id" not in cols:   # Google Play Games player id of a signed-in account
+        db.execute("ALTER TABLE accounts ADD COLUMN google_id TEXT")
+    db.execute("CREATE UNIQUE INDEX IF NOT EXISTS accounts_google ON accounts(google_id) WHERE google_id IS NOT NULL")
     db.commit()
 
 
@@ -361,6 +371,7 @@ def delete_account(acc_id):
         q_run(sql, (acc_id, acc_id))
     q_run("DELETE FROM daily_stats WHERE account=?", (acc_id,))
     q_run("DELETE FROM bugs WHERE account=?", (acc_id,))
+    q_run("DELETE FROM account_keys WHERE account=?", (acc_id,))
     q_run("DELETE FROM accounts WHERE id=?", (acc_id,))
     log("account deleted", acc_id)
 
@@ -411,6 +422,75 @@ def q_run(sql, args=()):
 
 def hash_secret(secret):
     return hashlib.sha256(("zm-account:" + secret).encode()).hexdigest()
+
+
+def secret_ok(acc, secret):
+    """The account's own secret, or the key of another phone that signed in to it with Google Play Games."""
+    if not acc or not secret:
+        return False
+    h = hash_secret(secret)
+    if hmac.compare_digest(acc["secret_hash"], h):
+        return True
+    return q_one("SELECT 1 FROM account_keys WHERE account=? AND secret_hash=?", (acc["id"], h)) is not None
+
+
+# ----- Google Play Games sign-in -----
+# The phone signs in to Play Games and asks Google for a one-time "server auth code" for our web client. We trade
+# the code for a token with the web client's secret (only this server has it) and ask Google who the player is.
+# The answer's playerId is the same on every phone of that Google account, so it finds the player's account again.
+
+def google_config():
+    try:
+        with open(GOOGLE_FILE) as f:
+            cfg = json.load(f)
+        return cfg if isinstance(cfg, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def google_save(cfg):
+    tmp = GOOGLE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cfg, f)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, GOOGLE_FILE)
+
+
+def google_player_id(code):
+    """Returns (playerId, None), or (None, error shown to the player)."""
+    cfg = google_config()
+    secret = cfg.get("client_secret", "")
+    if not secret:
+        return None, "Google girişi sunucuda henüz ayarlanmadı"
+    form = urllib.parse.urlencode({"code": code, "client_id": cfg.get("client_id") or GOOGLE_CLIENT_ID,
+                                   "client_secret": secret, "grant_type": "authorization_code",
+                                   "redirect_uri": ""}).encode()
+    try:
+        req = urllib.request.Request("https://oauth2.googleapis.com/token", data=form,
+                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            token = json.loads(r.read()).get("access_token", "")
+        if not token:
+            return None, "Google girişi doğrulanamadı"
+        req = urllib.request.Request("https://games.googleapis.com/games/v1/players/me",
+                                     headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            player = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read()[:300].decode("utf-8", "replace")
+        except Exception:
+            pass
+        log("google sign-in failed:", e.code, detail)
+        return None, "Google girişi doğrulanamadı"
+    except Exception as e:
+        log("google sign-in failed:", repr(e))
+        return None, "Google'a ulaşılamadı, sonra tekrar dene"
+    pid = str(player.get("playerId", ""))[:64]
+    if not pid:
+        return None, "Google girişi doğrulanamadı"
+    return pid, None
 
 
 def clean_name(name):
@@ -622,7 +702,7 @@ class Handler(BaseHTTPRequestHandler):
         acc_id = (self.headers.get("X-ZM-Id") or "").upper()
         secret = self.headers.get("X-ZM-Secret") or ""
         acc = q_one("SELECT * FROM accounts WHERE id=?", (acc_id,)) if acc_id else None
-        if acc and not hmac.compare_digest(acc["secret_hash"], hash_secret(secret)):
+        if acc and not secret_ok(acc, secret):
             acc = None
         if acc is None:
             if required:
@@ -633,6 +713,61 @@ class Handler(BaseHTTPRequestHandler):
             return None
         q_run("UPDATE accounts SET last_seen=?, last_ip=? WHERE id=?", (time.time(), self.ip(), acc["id"]))
         return acc
+
+    def google_sign_in(self, body):
+        """POST /account/google {code, name, device, version}, with X-ZM-Id / X-ZM-Secret of this phone's account
+        when it has one. Finds the account of that Google player (another phone, or after reinstalling) and gives this
+        phone a key to it; the first time, links this phone's account to the Google player instead."""
+        ip = self.ip()
+        if too_many(ip, "google", 20):
+            self.reply(429, {"ok": False, "error": "Çok sık deneme, biraz bekle"})
+            return
+        data = self.body_json(body)
+        code = str(data.get("code", "")).strip()
+        if not code or len(code) > 512:
+            self.reply(400, {"ok": False, "error": "Google girişi doğrulanamadı"})
+            return
+        pid, error = google_player_id(code)
+        if not pid:
+            self.reply(502, {"ok": False, "error": error})
+            return
+        acc_id = (self.headers.get("X-ZM-Id") or "").upper()
+        me = q_one("SELECT * FROM accounts WHERE id=?", (acc_id,)) if acc_id else None
+        if not secret_ok(me, self.headers.get("X-ZM-Secret") or ""):
+            me = None
+        device = str(data.get("device", ""))[:80]
+        now = time.time()
+        owner = q_one("SELECT * FROM accounts WHERE google_id=?", (pid,))
+        if owner and me and owner["id"] == me["id"]:
+            self.reply(200, {"ok": True, "id": me["id"], "name": me["name"], "linked": True, "restored": False})
+            return
+        if owner is None and me is not None and not me["google_id"] and not me["banned"]:
+            q_run("UPDATE accounts SET google_id=? WHERE id=?", (pid, me["id"]))
+            log("google linked", me["id"])
+            self.reply(200, {"ok": True, "id": me["id"], "name": me["name"], "linked": True, "restored": False})
+            return
+        if owner is None:   # no account on this phone yet (or it belongs to another Google player): a new one
+            new_id = new_account_id()
+            secret = secrets.token_urlsafe(24)
+            q_run("""INSERT INTO accounts (id, secret_hash, name, created, last_seen, last_ip, device, version, google_id)
+                     VALUES (?,?,?,?,?,?,?,?,?)""",
+                  (new_id, hash_secret(secret), clean_name(data.get("name")), now, now, ip, device,
+                   str(data.get("version", ""))[:40], pid))
+            log("google new account", new_id)
+            self.reply(200, {"ok": True, "id": new_id, "secret": secret, "name": clean_name(data.get("name")),
+                             "linked": True, "restored": False})
+            return
+        if owner["banned"]:
+            self.reply(403, {"ok": False, "banned": True, "error": "Hesabın yasaklandı" + (": " + owner["ban_reason"] if owner["ban_reason"] else "")})
+            return
+        # The Google player's account already exists: this phone gets its own key to it (other phones keep theirs).
+        secret = secrets.token_urlsafe(24)
+        q_run("INSERT INTO account_keys (account, secret_hash, created, device) VALUES (?,?,?,?)",
+              (owner["id"], hash_secret(secret), now, device))
+        q_run("UPDATE accounts SET last_seen=?, last_ip=? WHERE id=?", (now, ip, owner["id"]))
+        log("google restored", owner["id"], "on another phone")
+        self.reply(200, {"ok": True, "id": owner["id"], "secret": secret, "name": owner["name"],
+                         "linked": True, "restored": True})
 
     def body_json(self, body):
         try:
@@ -741,11 +876,14 @@ class Handler(BaseHTTPRequestHandler):
             log("new account", acc_id)
             self.reply(200, {"ok": True, "id": acc_id, "secret": secret})
             return
+        if path == "/account/google":
+            self.google_sign_in(body)
+            return
         if path == "/account/delete":   # also for banned players: deleting is always allowed
             acc_id = (self.headers.get("X-ZM-Id") or "").upper()
             secret = self.headers.get("X-ZM-Secret") or ""
             acc = q_one("SELECT id, secret_hash FROM accounts WHERE id=?", (acc_id,)) if acc_id else None
-            if not acc or not hmac.compare_digest(acc["secret_hash"], hash_secret(secret)):
+            if not secret_ok(acc, secret):
                 self.reply(401, {"ok": False, "error": "Hesap bulunamadı"})
                 return
             delete_account(acc["id"])
@@ -1075,6 +1213,20 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             admin_sessions.clear()
             self.reply(200, {"ok": True, "message": "Şifre değişti, yeniden giriş yap"})
+        elif path == "/admin/api/google":   # Play Games sign-in: is the web client secret set? / set it
+            cfg = google_config()
+            if method == "POST" and "secret" in data:
+                secret = str(data.get("secret", "")).strip()
+                if secret and not re.fullmatch(r"[A-Za-z0-9_\-]{10,100}", secret):
+                    self.reply(400, {"ok": False, "error": "Bu bir istemci gizli anahtarına benzemiyor"})
+                    return
+                cfg["client_secret"] = secret
+                cfg["client_id"] = GOOGLE_CLIENT_ID
+                google_save(cfg)
+                log("google client secret", "set" if secret else "removed", "from the admin panel")
+            linked = q_one("SELECT COUNT(*) AS n FROM accounts WHERE google_id IS NOT NULL")["n"]
+            self.reply(200, {"ok": True, "configured": bool(cfg.get("client_secret")), "clientId": GOOGLE_CLIENT_ID,
+                             "linked": linked})
         elif path == "/admin/logout":
             if data.get("all"):
                 admin_sessions.clear()
@@ -1163,7 +1315,7 @@ class Handler(BaseHTTPRequestHandler):
             data = self.body_json(body)
             if path == "/verify":   # game server: is this player who they say, and not banned?
                 acc = q_one("SELECT id, name, secret_hash, banned, ban_reason FROM accounts WHERE id=?", (str(data.get("id", "")).upper(),))
-                if not acc or not hmac.compare_digest(acc["secret_hash"], hash_secret(str(data.get("secret", "")))):
+                if not secret_ok(acc, str(data.get("secret", ""))):
                     self.reply(200, {"ok": False, "error": "Hesap doğrulanamadı"})
                 elif acc["banned"]:
                     self.reply(200, {"ok": False, "error": "Hesabın yasaklandı" + (": " + acc["ban_reason"] if acc["ban_reason"] else "")})
@@ -1431,8 +1583,17 @@ async function ayarlar() {
   <input id="np" type="password" placeholder="Yeni şifre (en az 8 karakter)" autocomplete="new-password"><div style="height:10px"></div>
   <button class="b primary" onclick="changePw()">Değiştir</button><div class="err" id="pwErr"></div>
   <p class="dim">Şifreyi değiştirince sunucudaki ilk şifre dosyası silinir ve herkesin oturumu kapanır.</p></div>
+  <div style="height:12px"></div>
+  <div class="card" style="max-width:420px"><h2 style="margin-top:0">Google ile giriş</h2>
+  <p class="dim" id="gState">Yükleniyor…</p>
+  <input id="gs" type="password" placeholder="İstemci gizli anahtarı (Client secret)" autocomplete="off"><div style="height:10px"></div>
+  <button class="b primary" onclick="saveGoogle()">Kaydet</button><div class="err" id="gErr"></div>
+  <p class="dim">Google Cloud → Kimlik bilgileri → "Rise of Davraz Sunucu" (Web uygulaması) istemcisinin gizli anahtarı. Yalnız bu sunucuda saklanır.</p></div>
   <div style="height:12px"></div><button class="b" onclick="logout()">Çıkış yap</button>`;
+  googleState(await api("api/google"));
 }
+function googleState(j) { if (!j.ok) return; $("#gState").textContent = (j.configured ? "Açık ✓" : "Kapalı: gizli anahtar girilmedi") + " · Google'a bağlı hesap: " + j.linked; }
+async function saveGoogle() { const j = await api("api/google", {secret:$("#gs").value}); if (!j.ok) { $("#gErr").textContent = j.error; return; } $("#gs").value = ""; $("#gErr").textContent = ""; googleState(j); toast("Kaydedildi"); }
 async function changePw() { const j = await api("api/password", {current:$("#cp").value, password:$("#np").value}); if (!j.ok) { $("#pwErr").textContent = j.error; return; } toast(j.message); showLogin(); }
 async function logout() { await api("logout", {}); showLogin(); }
 
