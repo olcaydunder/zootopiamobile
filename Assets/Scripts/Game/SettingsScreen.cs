@@ -289,7 +289,8 @@ public class SettingsScreen : MonoBehaviour
         if (Ads.PrivacyOptionsRequired)
             ActionRow("Reklam izin tercihleri", "DEĞİŞTİR", Ads.ShowPrivacyOptions);
         Note("Oyun; oyuncu adını, oyuncu kimliğini, cihaz modelini, maç istatistiklerini, arkadaş listeni, mesajlarını ve gönderdiğin hata raporlarını oyun sunucusunda saklar. " +
-             "Google Play Games ile giriş yaparsan Play Games oyuncu kimliğin hesabına bağlanır (adresin ve şifren bize gelmez). " +
+             "Google Play Games ile giriş yaparsan Play Games oyuncu kimliğin hesabına bağlanır; e-posta adresin, adın ve şifren bize gelmez. " +
+             "İlerleme, Kredi ve eşyalar yalnızca bu telefonda saklanır. " +
              "Sesli sohbet açıksa konuşman yalnızca canlı iletilir, kaydedilmez. " +
              "Reklamlar (isteğe bağlı, Kredi karşılığı izlenen) Google AdMob ile gösterilir ve reklam kimliğini kullanabilir. Ödemeleri Google Play alır; kart bilgilerin bize gelmez.");
         Header("HESAP");

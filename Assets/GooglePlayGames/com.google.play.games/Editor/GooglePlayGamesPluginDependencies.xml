@@ -7,10 +7,7 @@
         <repository>https://maven.google.com/</repository>
       </repositories>
     </androidPackage>
-    <androidPackage spec='com.google.android.gms:play-services-nearby:18.5.0'>
-      <repositories>
-        <repository>https://maven.google.com/</repository>
-      </repositories>
-    </androidPackage>
+    <!-- Rise of Davraz: play-services-nearby removed (Nearby Connections is not used; it would add
+         Bluetooth / Wi-Fi / location permissions to the app). -->
   </androidPackages>
 </dependencies>

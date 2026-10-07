@@ -456,6 +456,36 @@ def google_save(cfg):
     os.replace(tmp, GOOGLE_FILE)
 
 
+def google_check_secret():
+    """Checks the saved client secret with Google, without a player: a made-up code is refused either way, but
+    with "invalid_grant" when the client id + secret are right and "invalid_client" when they are wrong.
+    Returns (True/False/None, text for the admin panel); None = could not ask Google."""
+    cfg = google_config()
+    if not cfg.get("client_secret"):
+        return False, "Gizli anahtar girilmedi"
+    form = urllib.parse.urlencode({"code": "zm-admin-check", "client_id": cfg.get("client_id") or GOOGLE_CLIENT_ID,
+                                   "client_secret": cfg["client_secret"], "grant_type": "authorization_code",
+                                   "redirect_uri": ""}).encode()
+    try:
+        req = urllib.request.Request("https://oauth2.googleapis.com/token", data=form,
+                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            r.read()
+        return True, "Google anahtarı kabul etti"
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read()).get("error", "")
+        except Exception:
+            err = ""
+        if err == "invalid_grant":
+            return True, "Anahtar doğru: Google istemciyi tanıdı"
+        if err in ("invalid_client", "unauthorized_client"):
+            return False, "Anahtar YANLIŞ: Google istemciyi tanımadı (%s)" % err
+        return None, "Google beklenmeyen cevap verdi: %s %s" % (e.code, err)
+    except Exception as e:
+        return None, "Google'a ulaşılamadı: %s" % type(e).__name__
+
+
 def google_player_id(code):
     """Returns (playerId, None), or (None, error shown to the player)."""
     cfg = google_config()
@@ -1225,8 +1255,11 @@ class Handler(BaseHTTPRequestHandler):
                 google_save(cfg)
                 log("google client secret", "set" if secret else "removed", "from the admin panel")
             linked = q_one("SELECT COUNT(*) AS n FROM accounts WHERE google_id IS NOT NULL")["n"]
-            self.reply(200, {"ok": True, "configured": bool(cfg.get("client_secret")), "clientId": GOOGLE_CLIENT_ID,
-                             "linked": linked})
+            answer = {"ok": True, "configured": bool(cfg.get("client_secret")), "clientId": GOOGLE_CLIENT_ID, "linked": linked}
+            if method == "POST" and (data.get("test") or data.get("secret")):
+                answer["valid"], answer["check"] = google_check_secret()
+                log("google key check:", answer["check"])
+            self.reply(200, answer)
         elif path == "/admin/logout":
             if data.get("all"):
                 admin_sessions.clear()
@@ -1587,12 +1620,13 @@ async function ayarlar() {
   <div class="card" style="max-width:420px"><h2 style="margin-top:0">Google ile giriş</h2>
   <p class="dim" id="gState">Yükleniyor…</p>
   <input id="gs" type="password" placeholder="İstemci gizli anahtarı (Client secret)" autocomplete="off"><div style="height:10px"></div>
-  <button class="b primary" onclick="saveGoogle()">Kaydet</button><div class="err" id="gErr"></div>
+  <button class="b primary" onclick="saveGoogle()">Kaydet</button> <button class="b" onclick="testGoogle()">Anahtarı sına</button><div class="err" id="gErr"></div>
   <p class="dim">Google Cloud → Kimlik bilgileri → "Rise of Davraz Sunucu" (Web uygulaması) istemcisinin gizli anahtarı. Yalnız bu sunucuda saklanır.</p></div>
   <div style="height:12px"></div><button class="b" onclick="logout()">Çıkış yap</button>`;
   googleState(await api("api/google"));
 }
-function googleState(j) { if (!j.ok) return; $("#gState").textContent = (j.configured ? "Açık ✓" : "Kapalı: gizli anahtar girilmedi") + " · Google'a bağlı hesap: " + j.linked; }
+function googleState(j) { if (!j.ok) return; $("#gState").textContent = (j.configured ? "Açık ✓" : "Kapalı: gizli anahtar girilmedi") + " · Google'a bağlı hesap: " + j.linked + (j.check ? " · " + j.check : ""); }
+async function testGoogle() { $("#gErr").textContent = ""; $("#gState").textContent = "Google'a soruluyor…"; googleState(await api("api/google", {test:true})); }
 async function saveGoogle() { const j = await api("api/google", {secret:$("#gs").value}); if (!j.ok) { $("#gErr").textContent = j.error; return; } $("#gs").value = ""; $("#gErr").textContent = ""; googleState(j); toast("Kaydedildi"); }
 async function changePw() { const j = await api("api/password", {current:$("#cp").value, password:$("#np").value}); if (!j.ok) { $("#pwErr").textContent = j.error; return; } toast(j.message); showLogin(); }
 async function logout() { await api("logout", {}); showLogin(); }
