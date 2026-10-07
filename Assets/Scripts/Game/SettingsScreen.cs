@@ -285,6 +285,7 @@ public class SettingsScreen : MonoBehaviour
     {
         Header("GİZLİLİK");
         ActionRow("Gizlilik politikası", "AÇ", () => Application.OpenURL(PlayConfig.PrivacyPolicyUrl));
+        ActionRow("Kullanım koşulları", "AÇ", () => Application.OpenURL(PlayConfig.TermsUrl));
         if (Ads.PrivacyOptionsRequired)
             ActionRow("Reklam izin tercihleri", "DEĞİŞTİR", Ads.ShowPrivacyOptions);
         Note("Oyun; oyuncu adını, oyuncu kimliğini, cihaz modelini, maç istatistiklerini, arkadaş listeni, mesajlarını ve gönderdiğin hata raporlarını oyun sunucusunda saklar. " +
@@ -324,6 +325,7 @@ public class SettingsScreen : MonoBehaviour
         });
         Note("Hesabın, arkadaşların, mesajların, hediyelerin ve istatistiklerin sunucudan; Kredi, eşyalar ve ayarlar bu telefondan silinir. Bu işlem geri alınamaz. " +
              "Satın alınan Kredi de silinir. Oyunu silmeden önce de buradan silebilirsin; oyun yüklü değilse: " + PlayConfig.SupportEmail);
+        ActionRow("Hesap silme sayfası", "AÇ", () => Application.OpenURL(PlayConfig.AccountDeletionUrl));
     }
 
     private System.Collections.IEnumerator QuitSoon()

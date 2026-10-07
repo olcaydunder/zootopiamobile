@@ -61,10 +61,12 @@ public static class PlayConfig
     }
 
     // ----- Web pages -----
-    // The game server serves the privacy policy and the account-deletion page (Server/web/). When they are also put
-    // on the developer website, write those addresses here (they then open instead).
-    public const string WebsitePrivacyUrl = "";
-    public const string WebsiteDeletionUrl = "";
+    // On the developer website (Shopify pages, contents in Docs/site/). The game server keeps copies of the privacy
+    // policy and the account-deletion page (Server/web/), used if these are set to "".
+    public const string WebsitePrivacyUrl = "https://zootopiayazilim.com/pages/rise-of-davraz-gizlilik";
+    public const string WebsiteDeletionUrl = "https://zootopiayazilim.com/pages/rise-of-davraz-hesap-silme";
+    public const string TermsUrl = "https://zootopiayazilim.com/pages/rise-of-davraz-kullanim-kosullari";
+    public const string GamePageUrl = "https://zootopiayazilim.com/pages/rise-of-davraz";
     public static string PrivacyPolicyUrl { get { return WebsitePrivacyUrl.Length > 0 ? WebsitePrivacyUrl : OnlineService.WebPage("/gizlilik"); } }
     public static string AccountDeletionUrl { get { return WebsiteDeletionUrl.Length > 0 ? WebsiteDeletionUrl : OnlineService.WebPage("/hesap-silme"); } }
     public const string SupportEmail = "zootopiayazilim@gmail.com";

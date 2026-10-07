@@ -12,8 +12,9 @@ Sürüm kodu her AAB derlemesinde artar (1000 + çalıştırma numarası).
 | Uygulama simgesi 512×512 | `Tools/store/icon_512.png` |
 | Öne çıkan grafik 1024×500 | `Tools/store/feature_1024x500.png` |
 | Kredi paketlerinin simgeleri 512×512 | `Tools/store/products/` |
-| Gizlilik politikası | oyun sunucusu: `http://201.18.215.185:8080/gizlilik` (dosya: `Server/web/gizlilik.html`) |
-| Hesap silme sayfası | oyun sunucusu: `http://201.18.215.185:8080/hesap-silme` (dosya: `Server/web/hesap-silme.html`) |
+| Gizlilik politikası | `https://zootopiayazilim.com/pages/rise-of-davraz-gizlilik` (içerik: `Docs/site/`; yedeği oyun sunucusunda `/gizlilik`) |
+| Hesap silme sayfası | `https://zootopiayazilim.com/pages/rise-of-davraz-hesap-silme` (yedeği oyun sunucusunda `/hesap-silme`) |
+| Kullanım koşulları, oyun sayfası, app-ads.txt | `https://zootopiayazilim.com/pages/rise-of-davraz-kullanim-kosullari`, `/pages/rise-of-davraz`, `/app-ads.txt` |
 | Oyun içinde hesap ve veri silme | Ayarlar → Gizlilik → Hesabımı ve tüm verilerimi sil |
 | Kredi paketleri (Google Play Billing 8) | Mağaza → KREDİ; ürün kimlikleri aşağıda |
 | Satın alma imza doğrulaması (Play lisans anahtarı) | `PlayConfig.GooglePlayPublicKey`; Google imzası tutmayan sahte satın almaya Kredi verilmez |
@@ -57,7 +58,7 @@ IL2CPP ARM64 + ARMv7, minimum Android 7.0.
 - App bundle explorer → `RiseOfDavraz.symbols.zip`'i "Yerel hata ayıklama sembolleri" olarak yükle.
 
 ### 3.4 Uygulama içeriği (Politika → Uygulama içeriği)
-- **Gizlilik politikası:** `http://201.18.215.185:8080/gizlilik` (kendi sitene koyarsan o adres).
+- **Gizlilik politikası:** `https://zootopiayazilim.com/pages/rise-of-davraz-gizlilik`
 - **Reklamlar:** Evet, uygulamada reklam var.
 - **Uygulama erişimi:** Tüm işlevler özel erişim olmadan kullanılabilir (giriş/şifre yok).
 - **Reklam kimliği:** Evet, kullanılıyor (reklam ve analiz amaçlı – AdMob).
@@ -66,7 +67,7 @@ IL2CPP ARM64 + ARMv7, minimum Android 7.0.
   kan/vahşet yok. Kullanıcılar arası etkileşim: evet (mesajlaşma, arkadaşlar). Dijital satın alma: evet. Rastgele öğe
   içeren satın alma: evet (kutular, çark, çekiliş). Kumar (gerçek para kazanma): hayır. Konum paylaşımı: hayır.
 - **Veri güvenliği:** bkz. bölüm 5.
-- **Hesap silme:** Evet, kullanıcılar hesap ve veri silmeyi isteyebilir; URL: `http://201.18.215.185:8080/hesap-silme`.
+- **Hesap silme:** Evet, kullanıcılar hesap ve veri silmeyi isteyebilir; URL: `https://zootopiayazilim.com/pages/rise-of-davraz-hesap-silme`.
 - Devlet uygulaması / finans / sağlık / haber: hayır.
 
 ### 3.5 Mağaza girişi (Büyüme → Mağaza varlığı → Ana mağaza girişi)
