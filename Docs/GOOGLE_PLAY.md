@@ -123,8 +123,9 @@ Nasıl çalışır: oyun açılışta Play Games'e kendiliğinden girer; telefon
 `POST /account/google` ile oyun sunucusuna yollar. Sunucu kodu Google'da doğrular ve Play Games oyuncu kimliğini
 (playerId) hesaba bağlar. Yeni telefonda ya da yeniden kurulumda aynı Google hesabı eski hesabı (oyuncu kodu, arkadaşlar,
 mesajlar) geri getirir. **İlerleme, Kredi ve eşyalar hâlâ yalnız telefonda**; Google girişi bunları taşımaz.
-E-posta, ad ya da başka Google bilgisi istenmez. Eklentideki `play-services-nearby` bağımlılığı çıkarıldı ve Bluetooth /
-Wi-Fi / konum izinleri manifestte `tools:node="remove"` ile engellendi, yani yeni izin eklenmedi.
+E-posta, ad ya da başka Google bilgisi istenmez. Eklentideki `play-services-nearby` bağımlılığı çıkarıldı; onun getirebileceği
+Bluetooth tarama/bağlanma, Wi-Fi değiştirme, yakın cihaz ve konum izinleri manifestte `tools:node="remove"` ile
+engellendi, yani yeni izin eklenmedi (önceden de olan `BLUETOOTH` izni Unity'nin ses/sesli sohbet tarafından gelir, kaldı).
 
 ### 3.9 Kapalı test ve üretim
 - Test → Kapalı test → yeni kanal → test kullanıcıları (e-posta listesi ya da Google Grubu) → aynı AAB → yayınla.
