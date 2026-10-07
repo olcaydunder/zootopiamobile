@@ -20,9 +20,9 @@
 
     <application>
 
-        <!-- The 5 keeps the number a string: "564459603835" = "564459603835" -->
+        <!-- From res/values/games-ids.xml: a resource keeps it a string (a bare number here is compiled as a float). -->
         <meta-data android:name="com.google.android.gms.games.APP_ID"
-            android:value="564459603835" />
+            android:value="@string/zm_games_app_id" />
 
         <!-- Keep track of which plugin is being used -->
         <meta-data android:name="com.google.android.gms.games.unityVersion"

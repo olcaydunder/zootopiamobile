@@ -63,7 +63,7 @@ public static class PlayConfig
     // ----- Google Play Games (Play Console > Play Games Services > Configuration) -----
     // Sign-in with the player's Google Play Games account. The same two values are in
     // Assets/GooglePlayGames/Resources/PlayGamesSettings.asset and in the APP_ID line of
-    // Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/AndroidManifest.xml; change all three together.
+    // Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/res/values/games-ids.xml; change all three together.
     // The web client's SECRET is not here: it is typed into the game server's admin panel (Ayarlar).
     public const string PlayGamesAppId = "564459603835";
     public const string PlayGamesWebClientId = "564459603835-umkus0vnj4kv78gjrkc79mg5bm5m2go2.apps.googleusercontent.com";

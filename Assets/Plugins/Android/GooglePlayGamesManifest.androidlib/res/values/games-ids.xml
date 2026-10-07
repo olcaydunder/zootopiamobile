@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Play Games App ID (= PlayConfig.PlayGamesAppId). A string resource, because a bare number in the manifest
+     is compiled as a float by aapt2 (5.644596E11) and Play Games then cannot find the game. -->
+<resources>
+    <string name="zm_games_app_id" translatable="false">564459603835</string>
+</resources>
