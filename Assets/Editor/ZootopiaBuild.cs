@@ -84,6 +84,7 @@ public static class ZootopiaBuild
             EditorUserBuildSettings.androidCreateSymbols = bundle ? AndroidCreateSymbols.Public : AndroidCreateSymbols.Disabled;
             PrepareGradle();
             ConfigureAds();
+            ConfigureStore();
 
             string keystore = Arg(args, "androidKeystoreName", "");
             if (keystore.Length > 0 && File.Exists(keystore))
@@ -329,6 +330,41 @@ public static class ZootopiaBuild
             File.WriteAllText(props, text);
         }
         AssetDatabase.Refresh();
+    }
+
+    /// <summary>
+    /// Unity IAP's Android target store = Google Play. Without it Unity IAP uses its Fake Store on phones too (every
+    /// pack shows "$0.01" and nothing is really bought). The choice lives in Assets/Resources/BillingMode.json; the
+    /// editor API is also called (by name: no compile-time link to the IAP editor assembly).
+    /// </summary>
+    private static void ConfigureStore()
+    {
+        const string path = "Assets/Resources/BillingMode.json";
+        const string json = "{\"androidStore\":\"GooglePlay\"}";
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            if (!File.Exists(path) || !File.ReadAllText(path).Contains("\"GooglePlay\""))
+                File.WriteAllText(path, json + "\n");
+            System.Type editor = null, storeEnum = null;
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                editor = editor ?? asm.GetType("UnityEditor.Purchasing.UnityPurchasingEditor");
+                storeEnum = storeEnum ?? asm.GetType("UnityEngine.Purchasing.AppStore");
+            }
+            var target = editor != null && storeEnum != null ? editor.GetMethod("TargetAndroidStore", new[] { storeEnum }) : null;
+            if (target != null)
+            {
+                target.Invoke(null, new[] { System.Enum.Parse(storeEnum, "GooglePlay") });
+                Debug.Log("[ZootopiaBuild] Unity IAP Android store: GooglePlay");
+            }
+            AssetDatabase.ImportAsset(path);
+            Debug.Log("[ZootopiaBuild] " + path + ": " + File.ReadAllText(path).Trim());
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("[ZootopiaBuild] IAP store setting: " + e.Message);
+        }
     }
 
     /// <summary>Puts the AdMob app id (PlayConfig) into the Google Mobile Ads settings the plugin's build step reads.</summary>
