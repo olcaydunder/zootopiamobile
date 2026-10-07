@@ -7,8 +7,8 @@
 public static class PlayConfig
 {
     // ----- AdMob (AdMob > Apps > the app > App settings / Ad units) -----
-    public const string AdMobAndroidAppId = "ca-app-pub-3940256099942544~3347511713";   // TEST
-    public const string RewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917";    // TEST rewarded
+    public const string AdMobAndroidAppId = "ca-app-pub-6275447087051506~7092903756";   // Rise of Davraz
+    public const string RewardedAdUnitId = "ca-app-pub-3940256099942544/5224354917";    // TEST rewarded (Google's sample unit works with any app id)
 
     /// <summary>Still Google's sample ids: ads are test ads (no income).</summary>
     public static bool TestAds { get { return RewardedAdUnitId.StartsWith("ca-app-pub-3940256099942544"); } }
