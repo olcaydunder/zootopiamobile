@@ -11,6 +11,7 @@ Sürüm kodu her AAB derlemesinde artar (1000 + çalıştırma numarası).
 | Yerel hata ayıklama sembolleri | `son-aab` ön sürümünde `RiseOfDavraz.symbols.zip` |
 | Uygulama simgesi 512×512 | `Tools/store/icon_512.png` |
 | Öne çıkan grafik 1024×500 | `Tools/store/feature_1024x500.png` |
+| Kredi paketlerinin simgeleri 512×512 | `Tools/store/products/` |
 | Gizlilik politikası | oyun sunucusu: `http://201.18.215.185:8080/gizlilik` (dosya: `Server/web/gizlilik.html`) |
 | Hesap silme sayfası | oyun sunucusu: `http://201.18.215.185:8080/hesap-silme` (dosya: `Server/web/hesap-silme.html`) |
 | Oyun içinde hesap ve veri silme | Ayarlar → Gizlilik → Hesabımı ve tüm verilerimi sil |
@@ -87,6 +88,9 @@ IL2CPP ARM64 + ARMv7, minimum Android 7.0.
 | `kredi_6000` | 6.000 Kredi | 5.000 + 1.000 bonus Kredi | ₺199,99 |
 | `kredi_13000` | 13.000 Kredi | 10.000 + 3.000 bonus Kredi | ₺399,99 |
 | `kredi_30000` | 30.000 Kredi | 20.000 + 10.000 bonus Kredi | ₺799,99 |
+
+Her ürünün **simgesi** (512×512 PNG, yazısız): `Tools/store/products/<ürün kimliği>.png` (ör. `kredi_6000.png`).
+Aynı resimler oyundaki mağaza kartlarında da kullanılır (`Tools/make_pack_icons.py` yeniden çizer).
 
 3. Ayarlar → Lisans testi: kendi Gmail'ini ekle (test satın almaları ücretsiz olur).
 

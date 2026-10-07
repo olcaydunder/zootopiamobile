@@ -205,7 +205,8 @@ public class StoreScreen : MonoBehaviour
             o.effectColor = adCard ? new Color(0.35f, 0.9f, 0.55f, 0.6f) : new Color(1f, 0.8f, 0.3f, 0.6f);
             o.effectDistance = new Vector2(3f, -3f);
             var ct = card.transform;
-            Icons.Create(ct, "currency", mid, new Vector2(-170f, 30f), new Vector2(150f, 150f));
+            // each pack has its own picture (more coins for bigger packs; the same pictures are the Play Console icons)
+            Icons.Create(ct, adCard ? "currency" : "pack_" + packs[i].id, mid, new Vector2(-170f, 30f), adCard ? new Vector2(150f, 150f) : new Vector2(180f, 180f));
             if (adCard)
             {
                 var t1 = UIUtil.CreateText(ct, "REKLAM İZLE", mid, new Vector2(80f, 85f), new Vector2(360f, 50f), 34, TextAnchor.MiddleCenter);
