@@ -32,9 +32,14 @@ public class UiShots : MonoBehaviour
         yield return new WaitForSecondsRealtime(4f);
         // wait for the title screen
         float until = Time.realtimeSinceStartup + 120f;
-        while (FindObjectOfType<TitleScreen>() == null && Time.realtimeSinceStartup < until)
+        while (Time.realtimeSinceStartup < until)
+        {
+            var t = FindObjectOfType<TitleScreen>();
+            if (t != null && t.IsShowingTitle)
+                break;
             yield return null;
-        yield return new WaitForSecondsRealtime(6f);
+        }
+        yield return new WaitForSecondsRealtime(4f);
         yield return Shot("title");
         var title = FindObjectOfType<TitleScreen>();
         var gm = GameManager.Instance;

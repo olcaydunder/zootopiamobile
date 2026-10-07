@@ -234,8 +234,13 @@ public class TitleScreen : MonoBehaviour
         barFill.sizeDelta = new Vector2(BarWidth * progressShown, 10f);
     }
 
+    /// <summary>The title (not the loading screen) is on screen.</summary>
+    public bool IsShowingTitle { get { return titleActive; } }
+
     public void ShowTitle(PlayerController p)
     {
+        if (loading == null || title == null)
+            return;   // already dismissed
         player = p;
         if (player != null)
             player.cinematic = true;
