@@ -112,9 +112,19 @@ Aynı resimler oyundaki mağaza kartlarında da kullanılır (`Tools/make_pack_i
    Rise of Davraz, destek e-postası) ve Android OAuth istemcisini oluştur. SHA-1 olarak **Uygulama bütünlüğü →
    Uygulama imzalama anahtarı sertifikası**ndaki SHA-1'i kullan (ilk AAB yüklendikten sonra görünür). Yükleme
    anahtarının SHA-1'i de `play-upload-key` ön sürümünün notlarında yazar; onu da ikinci istemci olarak ekleyebilirsin.
-3. Yapılandırma sayfasında **"Kaynakları al" (Get resources) → Android** → çıkan XML metnini bana gönder. Bir sonraki
-   sürümde Play Games girişi açılır (oyun açılışta otomatik giriş yapar, oyuncu adı ve kimliği hesaba bağlanır).
+3. **Kimlik bilgisi ekle → Oyun sunucusu**: Google Cloud'da Web uygulaması OAuth istemcisi ("Rise of Davraz Sunucu").
+   İstemci kimliği `PlayConfig.PlayGamesWebClientId`'de; **gizli anahtarı** yalnızca oyun sunucusunun yönetim
+   panelinde **Ayarlar → Google ile giriş** kutusuna girilir ("Anahtarı sına" doğru olup olmadığını Google'a sorar).
 4. Test kullanıcılarını Play Games Services → Test kullanıcıları'na da ekle (yayından önce yalnızca onlar giriş yapabilir).
+5. ✅ Yapıldı (7 Ekim 2026): App ID `564459603835`, Android istemcileri (Play imza anahtarı + GitHub test anahtarı),
+   oyun sunucusu istemcisi. Kalan: Play Games Services → **Yayınla** (yayından önce test kullanıcıları dışında giriş olmaz).
+
+Nasıl çalışır: oyun açılışta Play Games'e kendiliğinden girer; telefon Google'dan tek kullanımlık sunucu kodu alır ve
+`POST /account/google` ile oyun sunucusuna yollar. Sunucu kodu Google'da doğrular ve Play Games oyuncu kimliğini
+(playerId) hesaba bağlar. Yeni telefonda ya da yeniden kurulumda aynı Google hesabı eski hesabı (oyuncu kodu, arkadaşlar,
+mesajlar) geri getirir. **İlerleme, Kredi ve eşyalar hâlâ yalnız telefonda**; Google girişi bunları taşımaz.
+E-posta, ad ya da başka Google bilgisi istenmez. Eklentideki `play-services-nearby` bağımlılığı çıkarıldı ve Bluetooth /
+Wi-Fi / konum izinleri manifestte `tools:node="remove"` ile engellendi, yani yeni izin eklenmedi.
 
 ### 3.9 Kapalı test ve üretim
 - Test → Kapalı test → yeni kanal → test kullanıcıları (e-posta listesi ya da Google Grubu) → aynı AAB → yayınla.
@@ -123,7 +133,7 @@ Aynı resimler oyundaki mağaza kartlarında da kullanılır (`Tools/make_pack_i
 
 ## 4. Sonraki sürüm için benim yapacaklarım
 - ✅ AdMob gerçek kimlikleri `PlayConfig.cs`'de (Play paketi gerçek reklam, GitHub test APK'sı Google test reklamı gösterir).
-- Play Games girişi (eklenti 2.3.0 + senin XML'in).
+- ✅ Play Games girişi (eklenti 2.3.0, hesap Google'a bağlanır). Sıradaki adım: ilerleme/Kredi/eşyaların bulutta saklanması.
 - Önerim: oyun sunucusu için bir alan adı ve HTTPS (veri güvenliği formunda "aktarımda şifreli: evet" denebilsin).
 
 ## 5. Veri güvenliği formu cevapları
@@ -134,12 +144,16 @@ HTTPS'ye geçince "Evet") · Kullanıcı silme isteyebilir mi? **Evet** (oyun i�
 | Veri türü | Toplanıyor | Paylaşılıyor | İsteğe bağlı mı | Amaç |
 | --- | --- | --- | --- | --- |
 | Konum → Yaklaşık konum (IP'den, AdMob) | Evet | Evet (Google) | Hayır | Reklam, dolandırıcılık önleme |
-| Kişisel bilgi → Kullanıcı kimlikleri (oyuncu kimliği, oyuncu adı) | Evet | Hayır | Hayır | Uygulama işlevi, hesap yönetimi, güvenlik |
+| Kişisel bilgi → Kullanıcı kimlikleri (oyuncu kimliği, oyuncu adı; Play Games ile girişte Play Games oyuncu kimliği) | Evet | Hayır | Hayır | Uygulama işlevi, hesap yönetimi, güvenlik |
 | Mesajlar → Uygulama içi mesajlar | Evet | Hayır | Evet | Uygulama işlevi |
 | Ses → Ses kayıtları (sesli sohbet, "geçici olarak işlenir" işaretle) | Evet | Hayır | Evet | Uygulama işlevi |
 | Uygulama etkinliği → Uygulama etkileşimleri (maç istatistikleri; reklam etkileşimi) | Evet | Evet (Google, reklam) | Hayır | Uygulama işlevi, reklam, analiz |
 | Uygulama bilgileri ve performansı → Kilitlenme günlükleri, Tanılama (gönderilen hata raporları; AdMob tanılama) | Evet | Evet (Google) | Evet | Hata giderme, reklam |
 | Cihaz veya diğer kimlikler → Reklam kimliği, uygulama kümesi kimliği (AdMob) | Evet | Evet (Google) | Hayır | Reklam, analiz, dolandırıcılık önleme |
+
+Play Games ile giriş isteğe bağlıdır ve yalnızca Play Games oyuncu kimliğini (playerId) ekler; bu, yukarıdaki
+"Kullanıcı kimlikleri" satırına girer, yeni bir veri türü işaretlemek gerekmez. E-posta adresi **alınmaz** (sunucu
+Google'dan yalnızca `games/v1/players/me` ister; e-posta kapsamı istenmez). Yeni izin yok.
 
 Toplanmayanlar: ad-soyad, e-posta, telefon, adres, fotoğraf/video, müzik/diğer ses dosyaları, dosyalar, takvim, kişiler, sağlık, finansal
 bilgi (ödemeyi Google Play işler; kart bilgisi bize gelmez), hassas konum, web geçmişi.
